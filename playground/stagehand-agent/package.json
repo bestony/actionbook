@@ -1,0 +1,35 @@
+{
+  "name": "stagehand-agent",
+  "version": "1.0.0",
+  "description": "Stagehand Agent with Actionbook tools integration",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "start": "tsx src/index.ts",
+    "dev": "tsx watch src/index.ts"
+  },
+  "keywords": [
+    "stagehand",
+    "actionbook",
+    "ai-agent",
+    "browser-automation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.24.0",
+  "dependencies": {
+    "@actionbookdev/sdk": "workspace:*",
+    "@ai-sdk/openai": "^2.0.87",
+    "@browserbasehq/stagehand": "^3.0.6",
+    "ai": "^5.0.0",
+    "dotenv": "^17.2.3",
+    "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.21",
+    "tsup": "^8.5.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
