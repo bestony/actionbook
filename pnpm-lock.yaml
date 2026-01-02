@@ -67,6 +67,34 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@20.19.27)(lightningcss@1.30.2)
 
+  eval:
+    dependencies:
+      '@actionbookdev/action-builder':
+        specifier: workspace:*
+        version: link:../services/action-builder
+      braintrust:
+        specifier: ^0.0.182
+        version: 0.0.182(openai@4.104.0(ws@8.18.3(bufferutil@4.1.0))(zod@3.25.76))(react@19.2.3)(sswr@2.2.0(svelte@5.46.1))(svelte@5.46.1)(vue@3.5.26(typescript@5.9.3))(zod@3.25.76)
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
+      playwright:
+        specifier: ^1.57.0
+        version: 1.57.0
+      yaml:
+        specifier: ^2.7.0
+        version: 2.8.2
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
+    devDependencies:
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+      typescript:
+        specifier: ^5.9.3
+        version: 5.9.3
+
   packages/js-sdk:
     dependencies:
       zod:

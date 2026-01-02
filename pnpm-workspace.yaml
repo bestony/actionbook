@@ -4,6 +4,7 @@ packages:
   - playground/*
   - services/*
   - services/*/*
+  - eval
 
 onlyBuiltDependencies:
   - bufferutil

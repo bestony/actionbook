@@ -6,11 +6,12 @@
  */
 
 import type { EvalInput, EvalOutput, RecallScoreResult } from "../types.js";
+// Import directly from source (tsx supports TypeScript imports)
 import {
   ActionBuilder,
   type ActionBuilderConfig,
   type BuildOptions,
-} from "../../../src/index.js";
+} from "../../../../services/action-builder/src/index.js";
 import { verifyElements } from "../utils/dom_verifier.js";
 
 // Define LLMProvider type locally (includes 'bedrock' which is in AIClient but not exported)
