@@ -400,7 +400,7 @@ export class StagehandBrowser implements BrowserAdapter {
     if (this.config.profile?.enabled) {
       const profileDir = this.config.profile.profileDir || DEFAULT_PROFILE_DIR;
       // Create custom logger that uses action-builder's log function
-      const profileLogger: ProfileLogger = (level, message) => {
+      const profileLogger: ProfileLogger = (level: "info" | "warn" | "error" | "debug", message: string) => {
         log(level, `[BrowserProfileManager] ${message}`);
       };
       const profileManager = new BrowserProfileManager({ baseDir: profileDir, logger: profileLogger });
