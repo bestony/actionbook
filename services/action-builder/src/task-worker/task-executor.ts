@@ -214,8 +214,8 @@ export class TaskExecutor {
           success: true,
           actions_created: actionsCreated,
           duration_ms: duration,
-          turns: buildResult.turns,
-          tokens_used: buildResult.tokens.total,
+          turns: buildResult.turns || 0,
+          tokens_used: buildResult.tokens?.total || 0,
           saved_path: buildResult.savedPath,
         }
       } else {
@@ -233,8 +233,8 @@ export class TaskExecutor {
           actions_created: 0,
           error: errorMessage,
           duration_ms: duration,
-          turns: buildResult.turns,
-          tokens_used: buildResult.tokens.total,
+          turns: buildResult.turns || 0,
+          tokens_used: buildResult.tokens?.total || 0,
         }
       }
     } catch (error) {
