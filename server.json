@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.actionbook/actionbook",
   "title": "Actionbook",
-  "description": "Up-to-date action manuals and DOM cache for any website",
+  "description": "Up-to-date action manuals and DOM structure for any website",
   "repository": {
     "url": "https://github.com/actionbook/actionbook",
     "source": "github"
