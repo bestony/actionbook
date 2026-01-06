@@ -9,6 +9,7 @@ import type {
   SelectorItem,
   SelectorType,
   TemplateParam,
+  PageModule,
 } from "../types/index.js";
 
 type ExtractMultipleSelectors = (
@@ -432,6 +433,8 @@ export class RecorderToolExecutor {
           is_repeating: toolArgs.is_repeating as boolean | undefined,
           data_key: toolArgs.data_key as string | undefined,
           children: toolArgs.children as string[] | undefined,
+          // Page module classification
+          module: toolArgs.module as PageModule | undefined,
         };
 
         this.handlers.registerElement(elementCapability);
