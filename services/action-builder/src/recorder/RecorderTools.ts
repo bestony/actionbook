@@ -110,6 +110,24 @@ export function getRecorderTools(): OpenAI.Chat.Completions.ChatCompletionTool[]
               enum: ["header", "footer", "sidebar", "navibar", "main", "modal", "breadcrumb", "tab", "unknown"],
               description: "Page module where this element is located (e.g., header, main, sidebar)",
             },
+            // Input-specific attributes
+            input_type: {
+              type: "string",
+              description: "For input elements: the input type (text, email, password, number, search, tel, url, etc.)",
+            },
+            input_name: {
+              type: "string",
+              description: "For input elements: the name attribute",
+            },
+            input_value: {
+              type: "string",
+              description: "For input elements: the default/placeholder value",
+            },
+            // Link-specific attributes
+            href: {
+              type: "string",
+              description: "For link elements: the href URL or pattern (e.g., '/search', 'https://example.com')",
+            },
           },
           required: ["element_id", "description", "element_type", "allow_methods"],
         },

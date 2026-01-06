@@ -145,6 +145,20 @@ export interface ElementCapability {
 
   /** Element's page module location (LLM inferred) */
   module?: PageModule
+
+  // Input-specific attributes
+  /** For input elements: the input type (text, email, password, number, etc.) */
+  input_type?: string
+
+  /** For input elements: the name attribute */
+  input_name?: string
+
+  /** For input elements: the default/current value */
+  input_value?: string
+
+  // Link-specific attributes
+  /** For link elements: the href URL or pattern */
+  href?: string
 }
 
 /**

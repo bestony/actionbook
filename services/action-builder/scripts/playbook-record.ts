@@ -123,21 +123,43 @@ When calling register_element, you MUST provide these parameters:
 - \`allow_methods\`: Array of allowed methods: ["click"], ["type", "clear"], ["extract"], etc.
 - \`module\`: **MUST SPECIFY** - One of: header, footer, sidebar, navibar, main, modal, breadcrumb, tab, unknown
 
+**For INPUT elements (input, select, textarea) - MUST include:**
+- \`input_type\`: The input type attribute (text, email, password, number, search, tel, url, date, etc.)
+- \`input_name\`: The name attribute (for form submission)
+- \`input_value\`: Default/placeholder value if present
+
+**For LINK elements (a tags) - MUST include:**
+- \`href\`: The href URL or pattern (e.g., "/search", "https://example.com", "#section")
+
 **Optional but recommended:**
 - \`css_selector\`: CSS selector if known
 - \`xpath_selector\`: XPath selector from observe_page result
 - \`aria_label\`: ARIA label for accessibility
 - \`leads_to\`: Page type this element navigates to (for links/buttons)
 
-**Example register_element call:**
+**Example - Input element:**
 \`\`\`json
 {
-  "element_id": "header_search_button",
-  "description": "Search submit button in the header",
-  "element_type": "button",
-  "allow_methods": ["click"],
+  "element_id": "header_search_input",
+  "description": "Search input field in the header",
+  "element_type": "input",
+  "allow_methods": ["type", "clear"],
   "module": "header",
-  "aria_label": "Search"
+  "input_type": "search",
+  "input_name": "q",
+  "input_value": ""
+}
+\`\`\`
+
+**Example - Link element:**
+\`\`\`json
+{
+  "element_id": "nav_about_link",
+  "description": "About page navigation link",
+  "element_type": "link",
+  "allow_methods": ["click"],
+  "module": "navibar",
+  "href": "/about"
 }
 \`\`\`
 
@@ -293,19 +315,43 @@ async function runPlaybookRecord(): Promise<void> {
    - allow_methods: ["click"], ["type", "clear"], ["extract"], etc.
    - **module**: REQUIRED - must match the section you're recording (header, navibar, main, sidebar, footer)
 
-**Example register_element call:**
+   **For INPUT elements, also include:**
+   - input_type: text, email, password, search, number, etc.
+   - input_name: the name attribute
+   - input_value: default/placeholder value
+
+   **For LINK elements, also include:**
+   - href: the href URL or pattern
+
+**Example - Link element:**
 \`\`\`
 register_element({
   element_id: "header_logo",
   description: "Main logo that links to homepage",
   element_type: "link",
   allow_methods: ["click"],
-  module: "header"
+  module: "header",
+  href: "/"
+})
+\`\`\`
+
+**Example - Input element:**
+\`\`\`
+register_element({
+  element_id: "header_search_input",
+  description: "Search input field",
+  element_type: "input",
+  allow_methods: ["type", "clear"],
+  module: "header",
+  input_type: "search",
+  input_name: "q"
 })
 \`\`\`
 
 **CRITICAL:**
 - You MUST set module parameter on EVERY register_element call
+- For input elements: MUST include input_type and input_name
+- For link elements: MUST include href
 - You MUST call register_element after EVERY observe_page
 - Do NOT do all observations first!
 

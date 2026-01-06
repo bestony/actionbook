@@ -435,6 +435,12 @@ export class RecorderToolExecutor {
           children: toolArgs.children as string[] | undefined,
           // Page module classification
           module: toolArgs.module as PageModule | undefined,
+          // Input-specific attributes
+          input_type: toolArgs.input_type as string | undefined,
+          input_name: toolArgs.input_name as string | undefined,
+          input_value: toolArgs.input_value as string | undefined,
+          // Link-specific attributes
+          href: toolArgs.href as string | undefined,
         };
 
         this.handlers.registerElement(elementCapability);
