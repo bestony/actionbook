@@ -22,6 +22,8 @@ describe('PageModule type', () => {
       'navibar',
       'main',
       'modal',
+      'breadcrumb',
+      'tab',
       'unknown',
     ]
 
@@ -40,6 +42,8 @@ describe('PageModule type', () => {
       'navibar',
       'main',
       'modal',
+      'breadcrumb',
+      'tab',
       'unknown',
     ]
 
@@ -88,6 +92,8 @@ describe('ElementCapability.module', () => {
       'navibar',
       'main',
       'modal',
+      'breadcrumb',
+      'tab',
       'unknown',
     ]
 

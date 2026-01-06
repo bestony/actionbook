@@ -27,6 +27,8 @@ export type PageModule =
   | 'navibar'
   | 'main'
   | 'modal'
+  | 'breadcrumb'
+  | 'tab'
   | 'unknown'
 
 /**

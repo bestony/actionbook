@@ -29,6 +29,12 @@ export function getRecorderTools(): OpenAI.Chat.Completions.ChatCompletionTool[]
               type: "string",
               description: "What to focus on when observing (e.g., 'search box and submit button')",
             },
+            module: {
+              type: "string",
+              enum: ["header", "footer", "sidebar", "navibar", "main", "modal", "breadcrumb", "tab", "all"],
+              description:
+                "Page module to observe. Use 'all' to observe the entire page. If not specified, observes all modules.",
+            },
           },
           required: ["focus"],
         },
@@ -98,6 +104,11 @@ export function getRecorderTools(): OpenAI.Chat.Completions.ChatCompletionTool[]
               type: "array",
               items: { type: "string" },
               description: "Optional child element ids",
+            },
+            module: {
+              type: "string",
+              enum: ["header", "footer", "sidebar", "navibar", "main", "modal", "breadcrumb", "tab", "unknown"],
+              description: "Page module where this element is located (e.g., header, main, sidebar)",
             },
           },
           required: ["element_id", "description", "element_type", "allow_methods"],

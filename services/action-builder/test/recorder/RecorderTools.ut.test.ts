@@ -3,6 +3,7 @@
  *
  * Tests for tool definitions including new scroll_to_bottom and go_back tools
  * TDD Step 4: New tool definitions
+ * TDD Step 5: observe_page module parameter
  */
 
 import { describe, it, expect } from 'vitest'
@@ -27,6 +28,64 @@ describe('getRecorderTools', () => {
     it('should include scroll tool', () => {
       const tool = tools.find((t) => t.function.name === 'scroll')
       expect(tool).toBeDefined()
+    })
+  })
+
+  describe('register_element module parameter', () => {
+    it('should have module parameter', () => {
+      const tool = tools.find((t) => t.function.name === 'register_element')
+      expect(tool?.function.parameters.properties).toHaveProperty('module')
+    })
+
+    it('should have correct module enum values for register_element', () => {
+      const tool = tools.find((t) => t.function.name === 'register_element')
+      const params = tool?.function.parameters.properties as Record<
+        string,
+        { type: string; enum?: string[] }
+      >
+      // register_element uses 'unknown' instead of 'all'
+      const expectedModules = ['header', 'footer', 'sidebar', 'navibar', 'main', 'modal', 'breadcrumb', 'tab', 'unknown']
+      expect(params.module.enum).toEqual(expect.arrayContaining(expectedModules))
+    })
+
+    it('should not require module parameter (optional)', () => {
+      const tool = tools.find((t) => t.function.name === 'register_element')
+      const required = tool?.function.parameters.required as string[]
+      expect(required).not.toContain('module')
+    })
+  })
+
+  describe('observe_page module parameter', () => {
+    it('should have module parameter', () => {
+      const tool = tools.find((t) => t.function.name === 'observe_page')
+      expect(tool?.function.parameters.properties).toHaveProperty('module')
+    })
+
+    it('should have module as string type with enum', () => {
+      const tool = tools.find((t) => t.function.name === 'observe_page')
+      const params = tool?.function.parameters.properties as Record<
+        string,
+        { type: string; enum?: string[] }
+      >
+      expect(params.module.type).toBe('string')
+      expect(params.module.enum).toBeDefined()
+    })
+
+    it('should have correct module enum values', () => {
+      const tool = tools.find((t) => t.function.name === 'observe_page')
+      const params = tool?.function.parameters.properties as Record<
+        string,
+        { type: string; enum?: string[] }
+      >
+      const expectedModules = ['header', 'footer', 'sidebar', 'navibar', 'main', 'modal', 'breadcrumb', 'tab', 'all']
+      expect(params.module.enum).toEqual(expect.arrayContaining(expectedModules))
+      expect(params.module.enum?.length).toBe(expectedModules.length)
+    })
+
+    it('should not require module parameter (optional)', () => {
+      const tool = tools.find((t) => t.function.name === 'observe_page')
+      const required = tool?.function.parameters.required as string[]
+      expect(required).not.toContain('module')
     })
   })
 
