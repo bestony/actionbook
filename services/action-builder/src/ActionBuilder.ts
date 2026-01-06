@@ -46,6 +46,7 @@ export class ActionBuilder {
   private db: Database | null = null
   private config: ActionBuilderConfig
   private initialized: boolean = false
+  private loggerInitialized: boolean = false
   private fileLogger: FileLogger
 
   constructor(config: ActionBuilderConfig) {
@@ -125,33 +126,37 @@ export class ActionBuilder {
    * Initialize browser and logger
    */
   async initialize(): Promise<void> {
+    if (!this.loggerInitialized) {
+      // Use custom log file path if provided, otherwise auto-generate
+      const logFile = this.config.logFile
+        ? this.fileLogger.initializeWithPath(this.config.logFile)
+        : this.fileLogger.initialize('.', 'action-builder')
+
+      // Also initialize global fileLogger for sub-components (ActionRecorder, etc.)
+      // This works correctly with maxConcurrency=1 (sequential execution)
+      if (this.config.logFile) {
+        globalFileLogger.initializeWithPath(this.config.logFile)
+      } else {
+        // For non-eval usage, global logger auto-generates its own file
+        globalFileLogger.initialize('.', 'action-builder')
+      }
+
+      this.loggerInitialized = true
+
+      this.log('info', `[ActionBuilder] Log file: ${logFile}`)
+      this.log(
+        'info',
+        `[ActionBuilder] Using LLM: ${this.llmClient.getProvider()}/${this.llmClient.getModel()}`
+      )
+      this.log(
+        'info',
+        `[ActionBuilder] Output directory: ${this.config.outputDir}`
+      )
+    }
+
     if (this.initialized) {
       return
     }
-
-    // Use custom log file path if provided, otherwise auto-generate
-    const logFile = this.config.logFile
-      ? this.fileLogger.initializeWithPath(this.config.logFile)
-      : this.fileLogger.initialize('.', 'action-builder')
-
-    // Also initialize global fileLogger for sub-components (ActionRecorder, etc.)
-    // This works correctly with maxConcurrency=1 (sequential execution)
-    if (this.config.logFile) {
-      globalFileLogger.initializeWithPath(this.config.logFile)
-    } else {
-      // For non-eval usage, global logger auto-generates its own file
-      globalFileLogger.initialize('.', 'action-builder')
-    }
-
-    this.log('info', `[ActionBuilder] Log file: ${logFile}`)
-    this.log(
-      'info',
-      `[ActionBuilder] Using LLM: ${this.llmClient.getProvider()}/${this.llmClient.getModel()}`
-    )
-    this.log(
-      'info',
-      `[ActionBuilder] Output directory: ${this.config.outputDir}`
-    )
 
     await this.browser.initialize()
     this.initialized = true
@@ -232,19 +237,28 @@ export class ActionBuilder {
     fn: () => Promise<T>,
     timeoutMs: number
   ): Promise<T> {
+    let timeoutId: NodeJS.Timeout;
+
     const timeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
+      timeoutId = setTimeout(() => {
         reject(new Error(`Build timeout after ${timeoutMs / 1000 / 60} minutes`));
       }, timeoutMs);
     });
 
-    return Promise.race([fn(), timeoutPromise]);
+    try {
+      const result = await Promise.race([fn(), timeoutPromise]);
+      clearTimeout(timeoutId!);
+      return result;
+    } catch (error) {
+      clearTimeout(timeoutId!);
+      throw error;
+    }
   }
 
   /**
    * Handle timeout by attempting to save partial results
    */
-  private async handleTimeout(): Promise<BuildResult> {
+  private async handleTimeout(timeoutMs: number): Promise<BuildResult> {
     this.log('warn', '[ActionBuilder] Build timeout - attempting partial save...');
 
     const partialResult = await this.savePartialResult();
@@ -256,7 +270,7 @@ export class ActionBuilder {
         success: true,
         message: `Build timeout after saving ${partialResult.elements} elements`,
         turns: partialResult.turns,
-        totalDuration: 0,
+        totalDuration: timeoutMs,
         tokens: partialResult.tokens,
         siteCapability: partialResult.siteCapability,
         partialResult: true,
@@ -303,7 +317,7 @@ export class ActionBuilder {
 
         // Handle timeout specially - try to save partial results
         if (this.hasTimeout(error)) {
-          return await this.handleTimeout();
+          return await this.handleTimeout(buildTimeout);
         }
 
         // Non-retryable or last attempt
@@ -319,8 +333,8 @@ export class ActionBuilder {
 
         await new Promise(resolve => setTimeout(resolve, delay));
 
-        // Close browser before retry
-        await this.close();
+        // Close browser only (keep DB/Logger for retry)
+        await this.closeBrowserOnly();
       }
     }
 
@@ -492,7 +506,17 @@ export class ActionBuilder {
   }
 
   /**
-   * Close browser and cleanup resources
+   * Close only browser resources (for retry scenarios)
+   * Does not close DB/Logger to allow retry attempts to continue
+   */
+  private async closeBrowserOnly(): Promise<void> {
+    await this.browser.close()
+    this.initialized = false
+    this.log('info', '[ActionBuilder] Browser closed for retry.')
+  }
+
+  /**
+   * Close browser and cleanup all resources (DB, Logger)
    */
   async close(): Promise<void> {
     await this.browser.close()
@@ -509,6 +533,7 @@ export class ActionBuilder {
     this.log('info', '[ActionBuilder] Closed.')
     this.fileLogger.close()
     globalFileLogger.close()
+    this.loggerInitialized = false
   }
 }
 

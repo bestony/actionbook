@@ -88,10 +88,10 @@ export interface ActionBuilderConfig {
   profileDir?: string;
   /** Build timeout in milliseconds (includes init, build, cleanup), default: 10 minutes */
   buildTimeoutMs?: number;
-  /** Browser initialization retry config */
+  /** Build-level retry config for browser connection errors (retries entire buildInternal flow including LLM) */
   browserRetryConfig?: {
     maxAttempts?: number;      // default: 3
-    baseDelayMs?: number;       // default: 2000
+    baseDelayMs?: number;       // default: 2000 (exponential backoff: delay = baseDelayMs * attempt)
     retryableErrors?: string[]; // default: ECONNREFUSED, Target closed, etc.
   };
 }

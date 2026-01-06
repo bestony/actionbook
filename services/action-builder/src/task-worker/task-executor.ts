@@ -171,17 +171,26 @@ export class TaskExecutor {
         }
 
         // Update task status
-        await this.updateTaskStatus(task.id, {
+        // If partialResult (timeout with partial save), record timeout info
+        const statusUpdate: any = {
           status: 'completed',
           progress: 100,
           completedAt: new Date(),
           attemptCount: task.attemptCount + 1,
-        });
+        };
+
+        if (buildResult.partialResult) {
+          // Keep the original ActionBuilder message for downstream observability
+          statusUpdate.errorMessage = buildResult.message;
+        }
+
+        await this.updateTaskStatus(task.id, statusUpdate);
 
         const duration = Date.now() - startTime;
         return {
           success: true,
           actions_created: actionsCreated,
+          error: buildResult.partialResult ? buildResult.message : undefined,
           duration_ms: duration,
           turns: buildResult.turns || 0,
           tokens_used: buildResult.tokens?.total || 0,
