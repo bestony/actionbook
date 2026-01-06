@@ -606,6 +606,122 @@ export class ActionRecorder {
   }
 
   /**
+   * Calculate combined token statistics from planning and browser usage
+   * @returns Token statistics object with input, output, total, and breakdown by source
+   */
+  private calculateTokenStats(): {
+    input: number;
+    output: number;
+    total: number;
+    planning: { input: number; output: number };
+    browser: { input: number; output: number };
+  } {
+    // Get browser (Stagehand) token stats if available
+    let browserInputTokens = 0;
+    let browserOutputTokens = 0;
+    if (this.browser.getTokenStats) {
+      const stats = this.browser.getTokenStats();
+      browserInputTokens = stats.input;
+      browserOutputTokens = stats.output;
+    }
+
+    // Calculate combined totals
+    const totalInputTokens = this.inputTokens + browserInputTokens;
+    const totalOutputTokens = this.outputTokens + browserOutputTokens;
+    const combinedTotalTokens = totalInputTokens + totalOutputTokens;
+
+    return {
+      input: totalInputTokens,
+      output: totalOutputTokens,
+      total: combinedTotalTokens,
+      planning: { input: this.inputTokens, output: this.outputTokens },
+      browser: { input: browserInputTokens, output: browserOutputTokens },
+    };
+  }
+
+  /**
+   * Optimize selectors for all discovered elements using LLM
+   * Updates siteCapability in-place with optimized selectors
+   */
+  private async optimizeAndUpdateSelectors(): Promise<void> {
+    if (this.config.enableSelectorOptimization === false) {
+      return;
+    }
+
+    if (!this.siteCapability || this.discoveredElements.size === 0) {
+      return;
+    }
+
+    try {
+      log("info", `[ActionRecorder] Optimizing selectors for ${this.discoveredElements.size} elements...`);
+      const optimizer = new SelectorOptimizer();
+      const optimizationResult = await optimizer.optimizeSelectors(this.discoveredElements);
+
+      if (optimizationResult.success) {
+        log("info", `[ActionRecorder] Selector optimization complete: ${optimizationResult.optimizedCount}/${optimizationResult.totalElements} elements optimized`);
+
+        // Update siteCapability with optimized selectors
+        for (const optElement of optimizationResult.elements) {
+          const element = this.discoveredElements.get(optElement.elementId);
+          if (element) {
+            element.selectors = optElement.optimizedSelectors;
+
+            // Update in siteCapability pages
+            for (const page of Object.values(this.siteCapability.pages)) {
+              if (page.elements[optElement.elementId]) {
+                page.elements[optElement.elementId].selectors = optElement.optimizedSelectors;
+              }
+            }
+            // Update in global_elements
+            if (this.siteCapability.global_elements[optElement.elementId]) {
+              this.siteCapability.global_elements[optElement.elementId].selectors = optElement.optimizedSelectors;
+            }
+          }
+        }
+      } else {
+        log("warn", `[ActionRecorder] Selector optimization failed: ${optimizationResult.error}`);
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      log("warn", `[ActionRecorder] Selector optimization error: ${errMsg}`);
+    }
+  }
+
+  /**
+   * Save siteCapability to YAML file and database
+   * @returns Object with savedPath and optional dbSaveError
+   */
+  private async saveToYamlAndDb(): Promise<{
+    savedPath?: string;
+    dbSaveError?: string;
+  }> {
+    if (!this.siteCapability || this.discoveredElements.size === 0) {
+      return {};
+    }
+
+    let savedPath: string | undefined;
+    let dbSaveError: string | undefined;
+
+    // Save to YAML
+    savedPath = this.yamlWriter.save(this.siteCapability);
+    log("info", `[ActionRecorder] Saved ${this.discoveredElements.size} elements to YAML: ${savedPath}`);
+
+    // Save to database (dual-write)
+    if (this.dbWriter) {
+      try {
+        const sourceId = await this.dbWriter.save(this.siteCapability);
+        log("info", `[ActionRecorder] Saved to database, sourceId: ${sourceId}`);
+      } catch (err) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        log("error", `[ActionRecorder] Failed to save to database: ${errMsg}`);
+        dbSaveError = errMsg;
+      }
+    }
+
+    return { savedPath, dbSaveError };
+  }
+
+  /**
    * Finalize recording and save results
    * Unified method for saving to YAML/DB and building RecordResult
    */
@@ -621,19 +737,8 @@ export class ActionRecorder {
     const totalDuration = Date.now() - this.taskStartTime;
     const hasElements = this.discoveredElements.size > 0;
 
-    // Get browser (Stagehand) token stats if available
-    let browserInputTokens = 0;
-    let browserOutputTokens = 0;
-    if (this.browser.getTokenStats) {
-      const stats = this.browser.getTokenStats();
-      browserInputTokens = stats.input;
-      browserOutputTokens = stats.output;
-    }
-
-    // Calculate combined totals
-    const totalInputTokens = this.inputTokens + browserInputTokens;
-    const totalOutputTokens = this.outputTokens + browserOutputTokens;
-    const combinedTotalTokens = totalInputTokens + totalOutputTokens;
+    // Calculate token statistics
+    const tokenStats = this.calculateTokenStats();
 
     if (reason !== 'completed') {
       log("warn", `[ActionRecorder] Task terminated: ${reason}`);
@@ -652,57 +757,12 @@ export class ActionRecorder {
 
     if (hasElements && this.siteCapability) {
       // Optimize selectors using LLM before saving
-      if (this.config.enableSelectorOptimization !== false) {
-        try {
-          log("info", `[ActionRecorder] Optimizing selectors for ${this.discoveredElements.size} elements...`);
-          const optimizer = new SelectorOptimizer();
-          const optimizationResult = await optimizer.optimizeSelectors(this.discoveredElements);
+      await this.optimizeAndUpdateSelectors();
 
-          if (optimizationResult.success) {
-            log("info", `[ActionRecorder] Selector optimization complete: ${optimizationResult.optimizedCount}/${optimizationResult.totalElements} elements optimized`);
-
-            // Update siteCapability with optimized selectors
-            for (const optElement of optimizationResult.elements) {
-              const element = this.discoveredElements.get(optElement.elementId);
-              if (element) {
-                element.selectors = optElement.optimizedSelectors;
-
-                // Update in siteCapability pages
-                for (const page of Object.values(this.siteCapability.pages)) {
-                  if (page.elements[optElement.elementId]) {
-                    page.elements[optElement.elementId].selectors = optElement.optimizedSelectors;
-                  }
-                }
-                // Update in global_elements
-                if (this.siteCapability.global_elements[optElement.elementId]) {
-                  this.siteCapability.global_elements[optElement.elementId].selectors = optElement.optimizedSelectors;
-                }
-              }
-            }
-          } else {
-            log("warn", `[ActionRecorder] Selector optimization failed: ${optimizationResult.error}`);
-          }
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          log("warn", `[ActionRecorder] Selector optimization error: ${errMsg}`);
-        }
-      }
-
-      // Save to YAML
-      savedPath = this.yamlWriter.save(this.siteCapability);
-      log("info", `[ActionRecorder] Saved ${this.discoveredElements.size} elements to YAML: ${savedPath}`);
-
-      // Save to database (dual-write)
-      if (this.dbWriter) {
-        try {
-          const sourceId = await this.dbWriter.save(this.siteCapability);
-          log("info", `[ActionRecorder] Saved to database, sourceId: ${sourceId}`);
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          log("error", `[ActionRecorder] Failed to save to database: ${errMsg}`);
-          dbSaveError = errMsg;
-        }
-      }
+      // Save to YAML and database
+      const saveResult = await this.saveToYamlAndDb();
+      savedPath = saveResult.savedPath;
+      dbSaveError = saveResult.dbSaveError;
     }
 
     // Update task status in database
@@ -715,7 +775,7 @@ export class ActionRecorder {
           this.currentTaskId,
           status,
           totalDuration,
-          combinedTotalTokens,
+          tokenStats.total,
           status === 'failed' ? statusMessage : undefined
         );
         this.taskStatusUpdated = true;
@@ -724,7 +784,7 @@ export class ActionRecorder {
       }
     }
 
-    this.printStatistics(totalDuration, hasElements, { input: browserInputTokens, output: browserOutputTokens });
+    this.printStatistics(totalDuration, hasElements, { input: tokenStats.browser.input, output: tokenStats.browser.output });
 
     // Build result message
     const resultMessage = options.message || (hasElements
@@ -737,13 +797,7 @@ export class ActionRecorder {
       turns: this.currentTurn,
       steps: this.stepOrder,
       totalDuration,
-      tokens: {
-        input: totalInputTokens,
-        output: totalOutputTokens,
-        total: combinedTotalTokens,
-        planning: { input: this.inputTokens, output: this.outputTokens },
-        browser: { input: browserInputTokens, output: browserOutputTokens },
-      },
+      tokens: tokenStats,
       elementsDiscovered: this.discoveredElements.size,
       siteCapability: this.siteCapability || undefined,
       savedPath,
@@ -789,71 +843,13 @@ export class ActionRecorder {
       log("info", `[ActionRecorder] Saving partial result with ${this.discoveredElements.size} elements...`);
 
       // Optimize selectors using LLM before saving
-      if (this.config.enableSelectorOptimization !== false) {
-        try {
-          log("info", `[ActionRecorder] Optimizing selectors for ${this.discoveredElements.size} elements...`);
-          const optimizer = new SelectorOptimizer();
-          const optimizationResult = await optimizer.optimizeSelectors(this.discoveredElements);
+      await this.optimizeAndUpdateSelectors();
 
-          if (optimizationResult.success) {
-            log("info", `[ActionRecorder] Selector optimization complete: ${optimizationResult.optimizedCount}/${optimizationResult.totalElements} elements optimized`);
+      // Save to YAML and database
+      await this.saveToYamlAndDb();
 
-            // Update siteCapability with optimized selectors
-            for (const optElement of optimizationResult.elements) {
-              const element = this.discoveredElements.get(optElement.elementId);
-              if (element) {
-                element.selectors = optElement.optimizedSelectors;
-
-                // Update in siteCapability pages
-                for (const page of Object.values(this.siteCapability.pages)) {
-                  if (page.elements[optElement.elementId]) {
-                    page.elements[optElement.elementId].selectors = optElement.optimizedSelectors;
-                  }
-                }
-                // Update in global_elements
-                if (this.siteCapability.global_elements[optElement.elementId]) {
-                  this.siteCapability.global_elements[optElement.elementId].selectors = optElement.optimizedSelectors;
-                }
-              }
-            }
-          } else {
-            log("warn", `[ActionRecorder] Selector optimization failed: ${optimizationResult.error}`);
-          }
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          log("warn", `[ActionRecorder] Selector optimization error: ${errMsg}`);
-        }
-      }
-
-      // Save to YAML
-      const savedPath = this.yamlWriter.save(this.siteCapability);
-      log("info", `[ActionRecorder] Saved ${this.discoveredElements.size} elements to YAML: ${savedPath}`);
-
-      // Save to database (dual-write)
-      if (this.dbWriter) {
-        try {
-          const sourceId = await this.dbWriter.save(this.siteCapability);
-          log("info", `[ActionRecorder] Saved partial result to database, sourceId: ${sourceId}`);
-        } catch (err) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          log("error", `[ActionRecorder] Failed to save partial result to database: ${errMsg}`);
-          // Don't throw - YAML save succeeded
-        }
-      }
-
-      // Get browser (Stagehand) token stats if available
-      let browserInputTokens = 0;
-      let browserOutputTokens = 0;
-      if (this.browser.getTokenStats) {
-        const stats = this.browser.getTokenStats();
-        browserInputTokens = stats.input;
-        browserOutputTokens = stats.output;
-      }
-
-      // Calculate combined totals
-      const totalInputTokens = this.inputTokens + browserInputTokens;
-      const totalOutputTokens = this.outputTokens + browserOutputTokens;
-      const combinedTotalTokens = totalInputTokens + totalOutputTokens;
+      // Calculate token statistics
+      const tokenStats = this.calculateTokenStats();
 
       // Mark task status as updated to prevent race condition with finalizeResult()
       this.taskStatusUpdated = true;
@@ -863,13 +859,7 @@ export class ActionRecorder {
         siteCapability: this.siteCapability,
         turns: this.currentTurn,
         steps: this.stepOrder,
-        tokens: {
-          input: totalInputTokens,
-          output: totalOutputTokens,
-          total: combinedTotalTokens,
-          planning: { input: this.inputTokens, output: this.outputTokens },
-          browser: { input: browserInputTokens, output: browserOutputTokens },
-        },
+        tokens: tokenStats,
       };
     } catch (error) {
       const errMsg = error instanceof Error ? error.message : String(error);
