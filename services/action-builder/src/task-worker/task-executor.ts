@@ -71,147 +71,48 @@ export class TaskExecutor {
   }
 
   /**
-   * Check if an error is retryable (browser/connection errors)
-   */
-  private isRetryableError(error: Error | string): boolean {
-    const errorMsg = typeof error === 'string' ? error : error.message
-    const retryablePatterns = [
-      'ECONNREFUSED',        // Connection refused
-      'Target closed',       // Browser target closed
-      'Browser closed',      // Browser instance closed
-      'Connection closed',   // CDP connection closed
-      'Protocol error',      // CDP protocol error
-      'Session closed',      // Browser session closed
-      'ECONNRESET',          // Connection reset
-      'socket hang up',      // Socket disconnected
-    ]
-
-    return retryablePatterns.some(pattern => errorMsg.includes(pattern))
-  }
-
-  /**
-   * Execute recording task with automatic retry for browser/connection errors
+   * Execute recording task
    *
    * @param task - Recording task to execute
    * @returns Execution result
    */
   async execute(task: RecordingTask): Promise<ExecutionResult> {
-    const maxRetries = 3
-    const baseRetryDelay = 2000 // 2 seconds base delay
+    const startTime = Date.now();
 
-    // Validate chunkId (non-retryable error)
+    // 1. Validate inputs
     if (task.chunkId === null || task.chunkId === undefined) {
       await this.updateTaskStatus(task.id, {
         status: 'failed',
         errorMessage: 'Chunk ID is required',
         attemptCount: task.attemptCount + 1,
-      })
+      });
       return {
         success: false,
         actions_created: 0,
         error: 'Chunk ID is required',
         duration_ms: 0,
-      }
+      };
     }
 
-    // Fetch ChunkData (non-retryable error)
-    let chunkData: ExtendedChunkData
+    // 2. Fetch chunk data
+    let chunkData: ExtendedChunkData;
     try {
-      chunkData = await this.fetchChunkData(task.chunkId)
+      chunkData = await this.fetchChunkData(task.chunkId);
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
+      const errorMessage = error instanceof Error ? error.message : String(error);
       await this.updateTaskStatus(task.id, {
         status: 'failed',
         errorMessage,
         attemptCount: task.attemptCount + 1,
-      })
+      });
       return {
         success: false,
         actions_created: 0,
         error: errorMessage,
         duration_ms: 0,
-      }
+      };
     }
 
-    // Retry loop for browser/connection errors
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        console.log(
-          `[TaskExecutor] Executing task #${task.id} (attempt ${attempt}/${maxRetries})`
-        )
-
-        // Execute the task
-        const result = await this.executeInternal(task, chunkData)
-
-        // Success - return result
-        if (attempt > 1) {
-          console.log(
-            `[TaskExecutor] Task ${task.id} succeeded on attempt ${attempt}/${maxRetries}`
-          )
-        }
-        return result
-
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error)
-        const isRetryable = this.isRetryableError(error as Error)
-
-        if (isRetryable && attempt < maxRetries) {
-          // Retryable error and not last attempt - retry with exponential backoff
-          const retryDelay = baseRetryDelay * attempt
-          console.warn(
-            `[TaskExecutor] Task ${task.id} failed with retryable error on attempt ${attempt}/${maxRetries}: ${errorMessage}`
-          )
-          console.log(
-            `[TaskExecutor] Retrying in ${retryDelay}ms...`
-          )
-
-          await new Promise(resolve => setTimeout(resolve, retryDelay))
-          continue // Retry
-        }
-
-        // Non-retryable error or last attempt failed
-        // Mark task as failed and return error result
-        if (isRetryable) {
-          console.error(
-            `[TaskExecutor] Task ${task.id} failed after ${maxRetries} attempts with retryable error: ${errorMessage}`
-          )
-        } else {
-          console.error(
-            `[TaskExecutor] Task ${task.id} failed with non-retryable error: ${errorMessage}`
-          )
-        }
-
-        // Update task status to failed
-        await this.updateTaskStatus(task.id, {
-          status: 'failed',
-          errorMessage,
-          attemptCount: task.attemptCount + 1,
-        })
-
-        return {
-          success: false,
-          actions_created: 0,
-          error: errorMessage,
-          duration_ms: 0,
-        }
-      }
-    }
-
-    // Should never reach here, but TypeScript needs a return
-    throw new Error('Unexpected: retry loop completed without result')
-  }
-
-  /**
-   * Internal execution logic (called by execute with retry wrapper)
-   */
-  private async executeInternal(
-    task: RecordingTask,
-    chunkData: ExtendedChunkData
-  ): Promise<ExecutionResult> {
-    const startTime = Date.now()
-
-    // Log task context information
     console.log(
       `[TaskExecutor] Executing task #${task.id}: ` +
         `source_id=${chunkData.source_id}, ` +
@@ -219,9 +120,9 @@ export class TaskExecutor {
         `chunk_id=${chunkData.id}, ` +
         `name="${chunkData.source_name}", ` +
         `url="${chunkData.document_url}"`
-    )
+    );
 
-    // Create ActionBuilder instance
+    // 3. Create ActionBuilder (pass timeout config)
     const builder = new ActionBuilder({
       llmApiKey: this.config.llmApiKey,
       llmBaseURL: this.config.llmBaseURL,
@@ -232,81 +133,52 @@ export class TaskExecutor {
       outputDir: this.config.outputDir,
       profileEnabled: this.config.profileEnabled,
       profileDir: this.config.profileDir,
-    })
-
-    // Set up overall task timeout
-    const taskTimeoutPromise = new Promise<never>((_, reject) => {
-      setTimeout(() => {
-        reject(
-          new Error(
-            `Task execution timeout after ${this.buildTimeoutMs / 1000 / 60} minutes`
-          )
-        )
-      }, this.buildTimeoutMs)
-    })
+      buildTimeoutMs: this.buildTimeoutMs, // Pass timeout to builder
+    });
 
     try {
-      // Wrap entire task execution with timeout protection
-      const executionPromise = (async () => {
-        // Initialize browser
-        await builder.initialize()
+      // 4. Build prompts
+      const chunkType = (task.config?.chunk_type as ChunkType) || 'exploratory';
+      const { systemPrompt, userPrompt } = this.buildCustomPrompts(chunkData, chunkType);
+      const scenarioName = `task_${task.id}_${Date.now()}`;
+      const startUrl = new URL(chunkData.source_base_url).origin;
 
-        // Build Prompt
-        const chunkType = (task.config?.chunk_type as ChunkType) || 'exploratory'
-        const { systemPrompt, userPrompt } = this.buildCustomPrompts(
-          chunkData,
-          chunkType
-        )
+      // 5. Call ActionBuilder.build() - it handles retry/timeout internally
+      const buildResult = await builder.build(startUrl, scenarioName, {
+        siteName: chunkData.source_name,
+        customSystemPrompt: systemPrompt,
+        customUserPrompt: userPrompt,
+        taskId: task.id,
+      });
 
-        // Generate scenario name
-        const scenarioName = `task_${task.id}_${Date.now()}`
-
-        // Use root domain of source.base_url as start URL
-        // e.g., https://notion.com/help → https://notion.com
-        const startUrl = new URL(chunkData.source_base_url).origin
-
-        // Call ActionBuilder.build()
-        const buildResult = await builder.build(startUrl, scenarioName, {
-          siteName: chunkData.source_name,
-          customSystemPrompt: systemPrompt,
-          customUserPrompt: userPrompt,
-          taskId: task.id, // Pass existing task ID to avoid duplicate task creation
-        })
-
-        return buildResult
-      })()
-
-      const buildResult = await Promise.race([executionPromise, taskTimeoutPromise])
-
+      // 6. Process result
       if (buildResult.success) {
-        // Success: count elements
-        const actionsCreated = this.countElements(buildResult.siteCapability)
+        const actionsCreated = this.countElements(buildResult.siteCapability);
 
-        // Update chunks.elements field with discovered elements
+        // Update chunk elements
         if (task.chunkId && buildResult.siteCapability && actionsCreated > 0) {
           try {
             await this.dbWriter.updateChunkElements(
               task.chunkId,
               buildResult.siteCapability
-            )
+            );
           } catch (chunkUpdateError) {
-            // Log but don't fail the task if chunk update fails
             console.warn(
               `[TaskExecutor] Failed to update chunk elements for chunk ${task.chunkId}:`,
               chunkUpdateError
-            )
+            );
           }
         }
 
-        // Update task status to completed
+        // Update task status
         await this.updateTaskStatus(task.id, {
           status: 'completed',
           progress: 100,
           completedAt: new Date(),
           attemptCount: task.attemptCount + 1,
-        })
+        });
 
-        const duration = Date.now() - startTime
+        const duration = Date.now() - startTime;
         return {
           success: true,
           actions_created: actionsCreated,
@@ -314,17 +186,17 @@ export class TaskExecutor {
           turns: buildResult.turns || 0,
           tokens_used: buildResult.tokens?.total || 0,
           saved_path: buildResult.savedPath,
-        }
+        };
       } else {
-        // ActionBuilder returned failure
-        const errorMessage = `Recording failed: ${buildResult.message}`
+        // Build failed
+        const errorMessage = `Recording failed: ${buildResult.message}`;
         await this.updateTaskStatus(task.id, {
           status: 'failed',
           errorMessage,
           attemptCount: task.attemptCount + 1,
-        })
+        });
 
-        const duration = Date.now() - startTime
+        const duration = Date.now() - startTime;
         return {
           success: false,
           actions_created: 0,
@@ -332,95 +204,27 @@ export class TaskExecutor {
           duration_ms: duration,
           turns: buildResult.turns || 0,
           tokens_used: buildResult.tokens?.total || 0,
-        }
+        };
       }
     } catch (error) {
-      // Execution exception - print full stack trace for debugging
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
-      const errorStack = error instanceof Error ? error.stack : undefined
+      // All errors from ActionBuilder.build() are final
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
-      console.error(
-        `[TaskExecutor] Task ${task.id} failed with error:`,
-        errorMessage
-      )
-      if (errorStack) {
-        console.error(`[TaskExecutor] Stack trace:\n${errorStack}`)
-      }
+      await this.updateTaskStatus(task.id, {
+        status: 'failed',
+        errorMessage,
+        attemptCount: task.attemptCount + 1,
+      });
 
-      // Check if this is a timeout error - attempt to save partial results
-      // Timeout is NOT retryable, handle it specially
-      if (errorMessage.includes('timeout')) {
-        console.log(
-          `[TaskExecutor] Timeout detected for task ${task.id}, attempting to save partial results...`
-        )
-
-        try {
-          const partialResult = await builder.savePartialResult()
-
-          if (partialResult && partialResult.elements > 0) {
-            // Partial save succeeded - mark as completed with timeout note
-            console.log(
-              `[TaskExecutor] Successfully saved ${partialResult.elements} elements for task ${task.id} despite timeout`
-            )
-            console.log(
-              `[TaskExecutor] Timeout statistics - turns: ${partialResult.turns}, steps: ${partialResult.steps}, tokens: ${partialResult.tokens.total}`
-            )
-
-            // Update chunks.elements field with discovered elements
-            if (task.chunkId && partialResult.siteCapability) {
-              try {
-                await this.dbWriter.updateChunkElements(
-                  task.chunkId,
-                  partialResult.siteCapability
-                )
-                console.log(
-                  `[TaskExecutor] Updated chunk ${task.chunkId} with ${partialResult.elements} elements`
-                )
-              } catch (chunkUpdateError) {
-                console.warn(
-                  `[TaskExecutor] Failed to update chunk elements for chunk ${task.chunkId}:`,
-                  chunkUpdateError
-                )
-              }
-            }
-
-            await this.updateTaskStatus(task.id, {
-              status: 'completed',
-              progress: 100,
-              errorMessage: `Timeout after ${this.buildTimeoutMs / 1000 / 60}min, saved ${partialResult.elements} elements`,
-              completedAt: new Date(),
-              attemptCount: task.attemptCount + 1,
-            })
-
-            const duration = Date.now() - startTime
-            return {
-              success: true,
-              actions_created: partialResult.elements,
-              error: `timeout_partial_save: ${errorMessage}`,
-              duration_ms: duration,
-              turns: partialResult.turns,
-              tokens_used: partialResult.tokens.total,
-            }
-          } else {
-            console.warn(
-              `[TaskExecutor] No elements to save for task ${task.id} after timeout`
-            )
-          }
-        } catch (saveError) {
-          console.error(
-            `[TaskExecutor] Failed to save partial result for task ${task.id}:`,
-            saveError
-          )
-        }
-      }
-
-      // Re-throw error to be handled by retry logic in execute()
-      // Don't update task status here - let the retry handler decide
-      throw error
+      const duration = Date.now() - startTime;
+      return {
+        success: false,
+        actions_created: 0,
+        error: errorMessage,
+        duration_ms: duration,
+      };
     } finally {
-      // Ensure browser is closed
-      await builder.close()
+      await builder.close();
     }
   }
 

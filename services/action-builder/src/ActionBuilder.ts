@@ -60,6 +60,8 @@ export class ActionBuilder {
       logFile: config.logFile,
       profileEnabled: config.profileEnabled,
       profileDir: config.profileDir,
+      buildTimeoutMs: config.buildTimeoutMs,
+      browserRetryConfig: config.browserRetryConfig,
     }
 
     // Create instance-specific file logger for parallel execution support
@@ -196,6 +198,75 @@ export class ActionBuilder {
   }
 
   /**
+   * Check if an error is retryable (browser/connection errors)
+   */
+  private isRetryableError(error: unknown): boolean {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    const defaultPatterns = [
+      'ECONNREFUSED',
+      'Target closed',
+      'Browser closed',
+      'Connection closed',
+      'Protocol error',
+      'Session closed',
+      'ECONNRESET',
+      'socket hang up',
+    ];
+
+    const patterns = this.config.browserRetryConfig?.retryableErrors ?? defaultPatterns;
+    return patterns.some(pattern => errorMsg.includes(pattern));
+  }
+
+  /**
+   * Check if error is a timeout
+   */
+  private hasTimeout(error: unknown): boolean {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    return errorMsg.includes('timeout');
+  }
+
+  /**
+   * Execute function with timeout protection
+   */
+  private async executeWithTimeout<T>(
+    fn: () => Promise<T>,
+    timeoutMs: number
+  ): Promise<T> {
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Build timeout after ${timeoutMs / 1000 / 60} minutes`));
+      }, timeoutMs);
+    });
+
+    return Promise.race([fn(), timeoutPromise]);
+  }
+
+  /**
+   * Handle timeout by attempting to save partial results
+   */
+  private async handleTimeout(): Promise<BuildResult> {
+    this.log('warn', '[ActionBuilder] Build timeout - attempting partial save...');
+
+    const partialResult = await this.savePartialResult();
+
+    if (partialResult && partialResult.elements > 0) {
+      this.log('info', `[ActionBuilder] Saved ${partialResult.elements} elements despite timeout`);
+
+      return {
+        success: true,
+        message: `Build timeout after saving ${partialResult.elements} elements`,
+        turns: partialResult.turns,
+        totalDuration: 0,
+        tokens: partialResult.tokens,
+        siteCapability: partialResult.siteCapability,
+        partialResult: true,
+      };
+    }
+
+    throw new Error('Build timeout with no elements discovered');
+  }
+
+  /**
    * Build (record) capabilities for a website
    *
    * Supports two modes:
@@ -207,6 +278,63 @@ export class ActionBuilder {
     url: string,
     scenario: string,
     options: BuildOptions = {}
+  ): Promise<BuildResult> {
+    const maxRetries = this.config.browserRetryConfig?.maxAttempts ?? 3;
+    const baseDelay = this.config.browserRetryConfig?.baseDelayMs ?? 2000;
+    const buildTimeout = this.config.buildTimeoutMs ?? 10 * 60 * 1000;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Wrap with timeout
+        const result = await this.executeWithTimeout(
+          () => this.buildInternal(url, scenario, options),
+          buildTimeout
+        );
+
+        if (attempt > 1) {
+          this.log('info', `[ActionBuilder] Build succeeded on attempt ${attempt}/${maxRetries}`);
+        }
+
+        return result;
+
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isRetryable = this.isRetryableError(error);
+
+        // Handle timeout specially - try to save partial results
+        if (this.hasTimeout(error)) {
+          return await this.handleTimeout();
+        }
+
+        // Non-retryable or last attempt
+        if (!isRetryable || attempt === maxRetries) {
+          this.log('error', `[ActionBuilder] Build failed: ${errorMessage}`);
+          throw error;
+        }
+
+        // Retryable error - wait and retry
+        const delay = baseDelay * attempt;
+        this.log('warn', `[ActionBuilder] Build failed on attempt ${attempt}/${maxRetries}: ${errorMessage}`);
+        this.log('info', `[ActionBuilder] Retrying in ${delay}ms...`);
+
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        // Close browser before retry
+        await this.close();
+      }
+    }
+
+    // Should never reach here
+    throw new Error('Unexpected: retry loop completed without result');
+  }
+
+  /**
+   * Internal build logic (called by build() with retry wrapper)
+   */
+  private async buildInternal(
+    url: string,
+    scenario: string,
+    options: BuildOptions
   ): Promise<BuildResult> {
     if (!this.initialized) {
       await this.initialize()

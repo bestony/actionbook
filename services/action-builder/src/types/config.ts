@@ -86,6 +86,14 @@ export interface ActionBuilderConfig {
   profileEnabled?: boolean;
   /** Profile directory path, default: '.browser-profile' */
   profileDir?: string;
+  /** Build timeout in milliseconds (includes init, build, cleanup), default: 10 minutes */
+  buildTimeoutMs?: number;
+  /** Browser initialization retry config */
+  browserRetryConfig?: {
+    maxAttempts?: number;      // default: 3
+    baseDelayMs?: number;       // default: 2000
+    retryableErrors?: string[]; // default: ECONNREFUSED, Target closed, etc.
+  };
 }
 
 /**
@@ -226,6 +234,8 @@ export interface BuildResult {
   savedPath?: string;
   /** Error message if database save failed (dual-write mode) */
   dbSaveError?: string;
+  /** Indicates this is a partial result from timeout */
+  partialResult?: boolean;
 }
 
 /**
