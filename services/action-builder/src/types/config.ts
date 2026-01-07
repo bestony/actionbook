@@ -182,6 +182,20 @@ export interface RecorderConfig {
    * Default: true
    */
   enableSelectorOptimization?: boolean;
+
+  // === Playbook mode options ===
+  /**
+   * Target page URL pattern (regex). Only elements on pages matching this pattern will be recorded.
+   * If not provided, elements on all pages will be recorded.
+   * @example '^/search' - only record elements on /search/* pages
+   */
+  targetUrlPattern?: string;
+
+  /**
+   * Whether to auto-scroll to bottom before observe_page to load lazy elements.
+   * Default: true
+   */
+  autoScrollToBottom?: boolean;
 }
 
 /**
