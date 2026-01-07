@@ -322,6 +322,8 @@ export class TaskExecutor {
       errorMessage?: string
       completedAt?: Date
       attemptCount?: number
+      durationMs?: number | null
+      tokensUsed?: number
     }
   ): Promise<void> {
     await this.db

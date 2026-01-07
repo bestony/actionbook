@@ -287,13 +287,25 @@ export class TaskScheduler {
    * Mark task as completed
    */
   async markCompleted(taskId: number): Promise<void> {
+    const now = new Date()
     await this.db
       .update(recordingTasks)
       .set({
         status: 'completed',
         progress: 100,
-        completedAt: new Date(),
-        updatedAt: new Date(),
+        completedAt: now,
+        // Some execution paths don't explicitly write durationMs; compute it from startedAt.
+        // Keep existing durationMs if already set.
+        durationMs: sql<number | null>`
+          COALESCE(
+            ${recordingTasks.durationMs},
+            CASE
+              WHEN ${recordingTasks.startedAt} IS NULL THEN NULL
+              ELSE CAST(EXTRACT(EPOCH FROM (${now} - ${recordingTasks.startedAt})) * 1000 AS INT)
+            END
+          )
+        `,
+        updatedAt: now,
       })
       .where(eq(recordingTasks.id, taskId))
   }
@@ -302,13 +314,25 @@ export class TaskScheduler {
    * Mark task as failed
    */
   async markFailed(taskId: number, errorMessage: string): Promise<void> {
+    const now = new Date()
     await this.db
       .update(recordingTasks)
       .set({
         status: 'failed',
         errorMessage,
-        completedAt: new Date(),
-        updatedAt: new Date(),
+        completedAt: now,
+        // Some execution paths don't explicitly write durationMs; compute it from startedAt.
+        // Keep existing durationMs if already set.
+        durationMs: sql<number | null>`
+          COALESCE(
+            ${recordingTasks.durationMs},
+            CASE
+              WHEN ${recordingTasks.startedAt} IS NULL THEN NULL
+              ELSE CAST(EXTRACT(EPOCH FROM (${now} - ${recordingTasks.startedAt})) * 1000 AS INT)
+            END
+          )
+        `,
+        updatedAt: now,
       })
       .where(eq(recordingTasks.id, taskId))
   }

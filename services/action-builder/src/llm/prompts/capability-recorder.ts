@@ -9,12 +9,13 @@ Execute a scenario on a website while discovering and recording ALL interactive 
 ## Available Tools
 
 - **navigate**: Go to a URL
+  ⚠️ **CRITICAL**: After EVERY navigate call, you MUST immediately call set_page_context!
 - **scroll_to_bottom**: Scroll to page bottom to load lazy-loaded content (CALL THIS FIRST on pages with lazy loading)
 - **observe_page**: Scan the page to discover elements
   - Use \`module\` parameter: header, footer, sidebar, navibar, main, modal, breadcrumb, tab, or "all"
 - **interact**: Interact with an element AND capture its capability (for scenario execution)
 - **register_element**: Register an element's capability (see required parameters below)
-- **set_page_context**: Set the current page type
+- **set_page_context**: Set the current page type (MUST be called after navigate!)
 - **go_back**: Return to previous page if you navigated away accidentally
 - **wait**: Wait for content
 - **scroll**: Scroll incrementally
@@ -77,6 +78,16 @@ When calling register_element, you MUST provide these parameters:
 3. **scroll_to_bottom** to load lazy content (if page has lazy loading)
 4. **For EACH module, IMMEDIATELY register elements after observing:**
 
+⚠️ **CRITICAL - PAGE CONTEXT AFTER NAVIGATION**:
+Every time you navigate to a NEW page (via navigate or clicking a link), you MUST:
+1. Call set_page_context with the NEW page_type before registering any elements
+2. Use a descriptive page_type like "arxiv_org_advanced_search" (not "arxiv_org_main")
+3. Failing to update page context will cause ALL elements to be saved to the WRONG page!
+
+Example: If you're on homepage (arxiv_org_main) and navigate to /search/advanced:
+- WRONG: Continue registering with page_type "arxiv_org_main"
+- CORRECT: Call set_page_context(page_type: "arxiv_org_advanced_search") first
+
    a) observe_page(focus: "header elements", module: "header")
    b) **IMMEDIATELY call register_element for EACH discovered element** (batch in same response)
       - Set module: "header" for all header elements
@@ -112,6 +123,7 @@ When calling register_element, you MUST provide these parameters:
 5. **Use go_back** if you accidentally navigate away
 6. **Priority elements**: Focus on actionable elements (buttons, links, inputs, forms) over static content
 7. **Skip duplicates**: If an element was already registered, skip it
+8. **⚠️ ALWAYS update page context after navigation** - If you navigate to a different page, call set_page_context IMMEDIATELY with the new page_type before any observe_page or register_element calls
 
 ## Element ID Naming Convention
 
@@ -232,5 +244,12 @@ register_element({
 - For input elements: MUST include input_type and input_name
 - For link elements: MUST include href
 - You MUST call register_element after EVERY observe_page
-- Do NOT do all observations first!${focusSection}`;
+- Do NOT do all observations first!
+
+**⚠️ IF YOU NAVIGATE TO ANOTHER PAGE:**
+If the scenario requires navigating to a different page (e.g., clicking a link, submitting a form):
+1. IMMEDIATELY call set_page_context with the NEW page_type (e.g., "arxiv_org_advanced_search")
+2. The new page_type should reflect the new page's purpose (not continue using the old page_type)
+3. Only THEN proceed with observe_page and register_element for the new page
+4. Failing to update page context will cause validation failures!${focusSection}`;
 }
