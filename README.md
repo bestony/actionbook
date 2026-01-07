@@ -626,7 +626,8 @@ pnpm dev
 
 ## Contributing
 
-We are currently in private beta. If you are interested in contributing or using Actionbook, please [join the waitlist](https://actionbook.dev).
+- **[Request a Website](https://actionbook.dev/request-website)** - Suggest websites you want Actionbook to index.
+- **[Join the Waitlist](https://actionbook.dev)** - We are currently in private beta. Join if you are interested in contributing or using Actionbook.
 
 ## License
 
