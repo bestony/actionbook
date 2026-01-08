@@ -16,7 +16,7 @@
 
 import type { Database } from '@actionbookdev/db';
 import { eq, and, inArray, sql } from 'drizzle-orm';
-import { buildTasks, recordingTasks, chunks } from '@actionbookdev/db';
+import { buildTasks, recordingTasks, chunks, documents } from '@actionbookdev/db';
 import type { BuildTaskInfo } from './types';
 
 export interface BuildTaskRunnerConfig {
@@ -147,11 +147,16 @@ export class BuildTaskRunner {
    * 使用原子事务 + UPSERT (ON CONFLICT DO UPDATE)
    */
   private async generateRecordingTasks(buildTask: BuildTaskInfo): Promise<number> {
-    // 1. 获取该 build_task 关联的所有 chunks
+    // 1. 获取该 build_task 关联的所有 chunks（通过 documents 表关联 sourceId）
     const chunkResults = await this.db
-      .select()
+      .select({
+        id: chunks.id,
+        documentId: chunks.documentId,
+        url: documents.url,
+      })
       .from(chunks)
-      .where(eq(chunks.sourceId, buildTask.sourceId!))
+      .innerJoin(documents, eq(chunks.documentId, documents.id))
+      .where(eq(documents.sourceId, buildTask.sourceId!))
       .orderBy(chunks.id);
 
     if (chunkResults.length === 0) {

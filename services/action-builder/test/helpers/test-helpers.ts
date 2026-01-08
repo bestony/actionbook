@@ -5,8 +5,9 @@
  */
 
 import type { Database } from '@actionbookdev/db';
-import { buildTasks, recordingTasks, sources, chunks } from '@actionbookdev/db';
+import { buildTasks, recordingTasks, sources, chunks, documents } from '@actionbookdev/db';
 import { eq, inArray, and } from 'drizzle-orm';
+import crypto from 'crypto';
 
 /**
  * 创建测试用 build_task
@@ -158,22 +159,52 @@ export async function createTestSource(db: Database): Promise<number> {
 }
 
 /**
+ * 创建测试用 document
+ */
+export async function createTestDocument(
+  db: Database,
+  sourceId: number
+): Promise<number> {
+  const url = `https://test-${Date.now()}.example.com/doc`;
+  const urlHash = crypto.createHash('sha256').update(url).digest('hex');
+
+  const result = await db
+    .insert(documents)
+    .values({
+      sourceId,
+      url,
+      urlHash,
+      title: `Test Document ${Date.now()}`,
+      description: 'Test document for testing',
+      contentText: 'Test content',
+      depth: 0,
+      breadcrumb: [],
+    })
+    .returning({ id: documents.id });
+
+  return result[0].id;
+}
+
+/**
  * 创建测试用 chunks
  */
 export async function createTestChunks(
   db: Database,
-  sourceId: number,
+  documentId: number,
   count: number
 ): Promise<number[]> {
   const chunkData = [];
   for (let i = 0; i < count; i++) {
+    const content = `Test chunk content ${i}`;
     chunkData.push({
-      sourceId,
-      documentId: 1,
-      url: `https://test.example.com/page${i}`,
-      content: `Test chunk content ${i}`,
+      documentId,
+      content,
+      contentHash: `hash_${Date.now()}_${i}`,
       chunkIndex: i,
-      embedding: JSON.stringify(new Array(1536).fill(0)),
+      startChar: i * 100,
+      endChar: (i + 1) * 100,
+      tokenCount: 50,
+      embedding: new Array(1536).fill(0),
       createdAt: new Date(),
     });
   }

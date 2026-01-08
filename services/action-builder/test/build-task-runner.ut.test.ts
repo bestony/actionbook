@@ -12,6 +12,7 @@ import { eq } from 'drizzle-orm';
 import { BuildTaskRunner } from '../src/task-worker/build-task-runner';
 import {
   createTestSource,
+  createTestDocument,
   createTestChunks,
   createTestBuildTask,
   createTestRecordingTasks,
@@ -23,15 +24,17 @@ import {
 describe('BuildTaskRunner', () => {
   let db: Database;
   let testSourceId: number;
+  let testDocumentId: number;
   let testChunkIds: number[];
   let createdBuildTaskIds: number[] = [];
 
   beforeAll(async () => {
     db = getDb();
 
-    // 创建测试 source 和 chunks
+    // 创建测试 source, document 和 chunks
     testSourceId = await createTestSource(db);
-    testChunkIds = await createTestChunks(db, testSourceId, 5);
+    testDocumentId = await createTestDocument(db, testSourceId);
+    testChunkIds = await createTestChunks(db, testDocumentId, 5);
   });
 
   afterAll(async () => {

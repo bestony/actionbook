@@ -305,8 +305,8 @@ export class RecordingTaskQueueWorker {
         SET
           status = stale_tasks.new_status,
           attempt_count = CASE
-            WHEN stale_tasks.new_status = 'pending' THEN attempt_count + 1
-            ELSE attempt_count
+            WHEN stale_tasks.new_status = 'pending' THEN ${recordingTasks.attemptCount} + 1
+            ELSE ${recordingTasks.attemptCount}
           END,
           error_message = CASE
             WHEN stale_tasks.new_status = 'failed' THEN 'Task stale: max attempts reached'
