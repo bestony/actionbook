@@ -134,83 +134,132 @@ pnpm task:clear 1
    ⏳ Task 49: chunk=5, type=exploratory, status=pending
 ```
 
-## Build Task Worker
+## Task Queue Coordinator
 
-The Build Task Worker is a continuous polling worker that orchestrates the `action_build` stage of the build pipeline.
+Concurrent task execution architecture with stateless recovery and automatic retry.
+
+### Architecture
+
+The Task Queue Coordinator implements a 3-layer architecture:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Coordinator                              │
+│  • Manages multiple build_tasks concurrently (max N)           │
+│  • Claims new build_tasks when slots available                 │
+│  • Monitors metrics every 30s                                  │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────────────┐  ┌──────────────────┐                    │
+│  │ BuildTaskRunner  │  │ BuildTaskRunner  │  ... (N runners)   │
+│  │ [build_task #1]  │  │ [build_task #2]  │                    │
+│  │                  │  │                  │                    │
+│  │ • Generate tasks │  │ • Generate tasks │                    │
+│  │ • Poll status    │  │ • Poll status    │                    │
+│  │ • Retry failed   │  │ • Retry failed   │                    │
+│  └────────┬─────────┘  └────────┬─────────┘                    │
+│           │                     │                               │
+│           ▼                     ▼                               │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │            Database (Task Queue)                        │   │
+│  │  recording_tasks: pending → running → completed/failed  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│           │                                                     │
+│           ▼                                                     │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │       RecordingTaskQueueWorker (Global Consumer)        │   │
+│  │  • Consumes pending tasks (all build_tasks)             │   │
+│  │  • M concurrent execution slots                         │   │
+│  │  • Each task = independent browser                      │   │
+│  │  • Recovers stale tasks automatically                   │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Key Features
+
+- ✅ **Concurrent build_tasks**: Process multiple sources simultaneously (max N tasks)
+- ✅ **Global task queue**: All recording_tasks consumed from unified queue (max M concurrent)
+- ✅ **Stateless recovery**: Automatic recovery after crashes (no lost progress)
+- ✅ **Retry logic**: Failed tasks auto-retry up to max attempts
+- ✅ **Stale detection**: Tasks with no heartbeat for 15+ minutes auto-recovered
+- ✅ **Real-time monitoring**: Metrics output every 30 seconds
+- ✅ **Graceful shutdown**: Wait for running tasks to complete (with timeout)
 
 ### Commands
 
 ```bash
-# Start worker with default 30s polling interval
-pnpm worker:build-task
+# Start coordinator with default settings
+pnpm coordinator
 
-# Run once and exit (for testing or manual runs)
-pnpm worker:build-task --once
-
-# Custom polling interval (in seconds)
-pnpm worker:build-task --interval 60
+# Development mode with auto-reload
+pnpm dev
 ```
 
-### Worker Workflow
+### Configuration
 
-```
-build_tasks (knowledge_build completed)
-         ↓
-    1. Claim task (atomic, concurrent-safe)
-         ↓
-    2. Generate recording_tasks from chunks
-         ↓
-    3. Execute all recording_tasks
-         ↓
-    4. Complete build_task with stats
-         ↓
-    5. Publish version (Blue-Green deployment)
-```
-
-### Environment Variables
-
-The worker uses the same LLM configuration as the main ActionBuilder. Additional worker-specific options:
+Environment variables (all optional with sensible defaults):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `ACTION_BUILDER_MAX_CONCURRENT_BUILD_TASKS` | `5` | Max concurrent build_tasks |
+| `ACTION_BUILDER_BUILD_TASK_POLL_INTERVAL_SECONDS` | `5` | Build task polling interval |
+| `ACTION_BUILDER_TASK_CONCURRENCY` | `3` | Recording task concurrency (global) |
+| `ACTION_BUILDER_CHECK_INTERVAL_SECONDS` | `5` | Status check interval |
+| `ACTION_BUILDER_MAX_ATTEMPTS` | `3` | Max retry attempts for failed tasks |
+| `ACTION_BUILDER_STALE_TIMEOUT_MINUTES` | `15` | Stale task timeout |
+| `ACTION_BUILDER_TASK_TIMEOUT_MINUTES` | `10` | Single task execution timeout |
 | `ACTION_BUILDER_HEADLESS` | `true` | Run browser in headless mode |
 | `ACTION_BUILDER_MAX_TURNS` | `30` | Maximum LLM turns per recording task |
-| `ACTION_BUILDER_RECORDING_TASK_LIMIT` | `500` | Max recording tasks to create per build |
-| `ACTION_BUILDER_MAX_ATTEMPTS` | `3` | Max retry attempts for failed/stale tasks |
-| `ACTION_BUILDER_STALE_TIMEOUT_MINUTES` | `30` | Tasks running longer than this are considered stale |
-| `ACTION_BUILDER_TASK_CONCURRENCY` | `3` | Number of concurrent workers (each with own browser) |
 
 ### Output Example
 
 ```
-===========================================
-  Build Task Worker
-===========================================
-  Mode: Continuous polling
-  Poll interval: 30s
-  Concurrency: 3 workers
-===========================================
+==========================================================
+Task Queue Coordinator
+==========================================================
+Configuration:
+  Max Concurrent Build Tasks: 5
+  Build Task Poll Interval: 5s
+  Recording Task Concurrency: 3
+  Stale Timeout: 15 minutes
+  Task Timeout: 10 minutes
+  Max Attempts: 3
 
-[2024-01-15T10:30:00.000Z] Checking for tasks...
-[TaskStats] knowledge_build(P:0/R:0) action_build(P:1/R:0) recording_tasks(P:15/R:0)
-[WorkerStats] workers(B:0/I:3/T:3)
+[Coordinator] Starting with maxConcurrentBuildTasks=5
+[QueueWorker] Starting with concurrency=3
+[Metrics] build_tasks=0/5, recording_tasks=0/3, elapsed=0.0s
 
-[WorkerPool] Starting execution for source 1 with 3 workers
-[WorkerPool] Worker 0 claiming task 101 (workers: 1 busy, 2 idle)
-[WorkerPool] Worker 1 claiming task 102 (workers: 2 busy, 1 idle)
-[WorkerPool] Worker 2 claiming task 103 (workers: 3 busy, 0 idle)
+[Coordinator] Starting BuildTaskRunner #123
+[BuildTaskRunner #123] Generating recording tasks...
+[BuildTaskRunner #123] Generated 50 recording tasks
+[QueueWorker] Starting task #2001
+[QueueWorker] Starting task #2002
+[QueueWorker] Starting task #2003
+
+[Metrics] build_tasks=1/5, recording_tasks=3/3, elapsed=30.0s
+[BuildTaskRunner #123] Status: pending=45, running=3, completed=2, failed=0
+
+[QueueWorker] Task #2001 completed
+[QueueWorker] Starting task #2004
 ...
 
-✅ [BuildTaskWorker] Task 123 completed successfully!
-   Recording tasks created: 15
-   Recording tasks completed: 14
-   Recording tasks failed: 1
-   Elements created: 42
-   Duration: 125.3s
+[BuildTaskRunner #123] All recording tasks finished
+[BuildTaskRunner #123] Completed successfully
+[Coordinator] BuildTaskRunner #123 completed
 
-[BuildTaskWorker] Published version 456 for source 1, archived version 455
-[BuildTaskWorker] Sleeping for 30s...
+[Metrics] build_tasks=0/5, recording_tasks=0/3, elapsed=60.0s
 ```
+
+### Stateless Recovery
+
+The system is fully stateless - all state stored in database:
+
+**After crash/restart:**
+1. Coordinator starts, detects stale running tasks (no heartbeat for 15+ min)
+2. Stale tasks reset to `pending` (if attemptCount < max), or `failed` (if attempts exhausted)
+3. QueueWorker resumes consuming pending tasks
+4. BuildTaskRunners continue polling their build_tasks
+5. No progress lost, execution continues seamlessly
 
 ## Database Schema
 
@@ -337,10 +386,13 @@ services/action-builder/
 │   ├── browser/           # Stagehand browser wrapper
 │   ├── llm/               # LLM client
 │   ├── recorder/          # ActionRecorder (LLM tool loop)
-│   ├── task-worker/       # Task management
-│   │   ├── task-generator.ts
-│   │   ├── task-executor.ts
-│   │   ├── task-query.ts
+│   ├── task-worker/       # Task Queue Architecture
+│   │   ├── coordinator.ts           # Coordinator (main orchestrator)
+│   │   ├── build-task-runner.ts     # BuildTaskRunner (per build_task)
+│   │   ├── recording-task-queue-worker.ts  # QueueWorker (global consumer)
+│   │   ├── task-generator.ts        # Task generation
+│   │   ├── task-executor.ts         # Task execution
+│   │   ├── task-query.ts            # Task queries
 │   │   └── utils/
 │   │       ├── prompt-builder.ts
 │   │       └── chunk-detector.ts
@@ -350,8 +402,12 @@ services/action-builder/
 │   ├── ActionBuilder.ts   # Main coordinator
 │   └── index.ts
 ├── scripts/
+│   ├── coordinator.ts     # Coordinator entry script
 │   └── task-cli.ts        # Task CLI
 ├── test/
+│   ├── coordinator.ut.test.ts           # Coordinator unit tests
+│   ├── coordinator.integration.it.test.ts  # Integration tests
+│   ├── coordinator.benchmark.it.test.ts    # Performance benchmarks
 │   └── e2e/               # E2E tests
 ├── output/                # Generated YAML
 └── logs/                  # Log files
