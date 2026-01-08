@@ -15,9 +15,10 @@
  */
 
 import type { Database } from '@actionbookdev/db';
-import { eq, and, inArray, sql } from 'drizzle-orm';
-import { buildTasks, recordingTasks, chunks, documents } from '@actionbookdev/db';
+import { eq, and, inArray, sql, desc } from 'drizzle-orm';
+import { buildTasks, recordingTasks, chunks, documents, sourceVersions } from '@actionbookdev/db';
 import type { BuildTaskInfo } from './types';
+import type { SourceVersionStatus } from '@actionbookdev/db';
 
 export interface BuildTaskRunnerConfig {
   /** 状态检查间隔（秒）*/
@@ -92,7 +93,10 @@ export class BuildTaskRunner {
       // 6. 停止心跳
       this.stopHeartbeat();
 
-      // 7. 更新 build_task 为 completed
+      // 7. 发布新版本 (Blue-Green deployment)
+      await this.publishVersion(buildTask);
+
+      // 8. 更新 build_task 为 completed
       await this.completeBuildTask();
       console.log(`[BuildTaskRunner #${this.buildTaskId}] Completed successfully`);
     } catch (error) {
@@ -370,6 +374,75 @@ export class BuildTaskRunner {
         updatedAt: new Date(),
       })
       .where(eq(buildTasks.id, this.buildTaskId));
+  }
+
+  /**
+   * Publish new version (Blue-Green deployment)
+   * 1. Get current active version
+   * 2. Archive current active version (status: active → archived)
+   * 3. Create new version (status: active)
+   */
+  private async publishVersion(buildTask: BuildTaskInfo): Promise<void> {
+    try {
+      // 1. Get current active version
+      const currentActiveVersion = await this.db
+        .select()
+        .from(sourceVersions)
+        .where(
+          and(
+            eq(sourceVersions.sourceId, buildTask.sourceId!),
+            eq(sourceVersions.status, 'active' as SourceVersionStatus)
+          )
+        )
+        .limit(1);
+
+      // 2. Archive current active version
+      if (currentActiveVersion.length > 0) {
+        await this.db
+          .update(sourceVersions)
+          .set({
+            status: 'archived' as SourceVersionStatus,
+          })
+          .where(eq(sourceVersions.id, currentActiveVersion[0].id));
+
+        console.log(
+          `[BuildTaskRunner #${this.buildTaskId}] Archived version ${currentActiveVersion[0].versionNumber}`
+        );
+      }
+
+      // 3. Get next version number
+      const latestVersion = await this.db
+        .select({ versionNumber: sourceVersions.versionNumber })
+        .from(sourceVersions)
+        .where(eq(sourceVersions.sourceId, buildTask.sourceId!))
+        .orderBy(desc(sourceVersions.versionNumber))
+        .limit(1);
+
+      const nextVersionNumber = (latestVersion[0]?.versionNumber ?? 0) + 1;
+
+      // 4. Create new active version
+      const newVersion = await this.db
+        .insert(sourceVersions)
+        .values({
+          sourceId: buildTask.sourceId!,
+          versionNumber: nextVersionNumber,
+          status: 'active' as SourceVersionStatus,
+          commitMessage: `Action build completed (build_task #${this.buildTaskId})`,
+          createdBy: 'coordinator',
+          publishedAt: new Date(),
+        })
+        .returning({ id: sourceVersions.id, versionNumber: sourceVersions.versionNumber });
+
+      console.log(
+        `[BuildTaskRunner #${this.buildTaskId}] Published version ${newVersion[0].versionNumber} (Blue-Green deployment)`
+      );
+    } catch (error) {
+      console.error(
+        `[BuildTaskRunner #${this.buildTaskId}] Failed to publish version:`,
+        error
+      );
+      // Don't throw - version publishing failure should not block build_task completion
+    }
   }
 
   /**

@@ -11,17 +11,33 @@ Capability Builder for recording website UI element selectors. Uses LLM + Stageh
 
 ## Quick Start
 
+### Option 1: Automated Mode (Recommended)
+
+Uses Task Queue Coordinator to automatically process all pending build_tasks:
+
 ```bash
 # Install dependencies
 pnpm install
 
+# Start coordinator (auto-processes all pending build_tasks)
+pnpm coordinator
+
+# Development mode with auto-reload
+pnpm dev
+```
+
+### Option 2: Manual Mode (Task CLI)
+
+For manual control over individual tasks:
+
+```bash
 # View task status
 pnpm task:status
 
 # Create tasks for a source
 pnpm task:create 1 10
 
-# Run pending tasks
+# Run pending tasks manually
 pnpm task:run 1 2
 ```
 
@@ -303,12 +319,37 @@ The system is fully stateless - all state stored in database:
 | Table | Description |
 |-------|-------------|
 | `sources` | Website metadata (domain, name, base_url) |
+| `source_versions` | Version management for Blue-Green deployment |
 | `documents` | Crawled pages |
 | `chunks` | Document chunks with content |
+| `build_tasks` | Build pipeline tasks (knowledge_build → action_build) |
 | `recording_tasks` | Recording tasks for each chunk |
 | `elements` | Discovered UI elements |
 
 ### Task Flow
+
+**Coordinator Mode (Automated):**
+
+```
+build_tasks (knowledge_build/completed)
+         ↓
+    Coordinator claims & starts BuildTaskRunner
+         ↓
+    BuildTaskRunner generates recording_tasks (pending)
+         ↓
+    QueueWorker consumes & executes (→ running → completed/failed)
+         ↓
+    BuildTaskRunner polls & retries failures
+         ↓
+    All tasks finished → build_task (action_build/completed)
+         ↓
+    elements created in database + YAML output
+         ↓
+    source_versions updated (status: 'active')
+    previous version archived (Blue-Green deployment)
+```
+
+**Manual Mode (Task CLI):**
 
 ```
 chunks (no tasks) → task:create → recording_tasks (pending)
@@ -466,11 +507,17 @@ services/action-builder/
 # Build
 pnpm build
 
-# Watch mode
-pnpm dev
+# Development mode (auto-reload + coordinator)
+pnpm dev  # Runs: concurrently "tsc --watch" "tsx scripts/coordinator.ts"
 
-# Run tests
+# Build watch only (no coordinator)
+pnpm dev:build
+
+# Run tests (all 215 tests)
 pnpm test
+
+# Run specific test file
+pnpm test test/coordinator.integration.it.test.ts
 
 # Run E2E pipeline
 pnpm firstround:pipeline
