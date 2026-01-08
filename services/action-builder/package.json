@@ -33,6 +33,7 @@
     "worker:build-task": "npx tsx scripts/build-task-worker.ts",
     "worker:build-task:once": "npx tsx scripts/build-task-worker.ts --once",
     "worker:build-task:debug": "npx tsx scripts/build-task-worker.ts --debug",
+    "coordinator": "npx tsx scripts/coordinator.ts",
     "login": "npx tsx scripts/login.ts"
   },
   "dependencies": {
@@ -57,6 +58,7 @@
     "@types/node": "^22.10.2",
     "concurrently": "^8.2.2",
     "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.7",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

@@ -31,7 +31,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@actionbookdev/db': resolve(__dirname, '../db/dist/index.js'),
+      '@actionbookdev/db': resolve(__dirname, '../db/src/index.ts'),
     },
   },
 })
