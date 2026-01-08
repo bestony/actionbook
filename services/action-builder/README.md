@@ -203,10 +203,11 @@ Environment variables (all optional with sensible defaults):
 |----------|---------|-------------|
 | `ACTION_BUILDER_MAX_CONCURRENT_BUILD_TASKS` | `5` | Max concurrent build_tasks |
 | `ACTION_BUILDER_BUILD_TASK_POLL_INTERVAL_SECONDS` | `5` | Build task polling interval |
+| `ACTION_BUILDER_BUILD_TASK_STALE_TIMEOUT_MINUTES` | `15` | Stale build_task timeout (for crash recovery) |
 | `ACTION_BUILDER_TASK_CONCURRENCY` | `3` | Recording task concurrency (global) |
 | `ACTION_BUILDER_CHECK_INTERVAL_SECONDS` | `5` | Status check interval |
 | `ACTION_BUILDER_MAX_ATTEMPTS` | `3` | Max retry attempts for failed tasks |
-| `ACTION_BUILDER_STALE_TIMEOUT_MINUTES` | `15` | Stale task timeout |
+| `ACTION_BUILDER_STALE_TIMEOUT_MINUTES` | `15` | Stale recording_task timeout |
 | `ACTION_BUILDER_TASK_TIMEOUT_MINUTES` | `10` | Single task execution timeout |
 | `ACTION_BUILDER_HEADLESS` | `true` | Run browser in headless mode |
 | `ACTION_BUILDER_MAX_TURNS` | `30` | Maximum LLM turns per recording task |
@@ -249,6 +250,42 @@ Configuration:
 
 [Metrics] build_tasks=0/5, recording_tasks=0/3, elapsed=60.0s
 ```
+
+### Heartbeat Mechanism
+
+The system uses different heartbeat mechanisms for different task types:
+
+**build_task heartbeat:**
+- Uses `updated_at` field (updated every 5s by BuildTaskRunner)
+- Stale threshold: 15 minutes (default, configurable via `ACTION_BUILDER_BUILD_TASK_STALE_TIMEOUT_MINUTES`)
+- Stale detection: Coordinator detects `action_build/running` tasks with `updated_at < threshold`
+- Recovery: Stale build_tasks are re-claimed with priority over new tasks
+
+**recording_task heartbeat:**
+- Uses `last_heartbeat` field (updated every 5s during execution)
+- Stale threshold: 15 minutes (default, configurable via `ACTION_BUILDER_STALE_TIMEOUT_MINUTES`)
+- Stale detection: QueueWorker detects `running` tasks with `last_heartbeat < threshold`
+- Recovery: Stale recording_tasks reset to `pending` (if attemptCount < max) or `failed` (if exhausted)
+
+### Failure Handling
+
+The system handles task failures with automatic retry:
+
+**Recording task failures:**
+- Failed tasks with `attemptCount < maxAttempts`: Auto-retry (reset to `pending`)
+- Failed tasks with `attemptCount >= maxAttempts`: Marked as permanent failure (status = `failed`)
+- Retry trigger: BuildTaskRunner polls and detects failed tasks, then resets retriable ones
+
+**Build task completion:**
+- **Partial success allowed**: build_task completes even with permanent failures
+- Completion condition: `pending=0 AND running=0 AND retriedCount=0`
+- Permanent failures (attemptCount >= maxAttempts) do NOT block build_task completion
+- Final status: `action_build/completed` (check recording_tasks for individual results)
+
+**Attempt counting:**
+- `attemptCount` represents **execution count** (increments on each execution attempt)
+- Normal failure: TaskExecutor marks `failed` + `attemptCount+1` → BuildTaskRunner retries (no increment) → Next execution `attemptCount+1` again
+- Stale recovery: QueueWorker detects stale → `attemptCount+1` + reset to `pending` → Next execution continues
 
 ### Stateless Recovery
 

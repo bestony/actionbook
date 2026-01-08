@@ -24,6 +24,9 @@ async function main() {
     buildTaskPollIntervalSeconds: parseInt(
       process.env.ACTION_BUILDER_BUILD_TASK_POLL_INTERVAL_SECONDS ?? '5'
     ),
+    buildTaskStaleTimeoutMinutes: parseInt(
+      process.env.ACTION_BUILDER_BUILD_TASK_STALE_TIMEOUT_MINUTES ?? '15'
+    ),
     queueWorker: {
       concurrency: parseInt(process.env.ACTION_BUILDER_TASK_CONCURRENCY ?? '3'),
       staleTimeoutMinutes: parseInt(
@@ -35,6 +38,7 @@ async function main() {
       databaseUrl: process.env.DATABASE_URL!,
       headless: process.env.ACTION_BUILDER_HEADLESS !== 'false',
       outputDir: process.env.OUTPUT_DIR ?? './output',
+      maxAttempts: parseInt(process.env.ACTION_BUILDER_MAX_ATTEMPTS ?? '3'),
     },
     buildTaskRunner: {
       checkIntervalSeconds: parseInt(
@@ -47,8 +51,9 @@ async function main() {
   console.log('\nConfiguration:');
   console.log(`  Max Concurrent Build Tasks: ${config.maxConcurrentBuildTasks}`);
   console.log(`  Build Task Poll Interval: ${config.buildTaskPollIntervalSeconds}s`);
+  console.log(`  Build Task Stale Timeout: ${config.buildTaskStaleTimeoutMinutes} minutes`);
   console.log(`  Recording Task Concurrency: ${config.queueWorker.concurrency}`);
-  console.log(`  Stale Timeout: ${config.queueWorker.staleTimeoutMinutes} minutes`);
+  console.log(`  Recording Task Stale Timeout: ${config.queueWorker.staleTimeoutMinutes} minutes`);
   console.log(`  Task Timeout: ${config.queueWorker.taskTimeoutMinutes} minutes`);
   console.log(`  Max Attempts: ${config.buildTaskRunner.maxAttempts}`);
   console.log('');
