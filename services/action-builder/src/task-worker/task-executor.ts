@@ -139,7 +139,7 @@ export class TaskExecutor {
     try {
       // 4. Build scenario info
       const scenarioName = `task_${task.id}_${Date.now()}`;
-      const startUrl = new URL(chunkData.source_base_url).origin;
+      const startUrl = task.startUrl; // Use task.startUrl (from chunk's document URL)
 
       // 5. Build dual-mode prompt (task_driven vs exploratory)
       const prompt = buildPrompt(
