@@ -77,6 +77,36 @@ export const fileLogger = new FileLogger();
 export type LogLevel = "info" | "warn" | "error" | "debug";
 
 /**
+ * Check if message should be output to console
+ *
+ * Quiet mode (ACTION_BUILDER_QUIET=true):
+ * - ActionRecorder logs (detailed browser/LLM operations) → file only
+ * - Task-level logs (Coordinator/BuildTaskRunner/QueueWorker) → console + file
+ * - Error/warn logs → always console + file
+ */
+function shouldOutputToConsole(level: LogLevel, message: string): boolean {
+  // Always output errors and warnings to console
+  if (level === "error" || level === "warn") {
+    return true;
+  }
+
+  // If not in quiet mode, output everything to console
+  if (process.env.ACTION_BUILDER_QUIET !== "true") {
+    return true;
+  }
+
+  // In quiet mode, only output task-level logs to console
+  const taskPrefixes = [
+    "[Coordinator]",
+    "[BuildTaskRunner",
+    "[QueueWorker]",
+    "[Metrics]",
+  ];
+
+  return taskPrefixes.some((prefix) => message.includes(prefix));
+}
+
+/**
  * Log a message with level and timestamp
  */
 export function log(level: LogLevel, ...args: unknown[]): void {
@@ -90,22 +120,28 @@ export function log(level: LogLevel, ...args: unknown[]): void {
       .map((arg) => (typeof arg === "object" ? JSON.stringify(arg) : String(arg)))
       .join(" ");
 
+  // Always write to file
   fileLogger.write(message);
 
-  switch (level) {
-    case "error":
-      console.error(prefix, ...args);
-      break;
-    case "warn":
-      console.warn(prefix, ...args);
-      break;
-    case "debug":
-      if (process.env.DEBUG) {
+  // Conditionally output to console based on quiet mode
+  const outputToConsole = shouldOutputToConsole(level, message);
+
+  if (outputToConsole) {
+    switch (level) {
+      case "error":
+        console.error(prefix, ...args);
+        break;
+      case "warn":
+        console.warn(prefix, ...args);
+        break;
+      case "debug":
+        if (process.env.DEBUG) {
+          console.log(prefix, ...args);
+        }
+        break;
+      default:
         console.log(prefix, ...args);
-      }
-      break;
-    default:
-      console.log(prefix, ...args);
+    }
   }
 }
 

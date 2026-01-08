@@ -20,6 +20,7 @@ import {
   chunks,
   documents,
   sources,
+  and,
   eq,
 } from '@actionbookdev/db'
 import { ActionBuilder } from '../ActionBuilder.js'
@@ -29,6 +30,7 @@ import type {
   ExecutionResult,
   TaskExecutorConfig,
 } from './types/index.js'
+import { buildPrompt } from './utils/prompt-builder.js'
 
 /**
  * Extended ChunkData type, includes source information
@@ -137,17 +139,34 @@ export class TaskExecutor {
     try {
       // 4. Build scenario info
       const scenarioName = `task_${task.id}_${Date.now()}`;
-      const startUrl = new URL(chunkData.source_base_url).origin;
+      const startUrl = task.startUrl; // Use task.startUrl (from chunk's document URL)
 
-      // 5. Call ActionBuilder.build() - uses default CAPABILITY_RECORDER_SYSTEM_PROMPT
-      // Pass chunk_content as scenarioDescription for the LLM to understand the task
+      // 5. Build dual-mode prompt (task_driven vs exploratory)
+      const prompt = buildPrompt(
+        {
+          id: String(chunkData.id),
+          source_id: String(chunkData.source_id),
+          document_url: chunkData.document_url,
+          document_title: chunkData.document_title,
+          source_domain: chunkData.source_domain,
+          chunk_content: chunkData.chunk_content,
+          chunk_index: chunkData.chunk_index,
+          created_at: chunkData.createdAt,
+          source_app_url: chunkData.source_app_url ?? undefined,
+        },
+        task.config?.chunk_type ?? 'exploratory'
+      )
+
+      // 6. Call ActionBuilder.build() with custom prompts (task-worker mode)
       const buildResult = await builder.build(startUrl, scenarioName, {
         siteName: chunkData.source_name,
         scenarioDescription: chunkData.chunk_content,
+        customSystemPrompt: prompt.systemPrompt,
+        customUserPrompt: prompt.userPrompt,
         taskId: task.id,
       });
 
-      // 6. Process result
+      // 7. Process result
       if (buildResult.success) {
         const actionsCreated = this.countElements(buildResult.siteCapability);
 
@@ -168,11 +187,14 @@ export class TaskExecutor {
 
         // Update task status
         // If partialResult (timeout with partial save), record timeout info
+        const duration = Date.now() - startTime;
         const statusUpdate: any = {
           status: 'completed',
           progress: 100,
           completedAt: new Date(),
           attemptCount: task.attemptCount + 1,
+          durationMs: duration,
+          tokensUsed: buildResult.tokens?.total || 0,
         };
 
         if (buildResult.partialResult) {
@@ -182,7 +204,6 @@ export class TaskExecutor {
 
         await this.updateTaskStatus(task.id, statusUpdate);
 
-        const duration = Date.now() - startTime;
         return {
           success: true,
           actions_created: actionsCreated,
@@ -195,13 +216,16 @@ export class TaskExecutor {
       } else {
         // Build failed
         const errorMessage = `Recording failed: ${buildResult.message}`;
+        const duration = Date.now() - startTime;
         await this.updateTaskStatus(task.id, {
           status: 'failed',
           errorMessage,
           attemptCount: task.attemptCount + 1,
+          completedAt: new Date(),
+          durationMs: duration,
+          tokensUsed: buildResult.tokens?.total || 0,
         });
 
-        const duration = Date.now() - startTime;
         return {
           success: false,
           actions_created: 0,
@@ -215,13 +239,15 @@ export class TaskExecutor {
       // All errors from ActionBuilder.build() are final
       const errorMessage = error instanceof Error ? error.message : String(error);
 
+      const duration = Date.now() - startTime;
       await this.updateTaskStatus(task.id, {
         status: 'failed',
         errorMessage,
         attemptCount: task.attemptCount + 1,
+        completedAt: new Date(),
+        durationMs: duration,
       });
 
-      const duration = Date.now() - startTime;
       return {
         success: false,
         actions_created: 0,
@@ -322,14 +348,18 @@ export class TaskExecutor {
       errorMessage?: string
       completedAt?: Date
       attemptCount?: number
+      durationMs?: number | null
+      tokensUsed?: number
     }
   ): Promise<void> {
+    // Idempotency/safety: only allow status updates while task is still 'running'.
+    // This prevents a "zombie" executor (after stale recovery) from overwriting a re-queued task.
     await this.db
       .update(recordingTasks)
       .set({
         ...updates,
         updatedAt: new Date(),
       })
-      .where(eq(recordingTasks.id, taskId))
+      .where(and(eq(recordingTasks.id, taskId), eq(recordingTasks.status, 'running')))
   }
 }

@@ -183,7 +183,20 @@ export class ActionBuilder {
         )
         .join(' ')
 
+    // Always write to file
     this.fileLogger.write(message)
+
+    // In quiet mode, suppress ActionBuilder info logs (only show errors/warnings)
+    const quietMode = process.env.ACTION_BUILDER_QUIET === 'true'
+    const shouldOutput =
+      level === 'error' ||
+      level === 'warn' ||
+      !quietMode ||
+      (level === 'debug' && process.env.DEBUG)
+
+    if (!shouldOutput) {
+      return
+    }
 
     switch (level) {
       case 'error':

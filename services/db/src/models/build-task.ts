@@ -97,8 +97,9 @@ export const buildTasks = pgTable(
  * - 'help': Help center / documentation site
  * - 'unknown': Unknown category (legacy)
  * - 'any': General website (processed by knowledge-builder-any)
+ * - 'playbook': Playbook crawl data (crawl-playbook output)
  */
-export type SourceCategory = 'help' | 'unknown' | 'any';
+export type SourceCategory = 'help' | 'unknown' | 'any' | 'playbook';
 
 /**
  * BuildTaskStage - Build task stage
