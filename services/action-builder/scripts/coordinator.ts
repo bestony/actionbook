@@ -16,13 +16,13 @@ async function main() {
 
   const db = getDb();
 
-  // 读取配置（复用现有环境变量名）
+  // 读取配置（复用现有环境变量名，时间单位使用后缀）
   const config = {
     maxConcurrentBuildTasks: parseInt(
       process.env.ACTION_BUILDER_MAX_CONCURRENT_BUILD_TASKS ?? '5'
     ),
     buildTaskPollIntervalSeconds: parseInt(
-      process.env.ACTION_BUILDER_BUILD_TASK_POLL_INTERVAL ?? '5'
+      process.env.ACTION_BUILDER_BUILD_TASK_POLL_INTERVAL_SECONDS ?? '5'
     ),
     queueWorker: {
       concurrency: parseInt(process.env.ACTION_BUILDER_TASK_CONCURRENCY ?? '3'),
