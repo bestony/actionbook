@@ -400,7 +400,7 @@ async function importPlaybook(filePath: string): Promise<ImportResult> {
     const urlHash = md5(pageUrl);
     const contentHash = md5(contentText);
 
-    // Create document
+    // Upsert document (update if URL exists in this version)
     const docResult = await db
       .insert(documents)
       .values({
@@ -421,11 +421,24 @@ async function importPlaybook(filePath: string): Promise<ImportResult> {
         status: "active" as DocumentStatus,
         version: 1,
       })
+      .onConflictDoUpdate({
+        target: [documents.sourceVersionId, documents.urlHash],
+        set: {
+          title: page.title || "Untitled",
+          description: getDescription(page),
+          contentText,
+          contentMd,
+          depth: page.depth,
+          wordCount: contentText.length,
+          contentHash,
+          updatedAt: new Date(),
+        },
+      })
       .returning();
     const doc = docResult[0];
     documentsCreated++;
 
-    // Create chunk (1:1 mapping)
+    // Upsert chunk (1:1 mapping with document)
     const embeddingStr = `[${embedding.join(",")}]`;
     await db.execute(sql`
       INSERT INTO chunks (
@@ -446,6 +459,18 @@ async function importPlaybook(filePath: string): Promise<ImportResult> {
         ${embeddingStr}::vector,
         ${"text-embedding-3-small"}
       )
+      ON CONFLICT (document_id, chunk_index)
+      DO UPDATE SET
+        source_version_id = EXCLUDED.source_version_id,
+        content = EXCLUDED.content,
+        content_hash = EXCLUDED.content_hash,
+        start_char = EXCLUDED.start_char,
+        end_char = EXCLUDED.end_char,
+        heading = EXCLUDED.heading,
+        heading_hierarchy = EXCLUDED.heading_hierarchy,
+        token_count = EXCLUDED.token_count,
+        embedding = EXCLUDED.embedding,
+        embedding_model = EXCLUDED.embedding_model
     `);
     chunksCreated++;
 
