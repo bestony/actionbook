@@ -19,12 +19,12 @@
       "import": "./dist/adapters/index.js"
     },
     "./stagehand": {
-      "types": "./dist/implementations/StagehandBrowser.d.ts",
-      "import": "./dist/implementations/StagehandBrowser.js"
+      "types": "./dist/implementations/stagehand-browser.d.ts",
+      "import": "./dist/implementations/stagehand-browser.js"
     },
     "./agentcore": {
-      "types": "./dist/implementations/AgentCoreBrowser.d.ts",
-      "import": "./dist/implementations/AgentCoreBrowser.js"
+      "types": "./dist/implementations/agent-core-browser.d.ts",
+      "import": "./dist/implementations/agent-core-browser.js"
     }
   },
   "scripts": {
