@@ -1,5 +1,5 @@
 import type { Page } from "playwright";
-import type { BrowserAdapter } from "../browser/BrowserAdapter.js";
+import type { BrowserAdapter } from "@actionbookdev/browser";
 import { log } from "../utils/logger.js";
 import type {
   ValidatorConfig,

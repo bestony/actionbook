@@ -12,7 +12,7 @@
 
 import 'dotenv/config';
 
-import { StagehandBrowser } from './browser/index.js';
+import { createBrowserAuto, type BrowserAdapter } from '@actionbookdev/browser';
 import { AIClient, createEmbeddingProvider, type EmbeddingProvider } from './brain/index.js';
 import { Storage, createStorage } from './storage/index.js';
 import { log, fileLogger, normalizeUrl, isSameDomain, buildChunkContent } from './utils/index.js';
@@ -31,7 +31,7 @@ import { PageAnalyzer } from './analyzer/index.js';
  */
 export class PlaybookBuilder {
   private config: Required<Omit<PlaybookBuilderConfig, 'llmProvider'>> & Pick<PlaybookBuilderConfig, 'llmProvider'>;
-  private browser: StagehandBrowser;
+  private browser: BrowserAdapter;
   private ai: AIClient;
   private embedding: EmbeddingProvider | null = null;
   private storage: Storage;
@@ -52,7 +52,8 @@ export class PlaybookBuilder {
       llmProvider: config.llmProvider,
     };
 
-    this.browser = new StagehandBrowser({ headless: this.config.headless });
+    // Auto-detect browser: AgentCoreBrowser in AWS, StagehandBrowser locally
+    this.browser = createBrowserAuto({ headless: this.config.headless });
     // AIClient: Use specified provider, env var, or auto-detect
     const llmProvider = this.config.llmProvider ||
       (process.env.LLM_PROVIDER as 'openrouter' | 'openai' | 'anthropic' | 'bedrock' | undefined);
@@ -92,7 +93,7 @@ export class PlaybookBuilder {
 
     try {
       // Initialize browser
-      await this.browser.init();
+      await this.browser.initialize();
 
       // Create or get source version
       if (!sourceVersionId) {
@@ -118,7 +119,7 @@ export class PlaybookBuilder {
 
         try {
           // Navigate to the page
-          await this.browser.goto(page.url);
+          await this.browser.navigate(page.url);
           const pageScreenshot = await this.browser.screenshot();
           const pageContent = await this.browser.getContent();
 
@@ -223,7 +224,7 @@ export class PlaybookBuilder {
 
       try {
         // Navigate to the page
-        await this.browser.goto(current.url);
+        await this.browser.navigate(current.url);
         const screenshot = await this.browser.screenshot();
         const content = await this.browser.getContent();
 

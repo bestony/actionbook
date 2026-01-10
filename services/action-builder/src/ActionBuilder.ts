@@ -1,5 +1,5 @@
-import { StagehandBrowser } from './browser/StagehandBrowser.js'
-import type { BrowserAdapter } from './browser/BrowserAdapter.js'
+import { createBrowserAuto } from '@actionbookdev/browser'
+import type { BrowserAdapter } from '@actionbookdev/browser'
 import { AIClient } from './llm/AIClient.js'
 import { ActionRecorder } from './recorder/ActionRecorder.js'
 import { SelectorValidator } from './validator/SelectorValidator.js'
@@ -68,12 +68,10 @@ export class ActionBuilder {
     // Create instance-specific file logger for parallel execution support
     this.fileLogger = new FileLogger()
 
-    // Initialize browser (Stagehand has its own LLM config via env vars)
-    this.browser = new StagehandBrowser({
-      headless: this.config.headless!,
-      llmApiKey: this.config.llmApiKey || '',
-      llmBaseURL: config.llmBaseURL,
-      llmModel: this.config.llmModel,
+    // Initialize browser using factory function (auto-detects environment)
+    // Uses AgentCoreBrowser in AWS AgentCore Runtime, otherwise StagehandBrowser
+    this.browser = createBrowserAuto({
+      headless: this.config.headless,
       profile: config.profileEnabled
         ? { enabled: true, profileDir: config.profileDir }
         : undefined,

@@ -1,5 +1,5 @@
 import type OpenAI from "openai";
-import type { BrowserAdapter } from "../browser/BrowserAdapter.js";
+import type { BrowserAdapter } from "@actionbookdev/browser";
 import { AIClient } from "../llm/AIClient.js";
 import { YamlWriter } from "../writers/YamlWriter.js";
 import { DbWriter } from "../writers/DbWriter.js";
@@ -679,8 +679,10 @@ export class ActionRecorder {
     let browserOutputTokens = 0;
     if (this.browser.getTokenStats) {
       const stats = this.browser.getTokenStats();
-      browserInputTokens = stats.input;
-      browserOutputTokens = stats.output;
+      if (stats) {
+        browserInputTokens = stats.input;
+        browserOutputTokens = stats.output;
+      }
     }
 
     // Calculate combined totals
