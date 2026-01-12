@@ -651,74 +651,9 @@ await agent.execute('Search for Airbnb booking actions and get the action manual
 
 ## Usage Examples
 
-### Building an AI Agent with Stagehand
+### Playwright Automation
 
-Here's a complete, working example from our [playground](playground/stagehand-agent) showing how to build an AI agent with Actionbook, Vercel AI SDK, and Stagehand:
-
-```typescript
-import { generateText } from 'ai'
-import { openai } from '@ai-sdk/openai'
-import { Actionbook } from '@actionbookdev/sdk'
-import { Stagehand } from '@browserbasehq/stagehand'
-import { createActionbookTools } from './tools/actionbook'
-import { createStagehandTools } from './tools/stagehand'
-
-async function main() {
-  // Initialize Actionbook and Stagehand
-  const actionbook = new Actionbook()
-  const stagehand = new Stagehand({
-    env: 'LOCAL',
-    model: 'openai/gpt-4o',
-    verbose: 1,
-  })
-  await stagehand.init()
-
-  // Create tools for the agent
-  const tools = {
-    ...createActionbookTools(actionbook),  // searchActions, getActionById
-    ...createStagehandTools(stagehand),     // goto, act, screenshot, etc.
-  }
-
-  // Run the agent with a task
-  const result = await generateText({
-    model: openai('gpt-4o'),
-    prompt: 'Go to airbnb.com and search for a place to stay in Tokyo for 2 guests',
-    tools,
-    maxSteps: 30,
-  })
-
-  console.log(result.text)
-  await stagehand.close()
-}
-
-main()
-```
-
-**How Actionbook tools are defined** (`tools/actionbook.ts`):
-
-```typescript
-import { tool } from 'ai'
-import { Actionbook } from '@actionbookdev/sdk'
-
-export function createActionbookTools(client: Actionbook) {
-  return {
-    searchActions: tool({
-      description: client.searchActions.description,
-      inputSchema: client.searchActions.params.zod,
-      execute: async (input) => client.searchActions(input),
-    }),
-    getActionById: tool({
-      description: client.getActionById.description,
-      inputSchema: client.getActionById.params.zod,
-      execute: async (input) => client.getActionById(input.id),
-    }),
-  }
-}
-```
-
-### Simple Playwright Automation
-
-Here's a simpler example using Actionbook with Playwright directly (without an AI agent):
+Here's a simple example using Actionbook with Playwright to automate a web task:
 
 ```typescript
 import { Actionbook } from '@actionbookdev/sdk'
@@ -729,31 +664,42 @@ async function automateAirbnbSearch() {
   const browser = await chromium.launch({ headless: false })
   const page = await browser.newPage()
 
+  // Navigate to Airbnb
   await page.goto('https://www.airbnb.com')
 
-  // Search for the location input action
-  const searchResults = await actionbook.searchActions('airbnb location input')
-  const locationAction = await actionbook.getActionById(searchResults[0].id)
+  // Step 1: Get the location input action from Actionbook
+  const locationResults = await actionbook.searchActions('airbnb location input')
+  const locationAction = await actionbook.getActionById(locationResults[0].id)
 
-  // Use the selector from Actionbook
-  const selector = locationAction.selectors.css || locationAction.selectors.dataTestId
-  await page.fill(selector, 'San Francisco, CA')
+  console.log('Found location input:', locationAction.name)
+  console.log('Using selector:', locationAction.selectors.css)
 
-  // Search for the search button and click it
+  // Step 2: Fill the location input
+  await page.fill(locationAction.selectors.css, 'Tokyo, Japan')
+
+  // Step 3: Get the search button action from Actionbook
   const buttonResults = await actionbook.searchActions('airbnb search button')
-  const searchButtonAction = await actionbook.getActionById(buttonResults[0].id)
-  await page.click(searchButtonAction.selectors.css)
+  const buttonAction = await actionbook.getActionById(buttonResults[0].id)
 
-  console.log('Search submitted successfully!')
+  console.log('Found search button:', buttonAction.name)
+  console.log('Using selector:', buttonAction.selectors.css)
+
+  // Step 4: Click the search button
+  await page.click(buttonAction.selectors.css)
+
+  // Wait to see the results
+  await page.waitForURL(/.*homes.*/)
+  console.log('Search completed! URL:', page.url())
+
   await browser.close()
 }
 
 automateAirbnbSearch()
 ```
 
-### Using Actionbook for Testing
+### Using Actionbook for E2E Testing
 
-Actionbook is perfect for making E2E tests more resilient:
+Make your tests more resilient by using Actionbook's up-to-date selectors:
 
 ```typescript
 import { test, expect } from '@playwright/test'
@@ -761,32 +707,29 @@ import { Actionbook } from '@actionbookdev/sdk'
 
 const actionbook = new Actionbook()
 
-test.describe('Airbnb Search Flow', () => {
-  test('should search for a location', async ({ page }) => {
-    await page.goto('https://www.airbnb.com')
+test('search for a location on Airbnb', async ({ page }) => {
+  await page.goto('https://www.airbnb.com')
 
-    // Get action manuals instead of hardcoding selectors
-    const locationAction = await actionbook.searchActions('airbnb location input')
-      .then(results => actionbook.getActionById(results[0].id))
+  // Get action info from Actionbook instead of hardcoding selectors
+  const locationAction = await actionbook.searchActions('airbnb location input')
+    .then(results => actionbook.getActionById(results[0].id))
 
-    const searchButtonAction = await actionbook.searchActions('airbnb search button')
-      .then(results => actionbook.getActionById(results[0].id))
+  const buttonAction = await actionbook.searchActions('airbnb search button')
+    .then(results => actionbook.getActionById(results[0].id))
 
-    // Use selectors from Actionbook
-    await page.fill(
-      locationAction.selectors.css || locationAction.selectors.dataTestId,
-      'Paris, France'
-    )
+  // Use selectors from Actionbook
+  await page.fill(locationAction.selectors.css, 'Paris, France')
+  await page.click(buttonAction.selectors.css)
 
-    await page.click(
-      searchButtonAction.selectors.css || searchButtonAction.selectors.dataTestId
-    )
-
-    // Verify navigation
-    await expect(page).toHaveURL(/.*search.*/)
-  })
+  // Verify the search worked
+  await expect(page).toHaveURL(/.*homes.*/)
 })
 ```
+
+**Benefits:**
+- ✅ No hardcoded selectors that break when UI changes
+- ✅ Selectors are maintained and updated by Actionbook
+- ✅ Tests are more resilient and require less maintenance
 
 ## Available Tools
 
