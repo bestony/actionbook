@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { search } from '@/lib/search';
+import { Profiler } from '@/lib/profiler';
 
 /**
  * Action search result - based on chunks table
@@ -19,18 +20,27 @@ interface ActionSearchResponse {
   total?: number;
   hasMore?: boolean;
   error?: string;
+  performance?: {
+    total: number;
+    checkpoints: Record<string, number>;
+  };
 }
 
 /**
- * GET /api/actions/search?q=query&type=hybrid&limit=5
+ * GET /api/actions/search?q=query&type=hybrid&limit=5&profile=true
  *
  * Search actions using vector/fulltext/hybrid search on chunks table
  * Returns chunk_id as action_id along with content
+ * Add &profile=true to include performance metrics in response
  */
 export async function GET(request: NextRequest): Promise<NextResponse<ActionSearchResponse>> {
+  const profiler = new Profiler();
+
   try {
+    profiler.start('parse_params');
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q');
+    const enableProfile = searchParams.get('profile') === 'true';
 
     if (!query) {
       return NextResponse.json(
@@ -58,32 +68,51 @@ export async function GET(request: NextRequest): Promise<NextResponse<ActionSear
       ? sourceIdsParam.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id))
       : undefined;
 
+    profiler.end('parse_params');
+
     // Use existing search function from lib/search.ts
+    profiler.start('search_execution');
     const searchResults = await search(query, {
       searchType: type || 'hybrid',
       limit,
       sourceIds,
       minScore,
+      profiler, // Pass profiler to search function
     });
+    profiler.end('search_execution');
 
     // Map to action search results
+    profiler.start('map_results');
     const results: ActionSearchResult[] = searchResults.map((result) => ({
       action_id: result.chunkId,
       content: result.content,
       score: result.score,
       createdAt: result.createdAt.toISOString(),
     }));
+    profiler.end('map_results');
 
-    return NextResponse.json({
+    // Log performance metrics
+    profiler.log('SearchAPI');
+
+    const response: ActionSearchResponse = {
       success: true,
       query,
       results,
       count: results.length,
       total: results.length,
       hasMore: false,
-    });
+    };
+
+    // Include performance metrics if requested
+    if (enableProfile) {
+      response.performance = profiler.getResults();
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error('Search API error:', error);
+    profiler.log('SearchAPI-Error');
+
     return NextResponse.json(
       {
         success: false,

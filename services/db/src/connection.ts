@@ -72,10 +72,27 @@ function createPgDb(url: string): Database {
   const hasSslParam = url.includes('sslmode=');
   const needsSsl = hasSslParam || !isLocalhost;
 
+  // Connection pool settings - adjust based on environment
+  // For Serverless (Vercel/AWS Lambda), use smaller values and consider using Neon pooler
+  const isServerless = !!(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
   const pool = new Pool({
     connectionString: url,
     ssl: needsSsl ? { rejectUnauthorized: false } : false,
+    // Optimized connection pool settings
+    max: isServerless ? 5 : 20,        // Serverless: 5, Traditional: 20
+    min: isServerless ? 0 : 2,         // Serverless: 0 (no idle), Traditional: 2
+    idleTimeoutMillis: 30000,          // Close idle connections after 30s
+    connectionTimeoutMillis: 5000,     // Timeout when acquiring connection
+    allowExitOnIdle: isServerless,     // Allow exit on idle for Serverless
   });
+
+  // Add error handler to prevent unhandled error events from crashing the process
+  pool.on('error', (err) => {
+    console.error('[Database Pool Error]', err.message);
+    // Don't throw - let individual query errors be handled by their callers
+  });
+
   const db = drizzlePg(pool, { schema });
   poolMap.set(db, pool);
   return db;
@@ -88,6 +105,13 @@ function createPgDb(url: string): Database {
  */
 function createNeonDb(url: string): Database {
   const pool = new NeonPool({ connectionString: url });
+
+  // Add error handler to prevent unhandled error events from crashing the process
+  pool.on('error', (err) => {
+    console.error('[Database Pool Error]', err.message);
+    // Don't throw - let individual query errors be handled by their callers
+  });
+
   // drizzle-orm/neon-serverless with Pool returns compatible type
   const db = drizzleNeon(pool, { schema }) as unknown as Database;
   poolMap.set(db, pool);

@@ -63,6 +63,7 @@ export class ActionBuilder {
       profileDir: config.profileDir,
       buildTimeoutMs: config.buildTimeoutMs,
       browserRetryConfig: config.browserRetryConfig,
+      maxScenarioDescriptionLength: config.maxScenarioDescriptionLength,
     }
 
     // Create instance-specific file logger for parallel execution support
@@ -421,8 +422,18 @@ Return ONLY the URL, nothing else.`;
     this.log('info', `[ActionBuilder] Building capabilities for: ${url}`)
     this.log('info', `[ActionBuilder] Scenario: ${scenario}`)
 
+    // Truncate scenarioDescription to limit token usage (default: 3000 characters)
+    const maxLength = this.config.maxScenarioDescriptionLength ?? 3000;
+    const truncatedScenarioDescription = options.scenarioDescription
+      ? options.scenarioDescription.slice(0, maxLength)
+      : undefined;
+
+    if (options.scenarioDescription && options.scenarioDescription.length > maxLength) {
+      this.log('info', `[ActionBuilder] scenarioDescription truncated from ${options.scenarioDescription.length} to ${maxLength} characters`);
+    }
+
     // Use LLM to extract the first example URL from scenarioDescription if available
-    const actualUrl = await this.extractStartUrl(url, options.scenarioDescription);
+    const actualUrl = await this.extractStartUrl(url, truncatedScenarioDescription);
 
     // Support custom prompts for task-driven recording
     const systemPrompt =
@@ -430,7 +441,7 @@ Return ONLY the URL, nothing else.`;
     const userMessage =
       options.customUserPrompt ||
       generateUserPrompt(scenario, actualUrl, {
-        scenarioDescription: options.scenarioDescription,
+        scenarioDescription: truncatedScenarioDescription,
         focusAreas: options.focusAreas,
       })
 

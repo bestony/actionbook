@@ -14,10 +14,12 @@ import type {
 } from '@actionbookdev/db'
 import { getEmbedding } from './embedding'
 import type { SearchResult, SearchType, BreadcrumbItem } from '../types/search'
+import type { Profiler } from './profiler'
 
 interface SearchOptions {
   sourceIds?: number[]
   limit: number
+  profiler?: Profiler
 }
 
 // Helper to convert HeadingItem[] to string[]
@@ -40,7 +42,9 @@ export async function vectorSearch(
   embedding: number[],
   options: SearchOptions
 ): Promise<SearchResult[]> {
-  const { sourceIds, limit } = options
+  const { sourceIds, limit, profiler } = options
+
+  profiler?.start('vector_prepare_query')
   const embeddingStr = `[${embedding.join(',')}]`
   const db = getDb()
 
@@ -56,6 +60,15 @@ export async function vectorSearch(
   if (sourceIds && sourceIds.length > 0) {
     conditions.push(inArray(documents.sourceId, sourceIds))
   }
+  profiler?.end('vector_prepare_query')
+
+  profiler?.start('vector_db_query')
+
+  // Set HNSW search parameter for better performance
+  // ef_search controls the search quality vs speed trade-off (default: 40)
+  // Lower values = faster but less accurate, Higher values = slower but more accurate
+  const efSearch = parseInt(process.env.HNSW_EF_SEARCH || '30', 10);
+  await db.execute(sql.raw(`SET LOCAL hnsw.ef_search = ${efSearch}`));
 
   const results = await db
     .select({
@@ -75,8 +88,10 @@ export async function vectorSearch(
     .where(and(...conditions))
     .orderBy(sql`${chunks.embedding} <=> ${embeddingStr}::vector`)
     .limit(limit)
+  profiler?.end('vector_db_query')
 
-  return results.map((row) => ({
+  profiler?.start('vector_map_results')
+  const mapped = results.map((row) => ({
     chunkId: row.chunkId,
     documentId: row.documentId,
     content: row.content,
@@ -87,6 +102,9 @@ export async function vectorSearch(
     score: row.score,
     createdAt: row.createdAt,
   }))
+  profiler?.end('vector_map_results')
+
+  return mapped
 }
 
 /**
@@ -101,7 +119,9 @@ export async function fulltextSearch(
   query: string,
   options: SearchOptions
 ): Promise<SearchResult[]> {
-  const { sourceIds, limit } = options
+  const { sourceIds, limit, profiler } = options
+
+  profiler?.start('fulltext_prepare_query')
   const db = getDb()
 
   // Create the tsquery once for reuse
@@ -119,6 +139,7 @@ export async function fulltextSearch(
   if (sourceIds && sourceIds.length > 0) {
     conditions.push(inArray(documents.sourceId, sourceIds))
   }
+  profiler?.end('fulltext_prepare_query')
 
   // Search directly on chunks.content using to_tsvector
   // Generated SQL:
@@ -134,6 +155,7 @@ export async function fulltextSearch(
   //     [AND documents.source_id IN ($2, $3, ...)]
   //   ORDER BY ts_rank_cd(to_tsvector('english', chunks.content), plainto_tsquery('english', $1)) DESC
   //   LIMIT $N
+  profiler?.start('fulltext_db_query')
   const results = await db
     .select({
       chunkId: chunks.id,
@@ -154,8 +176,10 @@ export async function fulltextSearch(
       sql`ts_rank_cd(to_tsvector('english', ${chunks.content}), ${tsQuery}) DESC`
     )
     .limit(limit)
+  profiler?.end('fulltext_db_query')
 
-  return results.map((row) => ({
+  profiler?.start('fulltext_map_results')
+  const mapped = results.map((row) => ({
     chunkId: row.chunkId,
     documentId: row.documentId,
     content: row.content,
@@ -166,6 +190,9 @@ export async function fulltextSearch(
     score: row.score,
     createdAt: row.createdAt,
   }))
+  profiler?.end('fulltext_map_results')
+
+  return mapped
 }
 
 /**
@@ -175,15 +202,23 @@ export async function hybridSearch(
   query: string,
   options: SearchOptions
 ): Promise<SearchResult[]> {
-  const expandedLimit = options.limit * 2
-  const embedding = await getEmbedding(query)
+  const { profiler } = options
+  // Cap expanded limit to avoid excessive database queries
+  const expandedLimit = Math.min(options.limit * 2, 20)
 
+  profiler?.start('hybrid_get_embedding')
+  const embedding = await getEmbedding(query, profiler)
+  profiler?.end('hybrid_get_embedding')
+
+  profiler?.start('hybrid_parallel_search')
   const [vectorResults, ftResults] = await Promise.all([
     vectorSearch(embedding, { ...options, limit: expandedLimit }),
     fulltextSearch(query, { ...options, limit: expandedLimit }),
   ])
+  profiler?.end('hybrid_parallel_search')
 
   // RRF fusion with k=60
+  profiler?.start('hybrid_rrf_fusion')
   const k = 60
   const scores = new Map<string, { score: number; result: SearchResult }>()
 
@@ -205,10 +240,13 @@ export async function hybridSearch(
     }
   })
 
-  return Array.from(scores.values())
+  const fused = Array.from(scores.values())
     .sort((a, b) => b.score - a.score)
     .slice(0, options.limit)
     .map(({ score, result }) => ({ ...result, score }))
+  profiler?.end('hybrid_rrf_fusion')
+
+  return fused
 }
 
 /**
@@ -221,29 +259,35 @@ export async function search(
     limit?: number
     sourceIds?: number[]
     minScore?: number
+    profiler?: Profiler
   }
 ): Promise<SearchResult[]> {
-  const { searchType = 'hybrid', limit = 10, sourceIds, minScore = 0 } = options
+  const { searchType = 'fulltext', limit = 10, sourceIds, minScore = 0, profiler } = options
 
   let results: SearchResult[]
 
   switch (searchType) {
     case 'vector': {
-      const embedding = await getEmbedding(query)
-      results = await vectorSearch(embedding, { sourceIds, limit })
+      profiler?.start('get_embedding')
+      const embedding = await getEmbedding(query, profiler)
+      profiler?.end('get_embedding')
+
+      results = await vectorSearch(embedding, { sourceIds, limit, profiler })
       break
     }
     case 'fulltext':
-      results = await fulltextSearch(query, { sourceIds, limit })
+      results = await fulltextSearch(query, { sourceIds, limit, profiler })
       break
     case 'hybrid':
     default:
-      results = await hybridSearch(query, { sourceIds, limit })
+      results = await hybridSearch(query, { sourceIds, limit, profiler })
       break
   }
 
   if (minScore > 0) {
+    profiler?.start('filter_by_score')
     results = results.filter((r) => r.score >= minScore)
+    profiler?.end('filter_by_score')
   }
 
   return results

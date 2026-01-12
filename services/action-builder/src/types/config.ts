@@ -94,6 +94,8 @@ export interface ActionBuilderConfig {
     baseDelayMs?: number;       // default: 2000 (exponential backoff: delay = baseDelayMs * attempt)
     retryableErrors?: string[]; // default: ECONNREFUSED, Target closed, etc.
   };
+  /** Maximum length for scenarioDescription to limit token usage, default: 1000 */
+  maxScenarioDescriptionLength?: number;
 }
 
 /**
