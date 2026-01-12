@@ -18,13 +18,37 @@ Powered by up-to-date action manuals and DOM structure.
 
 ## Table of Contents
 
-- [Quick Start](#quick-start)
 - [Why Actionbook?](#why-actionbook)
+- [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Usage Examples](#usage-examples)
 - [Available Tools](#available-tools)
 - [Development](#development)
 - [Contributing](#contributing)
+
+## Why Actionbook?
+
+### ❌ Without Actionbook
+
+Building reliable browser agents is difficult and expensive:
+
+- **Slow Execution:** Agents waste time parsing full HTML pages to find elements.
+- **High Token Costs:** Sending entire DOM trees to LLMs consumes massive context windows.
+- **Brittle Selectors:** Updates to website UIs break hardcoded selectors and agent logic immediately.
+- **Hallucinations:** LLMs often guess incorrect actions when faced with complex, unstructured DOMs.
+
+### ✅ With Actionbook
+
+Actionbook places up-to-date action manuals with the relevant DOM selectors directly into your LLM's context.
+
+- **10x Faster:** Agents access pre-computed "Action manuals" to know exactly what to do without exploring.
+- **100x Token Savings:** Instead of whole HTML page, agents receive only related DOM elements in concise, semantic JSON definitions.
+- **Resilient Automation:** Action manuals are maintained and versioned. If a site changes, the manual is updated, not your agent.
+- **Universal Compatibility:** Works with any LLM (OpenAI, Anthropic, Gemini) and any AI operator framework.
+
+See how Actionbook enables an agent to complete an Airbnb search task 10x faster.
+
+https://github.com/user-attachments/assets/c621373e-98e7-451a-bf5c-6adbea23e3b8
 
 ## Quick Start
 
@@ -74,30 +98,6 @@ console.log(`Found ${results.length} actions`)
 const action = await actionbook.getActionById(results[0].id)
 console.log('Selectors:', action.selectors)
 ```
-
-## Why Actionbook?
-
-## ❌ Without Actionbook
-
-Building reliable browser agents is difficult and expensive:
-
-- **Slow Execution:** Agents waste time parsing full HTML pages to find elements.
-- **High Token Costs:** Sending entire DOM trees to LLMs consumes massive context windows.
-- **Brittle Selectors:** Updates to website UIs break hardcoded selectors and agent logic immediately.
-- **Hallucinations:** LLMs often guess incorrect actions when faced with complex, unstructured DOMs.
-
-## ✅ With Actionbook
-
-Actionbook places up-to-date action manuals with the relevant DOM selectors directly into your LLM's context.
-
-- **10x Faster:** Agents access pre-computed "Action manuals" to know exactly what to do without exploring.
-- **100x Token Savings:** Instead of whole HTML page, agents receive only related DOM elements in concise, semantic JSON definitions.
-- **Resilient Automation:** Action manuals are maintained and versioned. If a site changes, the manual is updated, not your agent.
-- **Universal Compatibility:** Works with any LLM (OpenAI, Anthropic, Gemini) and any AI operator framework.
-
-See how Actionbook enables an agent to complete an Airbnb search task 10x faster.
-
-https://github.com/user-attachments/assets/c621373e-98e7-451a-bf5c-6adbea23e3b8
 
 ## Installation
 
