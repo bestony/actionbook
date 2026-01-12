@@ -17,12 +17,12 @@ Thank you for your interest in contributing to Actionbook! This document provide
 
 There are many ways to contribute to Actionbook:
 
-- 🐛 **Report Bugs** - Use our [bug report template](https://github.com/actionbook/actionbook/issues/new?template=bug-report.yml)
-- 💡 **Propose Features** - Use our [feature request template](https://github.com/actionbook/actionbook/issues/new?template=feature-request.yml)
-- 📝 **Improve Documentation** - Help us improve docs, README files, or code comments
-- 🔧 **Submit Code** - Fix bugs, implement features, or improve performance
-- 🌐 **Request Website Support** - Suggest new websites to add action manuals for
-- ❓ **Ask Questions** - Use our [question template](https://github.com/actionbook/actionbook/issues/new?template=question.yml)
+- **Report Bugs** - Use our [bug report template](https://github.com/actionbook/actionbook/issues/new?template=bug-report.yml)
+- **Propose Features** - Use our [feature request template](https://github.com/actionbook/actionbook/issues/new?template=feature-request.yml)
+- **Improve Documentation** - Help us improve docs, README files, or code comments
+- **Submit Code** - Fix bugs, implement features, or improve performance
+- **Request Website Support** - Suggest new websites to add action manuals for
+- **Ask Questions** - Use our [question template](https://github.com/actionbook/actionbook/issues/new?template=question.yml)
 
 ## Development Setup
 
@@ -32,7 +32,8 @@ Before you begin, ensure you have the following installed:
 
 - **Node.js** 20+ (LTS recommended)
 - **pnpm** 10+
-- **PostgreSQL** (or access to a PostgreSQL database like Neon/Supabase)
+- **PostgreSQL** with **pgvector** extension (or access to a vector-enabled database like Neon/Supabase)
+- **Rust** (latest stable version, for some native dependencies)
 - **Git**
 
 ### Fork and Clone
@@ -85,11 +86,15 @@ cp apps/api-service/.env.example apps/api-service/.env
 
 ### Database Setup
 
-1. Start local PostgreSQL (or use remote database):
+Actionbook requires PostgreSQL with the **pgvector** extension for vector embeddings.
+
+1. Start local PostgreSQL with pgvector (or use remote database):
 
 ```bash
 docker-compose up -d postgres
 ```
+
+The Docker setup includes pgvector extension. If using a remote database, ensure pgvector is enabled.
 
 2. Run migrations:
 
@@ -112,6 +117,11 @@ pnpm dev
 
 # Or start specific services
 pnpm dev --filter=@actionbookdev/api-service --filter=actionbook-home
+
+# Main development services include:
+# - action-builder: Action recording and validation
+# - knowledge-builder: Scenario knowledge extraction
+# - playbook-builder: Playbook generation and management
 ```
 
 ## Project Structure
@@ -127,12 +137,12 @@ actionbook/
 ├── apps/             # Applications
 │   ├── website/      # Next.js 16 landing page
 │   ├── api-service/  # REST API (Vercel deployment)
-│   ├── api-server/   # API server
 │   └── docs/         # Product documentation
 ├── services/         # Internal services (not published)
 │   ├── db/           # @actionbookdev/db - Database schema + types
 │   ├── action-builder/       # Action recording, validation, Eval
 │   ├── knowledge-builder/    # Scenario extraction, Eval
+│   ├── playbook-builder/     # Playbook generation and management
 │   └── common/               # Shared utilities
 ├── playground/       # Demo and example projects
 └── old_projects/     # Legacy/archived projects
@@ -246,24 +256,24 @@ export const ActionIdSchema = z.string().regex(/^site\/[^/]+\/page\/[^/]+\/eleme
 
 ### Before Submitting
 
-1. ✅ Create a new branch from `main`:
+1. Create a new branch from `main`:
    ```bash
    git checkout -b feat/your-feature-name
    ```
 
-2. ✅ Follow the [commit message convention](#commit-message-convention)
+2. Follow the [commit message convention](#commit-message-convention)
 
-3. ✅ Ensure all tests pass:
+3. Ensure all tests pass:
    ```bash
    pnpm test
    ```
 
-4. ✅ Check linting:
+4. Check linting:
    ```bash
    pnpm lint
    ```
 
-5. ✅ Build successfully:
+5. Build successfully:
    ```bash
    pnpm build
    ```
@@ -287,12 +297,12 @@ export const ActionIdSchema = z.string().regex(/^site\/[^/]+\/page\/[^/]+\/eleme
 
 ### PR Requirements
 
-- ✅ All tests pass
-- ✅ Code coverage ≥ 50% for new code
-- ✅ No linting errors
-- ✅ Clear commit messages following convention
-- ✅ Updated documentation (if applicable)
-- ✅ Approved by at least one maintainer
+- All tests pass
+- Code coverage ≥ 50% for new code
+- No linting errors
+- Clear commit messages following convention
+- Updated documentation (if applicable)
+- Approved by at least one maintainer
 
 ## Testing Guidelines
 
@@ -348,9 +358,9 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md). We are committ
 
 ### Communication
 
-- 💬 **GitHub Issues** - Bug reports, feature requests, questions
-- 🐦 **X (Twitter)** - Follow [@actionbookdev](https://x.com/actionbookdev) for updates
-- 💼 **Discord** - Join our community (link coming soon)
+- **GitHub Issues** - Bug reports, feature requests, questions
+- **X (Twitter)** - Follow [@actionbookdev](https://x.com/actionbookdev) for updates
+- **Discord** - Join our community (link coming soon)
 
 ### Getting Help
 
@@ -396,6 +406,6 @@ pnpm studio
 
 ---
 
-Thank you for contributing to Actionbook! 🚀
+Thank you for contributing to Actionbook!
 
 If you have questions or need help, please don't hesitate to reach out through GitHub Issues.

@@ -45,4 +45,4 @@ This Code of Conduct is adapted from the [Contributor Covenant](https://www.cont
 
 ---
 
-Thank you for helping make Actionbook a welcoming community for everyone! 🚀
+Thank you for helping make Actionbook a welcoming community for everyone!
