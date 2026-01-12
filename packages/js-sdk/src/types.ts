@@ -10,7 +10,7 @@ export interface ChunkSearchResult {
   success: boolean;
   query: string;
   results: Array<{
-    action_id: number;
+    action_id: string;
     content: string;
     score: number;
     createdAt: string;
@@ -24,7 +24,7 @@ export interface ChunkSearchResult {
  * Action detail
  */
 export interface ChunkActionDetail {
-  action_id: number;
+  action_id: string;
   content: string;
   elements: string | null;
   createdAt: string;

@@ -103,11 +103,11 @@ Use this tool to find website actions, page elements, and their selectors for br
 
 **Typical workflow:**
 1. Search for actions: searchActions("airbnb search")
-2. Get action_id from results
-3. Get full details: getActionById(123)
+2. Get action_id from results (URL-based, e.g., "https://example.com/page")
+3. Get full details: getActionById("https://example.com/page")
 4. Use returned selectors with Playwright/browser automation
 
-Returns action IDs with content previews and relevance scores.`;
+Returns URL-based action IDs with content previews and relevance scores.`;
 
 export const searchActionsParams = createParams(searchActionsSchema);
 
@@ -117,15 +117,19 @@ export const searchActionsParams = createParams(searchActionsSchema);
 
 export const getActionByIdSchema = z.object({
   id: z
-    .number()
-    .int()
-    .positive("Action ID must be a positive integer")
-    .describe("Action ID (numeric, e.g., 123, 456)"),
+    .string()
+    .min(1, "Action ID cannot be empty")
+    .describe("Action ID (URL-based, e.g., 'https://example.com/page' or 'https://example.com/page#chunk-1')"),
 });
 
 export type GetActionByIdInput = z.infer<typeof getActionByIdSchema>;
 
 export const getActionByIdDescription = `Get complete action details by action ID, including DOM selectors and step-by-step instructions.
+
+**Action ID Format:**
+Action IDs are URL-based identifiers:
+- For the first chunk: The document URL (e.g., \`https://example.com/docs/page\`)
+- For subsequent chunks: URL with fragment (e.g., \`https://example.com/docs/page#chunk-1\`)
 
 **What you get:**
 - Full action content/documentation
@@ -141,8 +145,8 @@ await page.locator(selector).click();
 
 **Typical workflow:**
 1. Search for actions: searchActions("airbnb search")
-2. Get action_id from results (e.g., 123)
-3. Get full details: getActionById(123)
+2. Get action_id from results (e.g., "https://docs.airbnb.com/search")
+3. Get full details: getActionById("https://docs.airbnb.com/search")
 4. Extract selectors and use in automation`;
 
 export const getActionByIdParams = createParams(getActionByIdSchema)

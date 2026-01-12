@@ -54,8 +54,8 @@ export interface SearchActionsMethod {
  * Overloaded method signature for getActionById
  */
 export interface GetActionByIdMethod {
-  /** Get action by ID */
-  (id: number): Promise<ChunkActionDetail>
+  /** Get action by URL-based ID */
+  (id: string): Promise<ChunkActionDetail>
   /** Get action with options object */
   (options: GetActionByIdInput): Promise<ChunkActionDetail>
   /** Tool description for LLM */
@@ -190,9 +190,9 @@ export class Actionbook {
 
     // Create getActionById method with attached tool definition
     const getActionByIdFn = async (
-      idOrOptions: number | GetActionByIdInput
+      idOrOptions: string | GetActionByIdInput
     ): Promise<ChunkActionDetail> => {
-      const id = typeof idOrOptions === 'number' ? idOrOptions : idOrOptions.id
+      const id = typeof idOrOptions === 'string' ? idOrOptions : idOrOptions.id
       return this.apiClient.getActionById(id)
     }
 
