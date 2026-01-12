@@ -48,7 +48,7 @@ export interface BuildTask {
   sourceId: number | null;
   sourceUrl: string;
   sourceName: string | null;
-  sourceCategory: 'help' | 'unknown' | 'any';
+  sourceCategory: 'help' | 'unknown' | 'any' | 'playbook';
   stage: 'init' | 'knowledge_build' | 'action_build' | 'completed' | 'error';
   stageStatus: 'pending' | 'running' | 'completed' | 'error';
   config: BuildTaskConfig;
