@@ -47,25 +47,23 @@ type BatchSummary = {
   results: SiteRunResult[]
 }
 
-const DEFAULT_SITES: string[] = [
-  'https://lib.rs/',
-  'https://crates.io/',
-  'https://www.wolframalpha.com',
-  'https://www.allrecipes.com',
-  'https://www.booking.com',
-  'https://www.espn.com',
-  'https://www.apple.com',
-  'https://arxiv.org',
-  'https://dictionary.cambridge.org',
-  'https://www.google.com',
-  'https://huggingface.co',
-  'https://www.bbc.com/news',
-  'https://www.coursera.org',
-  'https://www.google.com/flights',
-  'https://www.amazon.com',
-  'https://github.com',
-  'https://www.google.com/maps',
-]
+/**
+ * Load sites from crawl-sites.txt file
+ * Each line should contain one URL
+ */
+function loadSitesFromFile(filePath: string): string[] {
+  try {
+    const content = fs.readFileSync(filePath, 'utf-8')
+    return content
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0 && !line.startsWith('#'))
+  } catch (error: any) {
+    console.error(`❌ Failed to read sites file: ${filePath}`)
+    console.error(`   Error: ${error.message}`)
+    process.exit(1)
+  }
+}
 
 function nowIso(): string {
   return new Date().toISOString()
@@ -270,6 +268,15 @@ async function main() {
   const actionBuilderRoot = getActionBuilderRoot()
   const tsxPath = resolveToxPath(actionBuilderRoot)
 
+  // Load sites from crawl-sites.txt
+  const sitesFilePath = path.resolve(actionBuilderRoot, 'scripts', 'crawl-sites.txt')
+  const sites = loadSitesFromFile(sitesFilePath)
+
+  if (sites.length === 0) {
+    console.error('❌ No sites found in crawl-sites.txt')
+    process.exit(1)
+  }
+
   const timeoutMinutes = timeoutMinutesArg ? parseInt(timeoutMinutesArg, 10) : 60
   const timeoutMs = Math.max(1, timeoutMinutes) * 60_000
 
@@ -292,7 +299,8 @@ async function main() {
   console.log('Crawl Playbook - Batch Runner')
   console.log('='.repeat(80))
   console.log(`Action Builder Root: ${actionBuilderRoot}`)
-  console.log(`Sites: ${DEFAULT_SITES.length}`)
+  console.log(`Sites File: ${sitesFilePath}`)
+  console.log(`Sites: ${sites.length}`)
   console.log(`Per-site Timeout: ${timeoutMinutes} minutes`)
   console.log(`Forward Args: ${forwardArgs.join(' ') || '(none)'}`)
   console.log(`Summary Output: ${summaryOutputPath}`)
@@ -301,7 +309,7 @@ async function main() {
 
   const results: SiteRunResult[] = []
 
-  for (const url of DEFAULT_SITES) {
+  for (const url of sites) {
     const r = await runOneSite({
       actionBuilderRoot,
       tsxPath,

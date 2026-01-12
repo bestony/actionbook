@@ -37,3 +37,6 @@ coverage/
 output*/
 reports/
 test-output/
+
+# Sites configuration
+scripts/crawl-sites.txt
