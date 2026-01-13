@@ -119,7 +119,7 @@ export const getActionByIdSchema = z.object({
   id: z
     .string()
     .min(1, "Action ID cannot be empty")
-    .describe("Action ID (URL-based, e.g., 'https://example.com/page' or 'https://example.com/page#chunk-1')"),
+    .describe("Action ID - full URL (e.g., 'https://example.com/page') or partial domain (e.g., 'example.com/page', 'releases.rs')"),
 });
 
 export type GetActionByIdInput = z.infer<typeof getActionByIdSchema>;
@@ -127,9 +127,11 @@ export type GetActionByIdInput = z.infer<typeof getActionByIdSchema>;
 export const getActionByIdDescription = `Get complete action details by action ID, including DOM selectors and step-by-step instructions.
 
 **Action ID Format:**
-Action IDs are URL-based identifiers:
-- For the first chunk: The document URL (e.g., \`https://example.com/docs/page\`)
-- For subsequent chunks: URL with fragment (e.g., \`https://example.com/docs/page#chunk-1\`)
+Action IDs support both full URLs and fuzzy matching:
+- Full URL: \`https://example.com/docs/page\`
+- Domain + path: \`example.com/docs/page\` (auto-matches https://example.com/docs/page)
+- Domain only: \`releases.rs\` (matches https://releases.rs/)
+- With chunk: \`https://example.com/page#chunk-1\`
 
 **What you get:**
 - Full action content/documentation
@@ -146,7 +148,7 @@ await page.locator(selector).click();
 **Typical workflow:**
 1. Search for actions: searchActions("airbnb search")
 2. Get action_id from results (e.g., "https://docs.airbnb.com/search")
-3. Get full details: getActionById("https://docs.airbnb.com/search")
+3. Get full details: getActionById("docs.airbnb.com/search") // fuzzy match works!
 4. Extract selectors and use in automation`;
 
 export const getActionByIdParams = createParams(getActionByIdSchema)
