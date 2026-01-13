@@ -106,23 +106,28 @@ describe("searchActions tool definition", () => {
 
 describe("getActionById tool definition", () => {
   describe("schema", () => {
-    it("validates valid input", () => {
-      const result = getActionByIdSchema.safeParse({ id: 123 });
+    it("validates valid full URL input", () => {
+      const result = getActionByIdSchema.safeParse({ id: "https://example.com/page" });
       expect(result.success).toBe(true);
     });
 
-    it("rejects non-integer id", () => {
-      const result = getActionByIdSchema.safeParse({ id: 12.5 });
-      expect(result.success).toBe(false);
+    it("validates valid domain-only input (fuzzy matching)", () => {
+      const result = getActionByIdSchema.safeParse({ id: "releases.rs" });
+      expect(result.success).toBe(true);
     });
 
-    it("rejects zero id", () => {
-      const result = getActionByIdSchema.safeParse({ id: 0 });
-      expect(result.success).toBe(false);
+    it("validates valid domain+path input (fuzzy matching)", () => {
+      const result = getActionByIdSchema.safeParse({ id: "example.com/docs/page" });
+      expect(result.success).toBe(true);
     });
 
-    it("rejects negative id", () => {
-      const result = getActionByIdSchema.safeParse({ id: -1 });
+    it("validates URL with chunk fragment", () => {
+      const result = getActionByIdSchema.safeParse({ id: "https://example.com/page#chunk-1" });
+      expect(result.success).toBe(true);
+    });
+
+    it("rejects empty id", () => {
+      const result = getActionByIdSchema.safeParse({ id: "" });
       expect(result.success).toBe(false);
     });
 
@@ -162,9 +167,9 @@ describe("getActionById tool definition", () => {
       expect(json.required).toContain("id");
     });
 
-    it("json schema id property is integer type", () => {
+    it("json schema id property is string type", () => {
       const json = getActionByIdParams.json as any;
-      expect(json.properties.id.type).toBe("integer");
+      expect(json.properties.id.type).toBe("string");
     });
   });
 });

@@ -131,22 +131,23 @@ describe('ApiClient', () => {
   })
 
   describe('getActionById', () => {
-    it('gets action by numeric id', async () => {
+    it('gets action by URL-based id', async () => {
       const client = new ApiClient({
         apiKey: 'test-key',
         baseUrl: API_URL,
         retry: { maxRetries: 0 },
       })
+      const testActionId = 'https://example.com/page'
       fetchMock.mockResolvedValue(
         new Response(
           JSON.stringify({
-            action_id: 123,
+            action_id: testActionId,
             content: 'Test content',
             elements: null,
             createdAt: '2025-12-05T00:00:00.000Z',
             documentId: 1,
             documentTitle: 'Test Doc',
-            documentUrl: 'https://example.com',
+            documentUrl: 'https://example.com/page',
             chunkIndex: 0,
             heading: 'Test',
             tokenCount: 100,
@@ -155,12 +156,45 @@ describe('ApiClient', () => {
         )
       )
 
-      const result = await client.getActionById(123)
-      expect(result.action_id).toBe(123)
+      const result = await client.getActionById(testActionId)
+      expect(result.action_id).toBe(testActionId)
       expect(result.content).toBe('Test content')
 
       const url = fetchMock.mock.calls[0][0] as string
-      expect(url).toBe(`${API_URL}/api/actions/123`)
+      expect(url).toBe(`${API_URL}/api/actions?id=${encodeURIComponent(testActionId)}`)
+    })
+
+    it('supports fuzzy matching with domain-only input', async () => {
+      const client = new ApiClient({
+        apiKey: 'test-key',
+        baseUrl: API_URL,
+        retry: { maxRetries: 0 },
+      })
+      const inputId = 'releases.rs'
+      const matchedUrl = 'https://releases.rs/'
+      fetchMock.mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            action_id: matchedUrl,
+            content: 'Releases content',
+            elements: null,
+            createdAt: '2025-12-05T00:00:00.000Z',
+            documentId: 1,
+            documentTitle: 'Releases',
+            documentUrl: matchedUrl,
+            chunkIndex: 0,
+            heading: 'Releases',
+            tokenCount: 100,
+          }),
+          { status: 200 }
+        )
+      )
+
+      const result = await client.getActionById(inputId)
+      expect(result.action_id).toBe(matchedUrl)
+
+      const url = fetchMock.mock.calls[0][0] as string
+      expect(url).toBe(`${API_URL}/api/actions?id=${encodeURIComponent(inputId)}`)
     })
   })
 
@@ -175,11 +209,12 @@ describe('ApiClient', () => {
         new Response(JSON.stringify({ message: 'not found' }), { status: 404 })
       )
 
-      await expect(client.getActionById(999999)).rejects.toBeInstanceOf(
+      const nonExistentUrl = 'https://non-existent-domain.test/page'
+      await expect(client.getActionById(nonExistentUrl)).rejects.toBeInstanceOf(
         ActionbookError
       )
       try {
-        await client.getActionById(999999)
+        await client.getActionById(nonExistentUrl)
       } catch (error) {
         if (error instanceof ActionbookError) {
           expect(error.code).toBe(ErrorCodes.NOT_FOUND)
