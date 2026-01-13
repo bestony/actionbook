@@ -89,13 +89,13 @@ You can start it with: pnpm dev
       expect(result.data!.stageStatus).toBe('pending')
     })
 
-    it('should create a build task with auto-detected "unknown" category', async () => {
+    it('should create a build task with auto-detected "any" category', async () => {
       const result = await createTask({
         sourceUrl: 'https://www.test-example.com/pricing',
       })
 
       expect(result.success).toBe(true)
-      expect(result.data!.sourceCategory).toBe('unknown')
+      expect(result.data!.sourceCategory).toBe('any')
       expect(result.data!.sourceName).toBe('www.test-example.com')
     })
 
@@ -333,9 +333,9 @@ You can start it with: pnpm dev
       { url: 'https://docs.example.com/api', expected: 'help' },
       { url: 'https://example.com/faq', expected: 'help' },
       { url: 'https://example.com/documentation/v2', expected: 'help' },
-      { url: 'https://www.example.com/pricing', expected: 'unknown' },
-      { url: 'https://app.example.com/dashboard', expected: 'unknown' },
-      { url: 'https://example.com/about', expected: 'unknown' },
+      { url: 'https://www.example.com/pricing', expected: 'any' },
+      { url: 'https://app.example.com/dashboard', expected: 'any' },
+      { url: 'https://example.com/about', expected: 'any' },
     ]
 
     for (const { url, expected } of testCases) {

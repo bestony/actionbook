@@ -84,12 +84,23 @@ export async function GET(request: NextRequest): Promise<NextResponse<ActionSear
 
     // Map to action search results
     profiler.start('map_results');
-    const results: ActionSearchResult[] = searchResults.map((result) => ({
-      action_id: generateActionId(result.url, result.chunkIndex),
-      content: result.content,
-      score: result.score,
-      createdAt: result.createdAt.toISOString(),
-    }));
+
+    // Get max content length from environment variable (default: 1000)
+    const maxContentLength = parseInt(process.env.SEARCH_CONTENT_MAX_LENGTH || '1000', 10);
+
+    const results: ActionSearchResult[] = searchResults.map((result) => {
+      // Truncate content if it exceeds max length
+      const truncatedContent = result.content.length > maxContentLength
+        ? result.content.substring(0, maxContentLength)
+        : result.content;
+
+      return {
+        action_id: generateActionId(result.url, result.chunkIndex),
+        content: truncatedContent,
+        score: result.score,
+        createdAt: result.createdAt.toISOString(),
+      };
+    });
     profiler.end('map_results');
 
     // Log performance metrics

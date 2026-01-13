@@ -6,6 +6,8 @@ const nextConfig = {
   output: 'standalone',
   // Set workspace root to monorepo root to fix lockfile detection warning
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  // Transpile monorepo packages
+  transpilePackages: ['@actionbookdev/db'],
 };
 
 module.exports = nextConfig;
