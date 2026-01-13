@@ -14,7 +14,10 @@ import {
   parseActionId,
   generateActionId,
   isValidActionId,
+  normalizeActionId,
+  urlSimilarity,
 } from '@/lib/action-id'
+import { or, inArray } from '@actionbookdev/db'
 
 interface ActionContent {
   action_id: string
@@ -63,13 +66,18 @@ export async function GET(
     )
   }
 
-  const { documentUrl, chunkIndex } = parseActionId(actionId)
+  // Parse chunk index from input (may be partial URL)
+  const { chunkIndex } = parseActionId(actionId)
+
+  // Generate candidate URLs for fuzzy matching
+  const candidates = normalizeActionId(actionId.replace(/#chunk-\d+$/, ''))
 
   try {
     const db = getDb()
 
-    // Query chunk by document URL and chunk index
-    // Also ensure document is active and chunk is from current version
+    // Query chunks using fuzzy matching:
+    // 1. Exact match on candidate URLs (highest priority)
+    // 2. ILIKE pattern match for partial URLs
     const results = await db
       .select({
         chunkId: chunks.id,
@@ -88,13 +96,18 @@ export async function GET(
       .innerJoin(sources, eq(documents.sourceId, sources.id))
       .where(
         and(
-          eq(documents.url, documentUrl),
+          or(
+            // Exact match on candidate URLs
+            inArray(documents.url, candidates),
+            // ILIKE fuzzy match
+            sql`${documents.url} ILIKE ${'%' + actionId.replace(/#chunk-\d+$/, '') + '%'}`
+          ),
           eq(documents.status, 'active'),
           eq(chunks.chunkIndex, chunkIndex),
           sql`${chunks.sourceVersionId} = ${sources.currentVersionId}`
         )
       )
-      .limit(1)
+      .limit(10) // Get multiple candidates for ranking
 
     if (results.length === 0) {
       return NextResponse.json(
@@ -109,7 +122,16 @@ export async function GET(
       )
     }
 
-    const chunk = results[0]
+    // Rank results by similarity and pick the best match
+    const inputForScoring = actionId.replace(/#chunk-\d+$/, '')
+    const ranked = results
+      .map((r) => ({
+        ...r,
+        score: urlSimilarity(inputForScoring, r.documentUrl),
+      }))
+      .sort((a, b) => b.score - a.score)
+
+    const chunk = ranked[0]
 
     return NextResponse.json({
       action_id: generateActionId(chunk.documentUrl, chunk.chunkIndex),

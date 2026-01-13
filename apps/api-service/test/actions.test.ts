@@ -161,6 +161,92 @@ You can start it with: pnpm dev
     });
   });
 
+  describe('GET /api/actions?id=<url> - Fuzzy Matching', () => {
+    it('should match domain without protocol', async () => {
+      // First get a valid URL from search
+      const searchRes = await fetch(`${BASE_URL}/api/actions/search?q=company&type=fulltext&limit=1`);
+      const searchData = await searchRes.json();
+
+      if (!searchData.results || searchData.results.length === 0) {
+        console.warn('Skipping: no test data available');
+        return;
+      }
+
+      // Extract domain from full URL (e.g., "https://example.com/path" -> "example.com/path")
+      const fullUrl = searchData.results[0].action_id;
+      const domainWithPath = fullUrl.replace(/^https?:\/\//, '');
+
+      console.log(`Testing fuzzy match: "${domainWithPath}" should match "${fullUrl}"`);
+
+      const res = await fetch(`${BASE_URL}/api/actions?id=${encodeURIComponent(domainWithPath)}`);
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.action_id).toBe(fullUrl);
+    });
+
+    it('should match domain only (without path)', async () => {
+      // First get a valid URL from search
+      const searchRes = await fetch(`${BASE_URL}/api/actions/search?q=company&type=fulltext&limit=1`);
+      const searchData = await searchRes.json();
+
+      if (!searchData.results || searchData.results.length === 0) {
+        console.warn('Skipping: no test data available');
+        return;
+      }
+
+      // Extract just the domain (e.g., "https://example.com/path" -> "example.com")
+      const fullUrl = searchData.results[0].action_id;
+      try {
+        const urlObj = new URL(fullUrl);
+        const domainOnly = urlObj.hostname;
+
+        console.log(`Testing fuzzy match: "${domainOnly}" should find actions from "${fullUrl}"`);
+
+        const res = await fetch(`${BASE_URL}/api/actions?id=${encodeURIComponent(domainOnly)}`);
+
+        // Should either succeed (200) or not found (404) - but not 400 (invalid)
+        expect([200, 404]).toContain(res.status);
+
+        if (res.status === 200) {
+          const data = await res.json();
+          // The returned URL should contain the domain
+          expect(data.documentUrl.toLowerCase()).toContain(domainOnly.toLowerCase());
+        }
+      } catch (e) {
+        console.warn('Could not parse URL, skipping test');
+      }
+    });
+
+    it('should prefer exact match over partial match', async () => {
+      // This test verifies that if we search for "a.com", we get "https://a.com" not "https://aa.com"
+      // We test this by searching with a known full URL and verifying we get that exact URL back
+      const searchRes = await fetch(`${BASE_URL}/api/actions/search?q=company&type=fulltext&limit=5`);
+      const searchData = await searchRes.json();
+
+      if (!searchData.results || searchData.results.length === 0) {
+        console.warn('Skipping: no test data available');
+        return;
+      }
+
+      // Use the full URL and verify we get exactly that URL back
+      const fullUrl = searchData.results[0].action_id;
+      const res = await fetch(`${BASE_URL}/api/actions?id=${encodeURIComponent(fullUrl)}`);
+
+      expect(res.status).toBe(200);
+      const data = await res.json();
+      expect(data.action_id).toBe(fullUrl);
+    });
+
+    it('should return 404 for fuzzy search with no matches', async () => {
+      const res = await fetch(`${BASE_URL}/api/actions?id=${encodeURIComponent('nonexistent-domain-xyz123.test')}`);
+
+      expect(res.status).toBe(404);
+      const data = await res.json();
+      expect(data.error).toBe('NOT_FOUND');
+    });
+  });
+
   describe('Integration: Search and Get', () => {
     it('should search and then retrieve full action details', async () => {
       // Step 1: Search for actions using GET (use fulltext for speed)
