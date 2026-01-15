@@ -4,7 +4,7 @@
   "author": {
     "name": "Actionbook"
   },
-  "skills": "./plugins/actionbook/skills/",
-  "commands": "./plugins/actionbook/commands/",
-  "mcpServers": "./plugins/actionbook/.mcp.json"
+  "skills": "./skills/",
+  "commands": "./commands/",
+  "mcpServers": "./.mcp.json"
 }
