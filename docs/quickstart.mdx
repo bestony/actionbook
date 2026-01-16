@@ -1,0 +1,56 @@
+---
+title: "Quickstart"
+description: "Get started with Actionbook in minutes"
+---
+
+# Quickstart
+
+## Installation
+
+### Using MCP Server
+
+Add Actionbook to your MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "actionbook": {
+      "command": "npx",
+      "args": ["-y", "@actionbookdev/mcp@latest"]
+    }
+  }
+}
+```
+
+### Using JavaScript SDK
+
+```bash
+npm install @actionbookdev/sdk
+```
+
+### Using Vercel AI SDK Tools
+
+```bash
+npm install @actionbookdev/tools-ai-sdk
+```
+
+## Basic Usage
+
+### MCP Tools
+
+Actionbook provides two core MCP tools:
+
+1. **search_actions** - Search for actions by keyword
+2. **get_action_by_id** - Get action content by ActionId
+
+### ActionId Format
+
+```
+site/{domain}/page/{pageType}/element/{semanticId}
+```
+
+## Next Steps
+
+<Card title="API Reference" icon="code" href="/api-reference/introduction">
+  Learn more about the API
+</Card>
