@@ -1,0 +1,68 @@
+{
+  "name": "@actionbookdev/tools-ai-sdk",
+  "version": "0.1.0",
+  "description": "Actionbook tools for Vercel AI SDK",
+  "private": false,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "lint": "eslint . --ext .ts",
+    "clean": "rimraf dist",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@actionbookdev/sdk": "workspace:*"
+  },
+  "peerDependencies": {
+    "ai": ">=4.0.0",
+    "zod": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "ai": {
+      "optional": false
+    },
+    "zod": {
+      "optional": false
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "ai": "^4.0.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.6.3",
+    "vitest": "^1.6.0",
+    "zod": "^3.25.6"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "actionbook",
+    "ai-sdk",
+    "vercel",
+    "tools",
+    "browser-automation",
+    "playwright"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/actionbook/actionbook.git",
+    "directory": "packages/tools-ai-sdk"
+  }
+}
