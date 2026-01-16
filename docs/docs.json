@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Actionbook",
   "colors": {
-    "primary": "#18181B",
-    "light": "#FAFAFA",
-    "dark": "#09090B"
+    "primary": "#475569",
+    "light": "#cbd5e1",
+    "dark": "#1e293b"
   },
   "favicon": "/favicon.ico",
   "navigation": {
