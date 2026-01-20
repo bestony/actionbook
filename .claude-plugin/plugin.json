@@ -6,5 +6,5 @@
   },
   "skills": "./skills/",
   "commands": "./commands/",
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./mcp-servers.json"
 }
