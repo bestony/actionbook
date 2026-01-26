@@ -1,0 +1,47 @@
+# Actionbook Issues Log
+#
+# This file records Actionbook selector issues found during scraper generation.
+# Use this to report issues or track which selectors need updates.
+#
+# Issue Types:
+#   selector_error - Selector doesn't find any element
+#   outdated       - Selector finds wrong element (page structure changed)
+#   missing        - Actionbook doesn't have selector for needed element
+#   incorrect      - Selector metadata is wrong (e.g., wrong allowed methods)
+#
+# Format:
+# [YYYY-MM-DD HH:MM] URL: {url}
+# Action ID: {action_id}
+# Issue Type: {type}
+# Details: {description}
+# Selector: {selector}
+# Expected: {what it should select}
+# Actual: {what it actually selects or error message}
+# ---
+
+[2024-01-15 14:30] URL: https://example.com/companies
+Action ID: https://example.com/companies
+Issue Type: selector_error
+Details: Card container selector no longer exists after site redesign
+Selector: .company-list-card-small
+Expected: Company card container elements
+Actual: Element not found - selector returns empty
+---
+
+[2024-01-15 15:45] URL: https://example.com/products
+Action ID: https://example.com/products
+Issue Type: outdated
+Details: Product name selector now returns price instead of name
+Selector: .product-info span:first-child
+Expected: Product name text
+Actual: Returns "$99.99" (price) - DOM structure changed
+---
+
+[2024-01-16 09:00] URL: https://example.com/blog
+Action ID: https://example.com/blog
+Issue Type: missing
+Details: No selector for article publish date
+Selector: (none available)
+Expected: Need selector for .article-meta time element
+Actual: N/A
+---

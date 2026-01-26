@@ -1,0 +1,16 @@
+{
+  "name": "lib-rs-scraper",
+  "version": "1.0.0",
+  "description": "Scraper for lib.rs - Rust crate index (powered by Actionbook selectors)",
+  "type": "module",
+  "scripts": {
+    "scrape": "node scraper.js",
+    "scrape:homepage": "node scraper.js homepage",
+    "scrape:category": "node scraper.js category",
+    "scrape:detail": "node scraper.js detail",
+    "scrape:batch": "node scraper.js batch"
+  },
+  "dependencies": {
+    "playwright": "^1.50.0"
+  }
+}

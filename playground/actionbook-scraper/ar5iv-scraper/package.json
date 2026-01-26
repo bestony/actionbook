@@ -1,0 +1,20 @@
+{
+  "name": "ar5iv-scraper",
+  "version": "1.0.0",
+  "description": "ar5iv.labs.arxiv.org scraper using Actionbook verified selectors",
+  "main": "scraper-agent-browser.js",
+  "scripts": {
+    "scrape": "node scraper-agent-browser.js",
+    "scrape:random": "node scraper-agent-browser.js --random",
+    "scrape:paper": "node scraper-agent-browser.js --paper"
+  },
+  "keywords": [
+    "scraper",
+    "ar5iv",
+    "arxiv",
+    "academic",
+    "papers",
+    "actionbook"
+  ],
+  "license": "MIT"
+}

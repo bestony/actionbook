@@ -146,6 +146,12 @@ importers:
         specifier: ^3.25.6
         version: 3.25.76
 
+  playground/lib-rs-scraper:
+    dependencies:
+      playwright:
+        specifier: ^1.50.0
+        version: 1.57.0
+
   playground/stagehand-agent:
     dependencies:
       '@actionbookdev/sdk':

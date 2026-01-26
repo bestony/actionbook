@@ -1,0 +1,9 @@
+# Actionbook issues log (keep .example)
+.actionbook-issues.log
+
+# Node modules
+node_modules/
+
+# Temp files
+*.tmp
+.DS_Store

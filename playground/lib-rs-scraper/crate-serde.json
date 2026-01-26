@@ -1,0 +1,63 @@
+{
+  "name": "serde",
+  "description": "A generic serialization/deserialization framework",
+  "labels": [
+    "no-std"
+  ],
+  "latestVersion": "1.0.228",
+  "publishDate": "Sep 27, 2025",
+  "versions": [
+    {
+      "version": "1.0.228",
+      "date": "Sep 27, 2025"
+    },
+    {
+      "version": "1.0.219",
+      "date": "Mar 9, 2025"
+    },
+    {
+      "version": "1.0.217",
+      "date": "Dec 27, 2024"
+    },
+    {
+      "version": "1.0.215",
+      "date": "Nov 11, 2024"
+    },
+    {
+      "version": "0.0.0",
+      "date": "Dec 5, 2014"
+    }
+  ],
+  "downloads": 32892035,
+  "categoryRanking": 13,
+  "dependentCrates": 110466,
+  "license": "MIT/Apache",
+  "packageSize": "700KB",
+  "sloc": null,
+  "authors": [
+    "David Tolnay",
+    "serde-rs"
+  ],
+  "categories": [
+    "Encoding"
+  ],
+  "keywords": [
+    "serialization",
+    "no-alloc"
+  ],
+  "links": {
+    "librs": "https://lib.rs/crates/serde",
+    "apiDocs": "https://docs.rs/serde",
+    "github": "https://github.com/serde-rs/serde"
+  },
+  "dependencies": [],
+  "devDependencies": [],
+  "features": [
+    "alloc",
+    "rc",
+    "std",
+    "unstable"
+  ],
+  "readmeHtml": "\n<p><strong>Serde is a framework for <em>ser</em>ializing and <em>de</em>serializing Rust data structures efficiently and generically.</strong></p>\n<hr>\n<p>You may be looking for:</p>\n<ul>\n<li><a href=\"https://serde.rs\" rel=\"ugc noopener\">An overview of Serde</a></li>\n<li><a href=\"https://serde.rs/#data-formats\" rel=\"ugc noopener\">Data formats supported by Serde</a></li>\n<li><a href=\"https://serde.rs/derive.html\" rel=\"ugc noopener\">Setting up <code><tt class=\"src-rs\"><tt class=\"m-ann m-ann-rs\"><tt class=\"pun-def pun-def-ann\">#</tt><tt class=\"pun-sec pun-sec-grp\">[</tt><tt class=\"var-ann var-ann-rs\">derive</tt><tt class=\"m-ann m-ann-parms\"><tt class=\"pun-sec pun-sec-grp\">(</tt></tt><tt class=\"m-ann m-ann-parms\">Serialize<tt class=\"pun-sep pun-sep-rs\">,</tt> Deserialize</tt><tt class=\"m-ann m-ann-parms\"><tt class=\"pun-sec pun-sec-grp\">)</tt></tt><tt class=\"pun-sec pun-sec-grp\">]</tt></tt></tt></code></a></li>\n<li><a href=\"https://serde.rs/examples.html\" rel=\"ugc noopener\">Examples</a></li>\n<li><a href=\"https://docs.rs/serde\" rel=\"ugc noopener\">API documentation</a></li>\n<li><a href=\"https://github.com/serde-rs/serde/releases\" rel=\"ugc noopener\">Release notes</a></li>\n</ul>\n<h2 id=\"readme-serde-in-action\">Serde in action</h2>\n<pre lang=\"rust\"><code><tt class=\"src-rs\"><tt class=\"k-ot k-ot-rs\">use</tt> <tt class=\"m-path m-path-rs\">serde<tt class=\"pun-acc pun-acc-rs\">::</tt></tt><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">{</tt>Deserialize<tt class=\"pun-sep pun-sep-rs\">,</tt> Serialize</tt><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">}</tt></tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n<tt class=\"m-ann m-ann-rs\"><tt class=\"pun-def pun-def-ann\">#</tt><tt class=\"pun-sec pun-sec-grp\">[</tt><tt class=\"var-ann var-ann-rs\">derive</tt><tt class=\"m-ann m-ann-parms\"><tt class=\"pun-sec pun-sec-grp\">(</tt></tt><tt class=\"m-ann m-ann-parms\">Serialize<tt class=\"pun-sep pun-sep-rs\">,</tt> Deserialize<tt class=\"pun-sep pun-sep-rs\">,</tt> Debug</tt><tt class=\"m-ann m-ann-parms\"><tt class=\"pun-sec pun-sec-grp\">)</tt></tt><tt class=\"pun-sec pun-sec-grp\">]</tt></tt>\n<tt class=\"m-struct m-struct-rs\"><tt class=\"stor-ty stor-ty-struct\">struct</tt> </tt><tt class=\"m-struct m-struct-rs\"><tt class=\"ent-n ent-n-struct\">Point</tt> </tt><tt class=\"m-struct m-struct-rs\"><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">{</tt>\n    <tt class=\"var-ot var-ot-memb\">x</tt><tt class=\"pun-sep pun-sep-ty\">:</tt> <tt class=\"stor-ty stor-ty-rs\">i32</tt>,\n    <tt class=\"var-ot var-ot-memb\">y</tt><tt class=\"pun-sep pun-sep-ty\">:</tt> <tt class=\"stor-ty stor-ty-rs\">i32</tt>,\n</tt><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">}</tt></tt></tt>\n\n<tt class=\"m-fn m-fn-rs\"><tt class=\"stor-ty stor-ty-fn\">fn</tt> <tt class=\"ent-n ent-n-fn\">main</tt></tt><tt class=\"m-fn m-fn-rs\"><tt class=\"m-fn m-fn-parms\"><tt class=\"pun-sec pun-sec-parms\">(</tt></tt><tt class=\"m-fn m-fn-parms\"><tt class=\"pun-sec pun-sec-parms\">)</tt></tt></tt><tt class=\"m-fn m-fn-rs\"> </tt><tt class=\"m-fn m-fn-rs\"><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">{</tt>\n    <tt class=\"stor-ty stor-ty-rs\">let</tt> point <tt class=\"k-op k-op-asgn\">=</tt> Point <tt class=\"pun-sec pun-sec-bl\">{</tt> x<tt class=\"pun-sep pun-sep-rs\">:</tt> <tt class=\"const-num const-num-int\">1</tt><tt class=\"pun-sep pun-sep-rs\">,</tt> y<tt class=\"pun-sep pun-sep-rs\">:</tt> <tt class=\"const-num const-num-int\">2</tt> <tt class=\"pun-sec pun-sec-bl\">}</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n    <tt class=\"com-ln com-ln-dbl-sl\"><tt class=\"pun-def pun-def-com\">//</tt> Convert the Point to a JSON string.</tt>\n    <tt class=\"stor-ty stor-ty-rs\">let</tt> serialized <tt class=\"k-op k-op-asgn\">=</tt> <tt class=\"m-path m-path-rs\">serde_json<tt class=\"pun-acc pun-acc-rs\">::</tt></tt>to_string<tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"k-op k-op-bit\">&amp;</tt>point<tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-acc pun-acc-dot\">.</tt><tt class=\"sup-fn sup-fn-rs\">unwrap</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n    <tt class=\"com-ln com-ln-dbl-sl\"><tt class=\"pun-def pun-def-com\">//</tt> Prints serialized = {\"x\":1,\"y\":2}</tt>\n    <tt class=\"sup-mac sup-mac-rs\">println!</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"str-q str-q-dbl\"><tt class=\"pun-def pun-def-str\">\"</tt>serialized = <tt class=\"const-ot const-ot-phold\">{}</tt><tt class=\"pun-def pun-def-str\">\"</tt></tt><tt class=\"pun-sep pun-sep-rs\">,</tt> serialized<tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n    <tt class=\"com-ln com-ln-dbl-sl\"><tt class=\"pun-def pun-def-com\">//</tt> Convert the JSON string back to a Point.</tt>\n    <tt class=\"stor-ty stor-ty-rs\">let</tt> deserialized<tt class=\"pun-sep pun-sep-rs\">:</tt> Point <tt class=\"k-op k-op-asgn\">=</tt> <tt class=\"m-path m-path-rs\">serde_json<tt class=\"pun-acc pun-acc-rs\">::</tt></tt>from_str<tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"k-op k-op-bit\">&amp;</tt>serialized<tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-acc pun-acc-dot\">.</tt><tt class=\"sup-fn sup-fn-rs\">unwrap</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n    <tt class=\"com-ln com-ln-dbl-sl\"><tt class=\"pun-def pun-def-com\">//</tt> Prints deserialized = Point { x: 1, y: 2 }</tt>\n    <tt class=\"sup-mac sup-mac-rs\">println!</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"str-q str-q-dbl\"><tt class=\"pun-def pun-def-str\">\"</tt>deserialized = <tt class=\"const-ot const-ot-phold\">{:?}</tt><tt class=\"pun-def pun-def-str\">\"</tt></tt><tt class=\"pun-sep pun-sep-rs\">,</tt> deserialized<tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n</tt><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">}</tt></tt></tt>\n</tt></code></pre>\n<h2 id=\"readme-getting-help\">Getting help</h2>\n<p>Serde is one of the most widely used Rust libraries so any place that Rustaceans\ncongregate will be able to help you out. For chat, consider trying the\n<a href=\"https://discord.com/channels/273534239310479360/274215136414400513\" rel=\"ugc noopener\">#rust-questions</a> or <a href=\"https://discord.com/channels/273534239310479360/273541522815713281\" rel=\"ugc noopener\">#rust-beginners</a> channels of the unofficial community\nDiscord (invite: <a href=\"https://discord.gg/rust-lang-community\" rel=\"ugc noopener\">https://discord.gg/rust-lang-community</a>), the <a href=\"https://discord.com/channels/442252698964721669/443150878111694848\" rel=\"ugc noopener\">#rust-usage</a>\nor <a href=\"https://discord.com/channels/442252698964721669/448238009733742612\" rel=\"ugc noopener\">#beginners</a> channels of the official Rust Project Discord (invite:\n<a href=\"https://discord.gg/rust-lang\" rel=\"ugc noopener\">https://discord.gg/rust-lang</a>), or the <a href=\"https://rust-lang.zulipchat.com/#narrow/stream/122651-general\" rel=\"ugc noopener\">#general</a> stream in Zulip. For\nasynchronous, consider the <a href=\"https://stackoverflow.com/questions/tagged/rust\" rel=\"ugc noopener\">[rust] tag on StackOverflow</a>, the\n<a href=\"https://www.reddit.com/r/rust\" rel=\"ugc noopener\">/r/rust</a> subreddit which has a pinned weekly easy questions post, or the Rust\n<a href=\"https://users.rust-lang.org\" rel=\"ugc noopener\">Discourse forum</a>. It's acceptable to file a support issue in this\nrepo but they tend not to get as many eyes as any of the above and may get\nclosed without a response after some time.</p>\n",
+  "scrapedAt": "2026-01-24T08:51:18.870Z"
+}

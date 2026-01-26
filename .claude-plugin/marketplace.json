@@ -21,6 +21,12 @@
       "source": "./playground/arxiv-viewer",
       "description": "View, search, download, and read academic papers from arXiv. Supports API queries, web scraping via Actionbook, and HTML paper reading via ar5iv.",
       "version": "0.1.0"
+    },
+    {
+      "name": "actionbook-scraper",
+      "source": "./playground/actionbook-scraper",
+      "description": "Generate accurate web scraper code using Actionbook's verified selectors. Achieves 7.76x better data extraction accuracy compared to AI-guessed selectors.",
+      "version": "0.1.0"
     }
   ]
 }

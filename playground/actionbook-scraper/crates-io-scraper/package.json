@@ -1,0 +1,32 @@
+{
+  "name": "crates-io-scraper",
+  "version": "1.0.0",
+  "description": "crates.io scraper using Actionbook verified selectors",
+  "main": "scraper.js",
+  "scripts": {
+    "scrape": "node scraper.js",
+    "scrape:homepage": "node scraper.js --mode homepage",
+    "scrape:list": "node scraper.js --mode list --pages 3",
+    "scrape:top": "node scraper.js --mode list --sort downloads --pages 5 --output top-crates.json",
+    "scrape:new": "node scraper.js --mode list --sort new --pages 3 --output new-crates.json",
+    "scrape:detail": "node scraper.js --mode detail --crate",
+    "scrape:search": "node scraper.js --mode search --search",
+    "scrape:all": "node scraper.js --mode all --output crates-io-full.json",
+    "scrape:agent-browser": "node scraper-agent-browser.js",
+    "scrape:agent-browser:homepage": "node scraper-agent-browser.js --mode homepage",
+    "scrape:agent-browser:list": "node scraper-agent-browser.js --mode list --pages 3",
+    "scrape:agent-browser:detail": "node scraper-agent-browser.js --mode detail --crate",
+    "scrape:agent-browser:search": "node scraper-agent-browser.js --mode search --search"
+  },
+  "keywords": [
+    "scraper",
+    "crates.io",
+    "rust",
+    "cargo",
+    "actionbook"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

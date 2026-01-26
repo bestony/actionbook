@@ -1,0 +1,21 @@
+{
+  "name": "firstround-scraper",
+  "version": "1.0.0",
+  "description": "First Round Capital portfolio companies scraper using Actionbook verified selectors",
+  "main": "scraper.js",
+  "scripts": {
+    "scrape": "node scraper.js",
+    "scrape:debug": "DEBUG=pw:api node scraper.js",
+    "scrape:agent-browser": "node scraper-agent-browser.js"
+  },
+  "keywords": [
+    "scraper",
+    "firstround",
+    "portfolio",
+    "actionbook"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

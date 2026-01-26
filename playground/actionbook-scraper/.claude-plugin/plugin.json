@@ -1,0 +1,7 @@
+{
+  "name": "actionbook-scraper",
+  "description": "Generate accurate web scraper code using Actionbook's verified selectors. Achieves 7.76x better data extraction accuracy.",
+  "author": {
+    "name": "Actionbook"
+  }
+}

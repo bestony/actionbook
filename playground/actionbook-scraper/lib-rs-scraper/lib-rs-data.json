@@ -1,0 +1,5690 @@
+{
+  "metadata": {
+    "source": "lib.rs",
+    "scrapedAt": "2026-01-24T08:56:27.968Z",
+    "mode": "homepage",
+    "actionbookActionIds": [
+      "https://lib.rs/",
+      "https://lib.rs/crates/{crate_name}",
+      "https://lib.rs/{category}"
+    ]
+  },
+  "homepage": {
+    "totalCrates": 221437,
+    "categories": [
+      {
+        "name": "Network programming",
+        "description": "Network protocols such as FTP, HTTP, or SSH, or lower-level TCP or UDP.",
+        "url": "/network-programming",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "sysinfo",
+            "description": "get system information such as processes…",
+            "url": "/crates/sysinfo"
+          },
+          {
+            "name": "tonic",
+            "description": "gRPC over HTTP/2 implementation focused on high performance…",
+            "url": "/crates/tonic"
+          },
+          {
+            "name": "tower",
+            "description": "modular and reusable components for building robust",
+            "url": "/crates/tower"
+          },
+          {
+            "name": "socket2",
+            "description": "handling networking sockets with a maximal amount of configuration",
+            "url": "/crates/socket2"
+          },
+          {
+            "name": "aws-config",
+            "description": "AWS SDK config and credential provider implementations",
+            "url": "/crates/aws-config"
+          },
+          {
+            "name": "ipnet",
+            "description": "types and useful methods for working with…",
+            "url": "/crates/ipnet"
+          },
+          {
+            "name": "quinn",
+            "description": "Versatile QUIC transport protocol implementation",
+            "url": "/crates/quinn"
+          },
+          {
+            "name": "async-graphql",
+            "description": "A GraphQL server library implemented in Rust",
+            "url": "/crates/async-graphql"
+          },
+          {
+            "name": "rtc",
+            "description": "Sans-I/O WebRTC implementation in Rust",
+            "url": "/crates/rtc"
+          },
+          {
+            "name": "web-transport-proto",
+            "description": "WebTransport core protocol",
+            "url": "/crates/web-transport-proto"
+          },
+          {
+            "name": "vane",
+            "description": "flow-based reverse proxy with multi-layer…",
+            "url": "/crates/vane"
+          },
+          {
+            "name": "kftray-portforward",
+            "description": "KFtray library with port forwarding logic",
+            "url": "/crates/kftray-portforward"
+          },
+          {
+            "name": "saorsa-gossip-pubsub",
+            "description": "Pub/sub for Saorsa Gossip: Plumtree epidemic…",
+            "url": "/crates/saorsa-gossip-pubsub"
+          },
+          {
+            "name": "web-transport-quinn",
+            "description": "WebTransport library for Quinn",
+            "url": "/crates/web-transport-quinn"
+          }
+        ],
+        "totalCrates": 14804
+      },
+      {
+        "name": "Rust patterns",
+        "description": "Shared solutions for particular situations specific to programming in Rust.",
+        "url": "/rust-patterns",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "bitflags",
+            "description": "A macro to generate structures which behave like bitflags",
+            "url": "/crates/bitflags"
+          },
+          {
+            "name": "zerocopy",
+            "description": "makes zero-cost memory manipulation effortless…",
+            "url": "/crates/zerocopy"
+          },
+          {
+            "name": "anyhow",
+            "description": "Flexible concrete Error type built on std::error::Error",
+            "url": "/crates/anyhow"
+          },
+          {
+            "name": "http",
+            "description": "A set of types for representing HTTP requests and responses",
+            "url": "/crates/http"
+          },
+          {
+            "name": "derive_more",
+            "description": "Adds #[derive(x)] macros for more traits",
+            "url": "/crates/derive_more"
+          },
+          {
+            "name": "once_cell",
+            "description": "Single assignment cells and lazy values",
+            "url": "/crates/once_cell"
+          },
+          {
+            "name": "generic-array",
+            "description": "Generic types implementing functionality of arrays",
+            "url": "/crates/generic-array"
+          },
+          {
+            "name": "ordered-float",
+            "description": "Wrappers for total ordering on floats",
+            "url": "/crates/ordered-float"
+          },
+          {
+            "name": "float8",
+            "description": "8-bit floating point types for Rust",
+            "url": "/crates/float8"
+          },
+          {
+            "name": "describer",
+            "description": "Struct describing helper",
+            "url": "/crates/describer"
+          },
+          {
+            "name": "facet",
+            "description": "Reflection for Rust: introspect types at…",
+            "url": "/crates/facet"
+          },
+          {
+            "name": "aranya-capi-core",
+            "description": "Aranya's C API tooling",
+            "url": "/crates/aranya-capi-core"
+          },
+          {
+            "name": "coinduction",
+            "description": "Attribute macros for defining circular type…",
+            "url": "/crates/coinduction"
+          },
+          {
+            "name": "fp-library",
+            "description": "functional programming library for Rust featuring…",
+            "url": "/crates/fp-library"
+          }
+        ],
+        "totalCrates": 6905
+      },
+      {
+        "name": "Algorithms",
+        "description": "Core algorithms such as hashing, sorting and searching.",
+        "url": "/algorithms",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "rand",
+            "description": "Random number generators and other randomness functionality",
+            "url": "/crates/rand"
+          },
+          {
+            "name": "ahash",
+            "description": "A non-cryptographic hash function using AES-NI for high performance",
+            "url": "/crates/ahash"
+          },
+          {
+            "name": "crc",
+            "description": "support of various standards",
+            "url": "/crates/crc"
+          },
+          {
+            "name": "strsim",
+            "description": "Implementations of string similarity metrics…",
+            "url": "/crates/strsim"
+          },
+          {
+            "name": "fastrand",
+            "description": "fast random number generator",
+            "url": "/crates/fastrand"
+          },
+          {
+            "name": "crypto-bigint",
+            "description": "Pure Rust implementation of a big integer…",
+            "url": "/crates/crypto-bigint"
+          },
+          {
+            "name": "rustc-hash",
+            "description": "A speedy, non-cryptographic hashing algorithm used by rustc",
+            "url": "/crates/rustc-hash"
+          },
+          {
+            "name": "rustfft",
+            "description": "High-performance FFT library written in pure Rust",
+            "url": "/crates/rustfft"
+          },
+          {
+            "name": "satkit",
+            "description": "Satellite Toolkit",
+            "url": "/crates/satkit"
+          },
+          {
+            "name": "libcrux-sha2",
+            "description": "Formally verified SHA2 hash library",
+            "url": "/crates/libcrux-sha2"
+          },
+          {
+            "name": "json-e",
+            "description": "data-structure parameterization system for…",
+            "url": "/crates/json-e"
+          },
+          {
+            "name": "gix-negotiate",
+            "description": "gitoxide project implementing negotiation algorithms",
+            "url": "/crates/gix-negotiate"
+          },
+          {
+            "name": "os-query-builder-rs",
+            "description": "Open Search query builder",
+            "url": "/crates/os-query-builder-rs"
+          },
+          {
+            "name": "mod_interface",
+            "description": "Protocol of modularity unifying interface…",
+            "url": "/crates/mod_interface"
+          },
+          {
+            "name": "pxdct",
+            "description": "Discrete cosine transform",
+            "url": "/crates/pxdct"
+          }
+        ],
+        "totalCrates": 6467
+      },
+      {
+        "name": "Data structures",
+        "description": "Rust implementations of data structures for specific purposes.",
+        "url": "/data-structures",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "hashbrown",
+            "description": "port of Google's SwissTable hash map",
+            "url": "/crates/hashbrown"
+          },
+          {
+            "name": "indexmap",
+            "description": "A hash table with consistent order and fast iteration",
+            "url": "/crates/indexmap"
+          },
+          {
+            "name": "bitvec",
+            "description": "Addresses memory by bits, for packed collections and bitfields",
+            "url": "/crates/bitvec"
+          },
+          {
+            "name": "smallvec",
+            "description": "'Small vector' optimization: store up to…",
+            "url": "/crates/smallvec"
+          },
+          {
+            "name": "ndarray",
+            "description": "n-dimensional array for general elements and for numerics…",
+            "url": "/crates/ndarray"
+          },
+          {
+            "name": "phf",
+            "description": "Runtime support for perfect hash function data structures",
+            "url": "/crates/phf"
+          },
+          {
+            "name": "priority-queue",
+            "description": "Priority Queue implemented as a heap with…",
+            "url": "/crates/priority-queue"
+          },
+          {
+            "name": "roaring",
+            "description": "A better compressed bitset - pure Rust implementation",
+            "url": "/crates/roaring"
+          },
+          {
+            "name": "ego-tree",
+            "description": "Vec-backed ID-tree",
+            "url": "/crates/ego-tree"
+          },
+          {
+            "name": "quantities",
+            "description": "Unit-safe computations with quantities",
+            "url": "/crates/quantities"
+          },
+          {
+            "name": "interavl",
+            "description": "An optimised interval tree for efficient interval stabbing",
+            "url": "/crates/interavl"
+          },
+          {
+            "name": "gix-hashtable",
+            "description": "that provides hashtable based data structures…",
+            "url": "/crates/gix-hashtable"
+          },
+          {
+            "name": "kcr_apps_kubeblocks_io",
+            "description": "Kubernetes Custom Resource Bindings",
+            "url": "/crates/kcr_apps_kubeblocks_io"
+          },
+          {
+            "name": "collection_tools",
+            "description": "General purpose tools to manipulate collections(…",
+            "url": "/crates/collection_tools"
+          }
+        ],
+        "totalCrates": 5270
+      },
+      {
+        "name": "Encoding data",
+        "description": "Encoding and/or decoding data from one data format to another.",
+        "url": "/encoding",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "serde_json",
+            "description": "A JSON serialization file format",
+            "url": "/crates/serde_json"
+          },
+          {
+            "name": "base64",
+            "description": "encodes and decodes base64 as bytes or utf8",
+            "url": "/crates/base64"
+          },
+          {
+            "name": "schemars",
+            "description": "Generate JSON Schemas from Rust code",
+            "url": "/crates/schemars"
+          },
+          {
+            "name": "prost",
+            "description": "A Protocol Buffers implementation for the Rust Language",
+            "url": "/crates/prost"
+          },
+          {
+            "name": "serde_with",
+            "description": "Custom de/serialization functions for Rust's serde",
+            "url": "/crates/serde_with"
+          },
+          {
+            "name": "ron",
+            "description": "Object Notation",
+            "url": "/crates/ron"
+          },
+          {
+            "name": "rmp-serde",
+            "description": "Serde support for MessagePack",
+            "url": "/crates/rmp-serde"
+          },
+          {
+            "name": "toml",
+            "description": "native Rust encoder and decoder of TOML-formatted files and streams…",
+            "url": "/crates/toml"
+          },
+          {
+            "name": "patchable",
+            "description": "A trait for patching structs",
+            "url": "/crates/patchable"
+          },
+          {
+            "name": "conjure-serde",
+            "description": "Serde Serializer and Deserializer wrappers for Conjure",
+            "url": "/crates/conjure-serde"
+          },
+          {
+            "name": "gix-object",
+            "description": "Immutable and mutable git objects with decoding and encoding support",
+            "url": "/crates/gix-object"
+          },
+          {
+            "name": "gix-packetline",
+            "description": "gitoxide project implementing the pkt-line serialization format",
+            "url": "/crates/gix-packetline"
+          },
+          {
+            "name": "lightyear_serde",
+            "description": "IO primitives for the lightyear networking library",
+            "url": "/crates/lightyear_serde"
+          },
+          {
+            "name": "herolib_otoml",
+            "description": "OTOML - Canonical TOML serialization format…",
+            "url": "/crates/herolib_otoml"
+          }
+        ],
+        "totalCrates": 5347
+      },
+      {
+        "name": "Cryptography",
+        "description": "Algorithms intended for securing data.",
+        "url": "/cryptography",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "curve25519-dalek",
+            "description": "pure-Rust implementation of group operations…",
+            "url": "/crates/curve25519-dalek"
+          },
+          {
+            "name": "rustls",
+            "description": "modern TLS library written in Rust",
+            "url": "/crates/rustls"
+          },
+          {
+            "name": "blake3",
+            "description": "hash function",
+            "url": "/crates/blake3"
+          },
+          {
+            "name": "sha2",
+            "description": "Pure Rust implementation of the SHA-2 hash function family",
+            "url": "/crates/sha2"
+          },
+          {
+            "name": "rsa",
+            "description": "Pure Rust RSA implementation",
+            "url": "/crates/rsa"
+          },
+          {
+            "name": "webpki-roots",
+            "description": "Mozilla's CA root certificates for use with webpki",
+            "url": "/crates/webpki-roots"
+          },
+          {
+            "name": "openssl",
+            "description": "bindings",
+            "url": "/crates/openssl"
+          },
+          {
+            "name": "pem",
+            "description": "Parse and encode PEM-encoded data",
+            "url": "/crates/pem"
+          },
+          {
+            "name": "boring",
+            "description": "BoringSSL bindings",
+            "url": "/crates/boring"
+          },
+          {
+            "name": "rustls-webpki",
+            "description": "Web PKI X.509 Certificate Verification",
+            "url": "/crates/rustls-webpki"
+          },
+          {
+            "name": "cryptoki",
+            "description": "Rust-native wrapper around the PKCS #11 API",
+            "url": "/crates/cryptoki"
+          },
+          {
+            "name": "entropy",
+            "description": "Calculates the Shannon entropy of arrays of bytes and strings",
+            "url": "/crates/entropy"
+          },
+          {
+            "name": "ml-kem",
+            "description": "Pure Rust implementation of the Module-Lattice-Based…",
+            "url": "/crates/ml-kem"
+          },
+          {
+            "name": "aranya-afc-util",
+            "description": "using Aranya Fast Channels",
+            "url": "/crates/aranya-afc-util"
+          },
+          {
+            "name": "saorsa-gossip-identity",
+            "description": "Post-quantum identity management for Saorsa…",
+            "url": "/crates/saorsa-gossip-identity"
+          }
+        ],
+        "totalCrates": 5450
+      },
+      {
+        "name": "Asynchronous",
+        "description": "Async program flow using techniques like futures, promises, waiting, or eventing.",
+        "url": "/asynchronous",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "tokio",
+            "description": "event-driven, non-blocking I/O platform for writing asynchronous I/O",
+            "url": "/crates/tokio"
+          },
+          {
+            "name": "h2",
+            "description": "An HTTP/2 client and server",
+            "url": "/crates/h2"
+          },
+          {
+            "name": "futures",
+            "description": "streams featuring zero allocations,",
+            "url": "/crates/futures"
+          },
+          {
+            "name": "tower-http",
+            "description": "Tower middleware and utilities for HTTP clients and servers",
+            "url": "/crates/tower-http"
+          },
+          {
+            "name": "async-io",
+            "description": "Async I/O and timers",
+            "url": "/crates/async-io"
+          },
+          {
+            "name": "tokio-rustls",
+            "description": "Asynchronous TLS/SSL streams for Tokio using Rustls",
+            "url": "/crates/tokio-rustls"
+          },
+          {
+            "name": "deadpool",
+            "description": "Dead simple async pool",
+            "url": "/crates/deadpool"
+          },
+          {
+            "name": "futures-lite",
+            "description": "Futures, streams, and async I/O combinators",
+            "url": "/crates/futures-lite"
+          },
+          {
+            "name": "fastpool",
+            "description": "This crates implements a fast object pool for Async Rust",
+            "url": "/crates/fastpool"
+          },
+          {
+            "name": "duroxide",
+            "description": "Durable code execution framework for Rust",
+            "url": "/crates/duroxide"
+          },
+          {
+            "name": "rainy-sdk",
+            "description": "Official Rust SDK for Rainy API by Enosis Labs v0…",
+            "url": "/crates/rainy-sdk"
+          },
+          {
+            "name": "reson-agentic",
+            "description": "Agents are just functions - production-grade LLM agent framework",
+            "url": "/crates/reson-agentic"
+          },
+          {
+            "name": "llm-kit-provider",
+            "description": "Provider interface and traits for the LLM…",
+            "url": "/crates/llm-kit-provider"
+          },
+          {
+            "name": "hannibal",
+            "description": "A small actor library",
+            "url": "/crates/hannibal"
+          }
+        ],
+        "totalCrates": 5664
+      },
+      {
+        "name": "Concurrency",
+        "description": "Implementing concurrent and parallel computation.",
+        "url": "/concurrency",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "parking_lot",
+            "description": "More compact and efficient implementations…",
+            "url": "/crates/parking_lot"
+          },
+          {
+            "name": "spin",
+            "description": "Spin-based synchronization primitives",
+            "url": "/crates/spin"
+          },
+          {
+            "name": "rayon",
+            "description": "work-stealing parallelism for Rust",
+            "url": "/crates/rayon"
+          },
+          {
+            "name": "async-lock",
+            "description": "Async synchronization primitives",
+            "url": "/crates/async-lock"
+          },
+          {
+            "name": "thread_local",
+            "description": "Per-object thread-local storage",
+            "url": "/crates/thread_local"
+          },
+          {
+            "name": "async-channel",
+            "description": "Async multi-producer multi-consumer channel",
+            "url": "/crates/async-channel"
+          },
+          {
+            "name": "crossbeam",
+            "description": "Tools for concurrent programming",
+            "url": "/crates/crossbeam"
+          },
+          {
+            "name": "ringbuf",
+            "description": "Lock-free SPSC FIFO ring buffer with direct access to inner data",
+            "url": "/crates/ringbuf"
+          },
+          {
+            "name": "crossfire",
+            "description": "channels for async and threads",
+            "url": "/crates/crossfire"
+          },
+          {
+            "name": "backfill",
+            "description": "A boringly-named priority work queue system for doing async tasks",
+            "url": "/crates/backfill"
+          },
+          {
+            "name": "nbio",
+            "description": "Non-Blocking I/O",
+            "url": "/crates/nbio"
+          },
+          {
+            "name": "env-lock",
+            "description": "Set and lock environment variables for tests",
+            "url": "/crates/env-lock"
+          },
+          {
+            "name": "atomic_list",
+            "description": "Lock-free circular ring of intrusive ref-counted…",
+            "url": "/crates/atomic_list"
+          },
+          {
+            "name": "s3sync",
+            "description": "Reliable, flexible, and fast synchronization tool for S3",
+            "url": "/crates/s3sync"
+          },
+          {
+            "name": "gix-lock",
+            "description": "A git-style lock-file implementation",
+            "url": "/crates/gix-lock"
+          }
+        ],
+        "totalCrates": 2778
+      },
+      {
+        "name": "Development tools",
+        "description": "Testing, debugging, linting, performance profiling, autocompletion, formatting, and more.",
+        "url": "/development-tools",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "object",
+            "description": "A unified interface for reading and writing object file formats",
+            "url": "/crates/object"
+          },
+          {
+            "name": "kube",
+            "description": "Kubernetes client and async controller runtime",
+            "url": "/crates/kube"
+          },
+          {
+            "name": "oxc_resolver",
+            "description": "ESM / CJS module resolution",
+            "url": "/crates/oxc_resolver"
+          },
+          {
+            "name": "gix",
+            "description": "Interact with git repositories just like git would",
+            "url": "/crates/gix"
+          },
+          {
+            "name": "git-mit",
+            "description": "Set author and Co-authored trailer",
+            "url": "/crates/git-mit"
+          },
+          {
+            "name": "k8s-openapi",
+            "description": "Bindings for the Kubernetes client API",
+            "url": "/crates/k8s-openapi"
+          },
+          {
+            "name": "capnpc",
+            "description": "Cap'n Proto code generation",
+            "url": "/crates/capnpc"
+          },
+          {
+            "name": "rspack_resolver",
+            "description": "ESM / CJS module resolution",
+            "url": "/crates/rspack_resolver"
+          },
+          {
+            "name": "verylup",
+            "description": "Veryl version manager",
+            "url": "/crates/verylup"
+          },
+          {
+            "name": "gix-hash",
+            "description": "Borrowed and owned git hash digests used to identify git objects",
+            "url": "/crates/gix-hash"
+          },
+          {
+            "name": "dotstate",
+            "description": "A modern, secure, and user-friendly dotfile manager built with Rust",
+            "url": "/crates/dotstate"
+          },
+          {
+            "name": "rcp-tools-throttle",
+            "description": "Internal library for RCP tools - resource…",
+            "url": "/crates/rcp-tools-throttle"
+          },
+          {
+            "name": "facet-reflect",
+            "description": "Build and manipulate values of arbitrary…",
+            "url": "/crates/facet-reflect"
+          },
+          {
+            "name": "jj-vine",
+            "description": "Stacked pull requests for jj (jujutsu). Supports…",
+            "url": "/crates/jj-vine"
+          },
+          {
+            "name": "gix-filter",
+            "description": "gitoxide project implementing git filters",
+            "url": "/crates/gix-filter"
+          }
+        ],
+        "totalCrates": 3506
+      },
+      {
+        "name": "Debugging",
+        "description": "Figure out what is going on with your code via logging, tracing, or assertions.",
+        "url": "/development-tools/debugging",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "tracing",
+            "description": "Application-level tracing for Rust",
+            "url": "/crates/tracing"
+          },
+          {
+            "name": "env_logger",
+            "description": "logging implementation for `log` which is…",
+            "url": "/crates/env_logger"
+          },
+          {
+            "name": "log",
+            "description": "A lightweight logging facade for Rust",
+            "url": "/crates/log"
+          },
+          {
+            "name": "console-subscriber",
+            "description": "A `tracing-subscriber::Layer` for collecting Tokio console telemetry",
+            "url": "/crates/console-subscriber"
+          },
+          {
+            "name": "backtrace",
+            "description": "acquire a stack trace (backtrace) at runtime in a Rust program",
+            "url": "/crates/backtrace"
+          },
+          {
+            "name": "prometheus",
+            "description": "instrumentation library for Rust applications",
+            "url": "/crates/prometheus"
+          },
+          {
+            "name": "tracing-opentelemetry",
+            "description": "OpenTelemetry integration for tracing",
+            "url": "/crates/tracing-opentelemetry"
+          },
+          {
+            "name": "gimli",
+            "description": "reading and writing the DWARF debugging format",
+            "url": "/crates/gimli"
+          },
+          {
+            "name": "cargo-binstall",
+            "description": "Binary installation for rust projects",
+            "url": "/crates/cargo-binstall"
+          },
+          {
+            "name": "addr2line",
+            "description": "A cross-platform symbolication library written in Rust, using `gimli`",
+            "url": "/crates/addr2line"
+          },
+          {
+            "name": "captains-log",
+            "description": "A minimalist customizable logger for rust,",
+            "url": "/crates/captains-log"
+          },
+          {
+            "name": "deno_panic",
+            "description": "stack trace and symbolication for deno",
+            "url": "/crates/deno_panic"
+          }
+        ],
+        "totalCrates": 2384
+      },
+      {
+        "name": "Build Utils",
+        "description": "Utilities for build scripts and other build time steps.",
+        "url": "/development-tools/build-utils",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "cc",
+            "description": "build-time dependency for Cargo build scripts…",
+            "url": "/crates/cc"
+          },
+          {
+            "name": "pkg-config",
+            "description": "run the pkg-config system tool at build time in order to be used in",
+            "url": "/crates/pkg-config"
+          },
+          {
+            "name": "cmake",
+            "description": "A build dependency for running `cmake` to build a native library",
+            "url": "/crates/cmake"
+          },
+          {
+            "name": "rustc_version",
+            "description": "querying the version of a installed rustc compiler",
+            "url": "/crates/rustc_version"
+          },
+          {
+            "name": "vergen",
+            "description": "Generate 'cargo:rustc-env' instructions via 'build…",
+            "url": "/crates/vergen"
+          },
+          {
+            "name": "linkme",
+            "description": "Safe cross-platform linker shenanigans",
+            "url": "/crates/linkme"
+          },
+          {
+            "name": "shadow-rs",
+            "description": "A build-time information stored in your rust project",
+            "url": "/crates/shadow-rs"
+          },
+          {
+            "name": "vcpkg",
+            "description": "find native dependencies in a vcpkg tree at build",
+            "url": "/crates/vcpkg"
+          },
+          {
+            "name": "cargo-util",
+            "description": "Miscellaneous support code used by Cargo",
+            "url": "/crates/cargo-util"
+          },
+          {
+            "name": "cxx-build",
+            "description": "C++ code generator for integrating `cxx` crate into a Cargo build",
+            "url": "/crates/cxx-build"
+          },
+          {
+            "name": "yazi-build",
+            "description": "Yazi build system",
+            "url": "/crates/yazi-build"
+          },
+          {
+            "name": "ccgo",
+            "description": "A high-performance C++ cross-platform build CLI",
+            "url": "/crates/ccgo"
+          },
+          {
+            "name": "rattler_index",
+            "description": "index conda channels and create a repodata.json file",
+            "url": "/crates/rattler_index"
+          },
+          {
+            "name": "async-codegen",
+            "description": "Minimalist async-IO code generation framework",
+            "url": "/crates/async-codegen"
+          },
+          {
+            "name": "build-rs",
+            "description": "API for writing Cargo `build.rs` files",
+            "url": "/crates/build-rs"
+          },
+          {
+            "name": "cargo",
+            "description": "package manager for Rust",
+            "url": "/crates/cargo"
+          }
+        ],
+        "totalCrates": 1686
+      },
+      {
+        "name": "Testing",
+        "description": "Verify the correctness of your code.",
+        "url": "/development-tools/testing",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "trybuild",
+            "description": "Test harness for ui tests of compiler diagnostics",
+            "url": "/crates/trybuild"
+          },
+          {
+            "name": "proptest",
+            "description": "Hypothesis-like property-based testing and shrinking",
+            "url": "/crates/proptest"
+          },
+          {
+            "name": "insta",
+            "description": "A snapshot testing library for Rust",
+            "url": "/crates/insta"
+          },
+          {
+            "name": "mockito",
+            "description": "HTTP mocking for Rust",
+            "url": "/crates/mockito"
+          },
+          {
+            "name": "pretty_assertions",
+            "description": "Overwrite `assert_eq!` and `assert_ne!` with drop-in replacements…",
+            "url": "/crates/pretty_assertions"
+          },
+          {
+            "name": "wiremock",
+            "description": "HTTP mocking to test Rust applications",
+            "url": "/crates/wiremock"
+          },
+          {
+            "name": "httpmock",
+            "description": "HTTP mocking library for Rust",
+            "url": "/crates/httpmock"
+          },
+          {
+            "name": "assert_cmd",
+            "description": "Test CLI Applications",
+            "url": "/crates/assert_cmd"
+          },
+          {
+            "name": "wind_tunnel_core",
+            "description": "Core components for Wind Tunnel",
+            "url": "/crates/wind_tunnel_core"
+          },
+          {
+            "name": "deqp-runner",
+            "description": "VK-GL-CTS/dEQP wrapper program to parallelize…",
+            "url": "/crates/deqp-runner"
+          },
+          {
+            "name": "odra-vm",
+            "description": "Odra Virtual Machine for testing and development",
+            "url": "/crates/odra-vm"
+          },
+          {
+            "name": "cd_env",
+            "description": "Detect CD (deploy, deliver, distribute) information…",
+            "url": "/crates/cd_env"
+          },
+          {
+            "name": "swc_relay",
+            "description": "AST Transforms for realy",
+            "url": "/crates/swc_relay"
+          },
+          {
+            "name": "rcp-tools-filegen",
+            "description": "Test fileset generator - creates sample directory…",
+            "url": "/crates/rcp-tools-filegen"
+          }
+        ],
+        "totalCrates": 2335
+      },
+      {
+        "name": "FFI",
+        "description": "Interface with other languages. Includes binding generators and helpful language constructs.",
+        "url": "/development-tools/ffi",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "pyo3",
+            "description": "Bindings to Python interpreter",
+            "url": "/crates/pyo3"
+          },
+          {
+            "name": "cbindgen",
+            "description": "generating C bindings to Rust code",
+            "url": "/crates/cbindgen"
+          },
+          {
+            "name": "napi",
+            "description": "N-API bindings",
+            "url": "/crates/napi"
+          },
+          {
+            "name": "cxx",
+            "description": "Safe interop between Rust and C++",
+            "url": "/crates/cxx"
+          },
+          {
+            "name": "bindgen",
+            "description": "Automatically generates Rust FFI bindings to C and C++ libraries",
+            "url": "/crates/bindgen"
+          },
+          {
+            "name": "numpy",
+            "description": "PyO3-based Rust bindings of the NumPy C-API",
+            "url": "/crates/numpy"
+          },
+          {
+            "name": "uniffi",
+            "description": "a multi-language bindings generator for rust",
+            "url": "/crates/uniffi"
+          },
+          {
+            "name": "jni",
+            "description": "Rust bindings to the JNI",
+            "url": "/crates/jni"
+          },
+          {
+            "name": "pyaket",
+            "description": "📦 Easy Python to Fast Executables",
+            "url": "/crates/pyaket"
+          },
+          {
+            "name": "cxx-gen",
+            "description": "C++ code generator for integrating `cxx` crate into higher level tools",
+            "url": "/crates/cxx-gen"
+          },
+          {
+            "name": "aranya-capi-codegen",
+            "description": "Code generation for Aranya's C API tooling",
+            "url": "/crates/aranya-capi-codegen"
+          },
+          {
+            "name": "cxxbridge-cmd",
+            "description": "C++ code generator for integrating `cxx` crate into a non-Cargo build",
+            "url": "/crates/cxxbridge-cmd"
+          },
+          {
+            "name": "fastexcel",
+            "description": "A fast excel reader for Rust and Python",
+            "url": "/crates/fastexcel"
+          },
+          {
+            "name": "buffi",
+            "description": "generate ergonomic, buffer-based C++ APIs",
+            "url": "/crates/buffi"
+          },
+          {
+            "name": "greentic-interfaces-guest",
+            "description": "Guest-facing bindings for Greentic components targeting wasm32-wasip2",
+            "url": "/crates/greentic-interfaces-guest"
+          },
+          {
+            "name": "aranya-policy-ifgen",
+            "description": "Tools for generating Rust interfaces to Aranya Policies",
+            "url": "/crates/aranya-policy-ifgen"
+          }
+        ],
+        "totalCrates": 998
+      },
+      {
+        "name": "Profiling",
+        "description": "Figure out the performance of your code.",
+        "url": "/development-tools/profiling",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "criterion",
+            "description": "Statistics-driven micro-benchmarking library",
+            "url": "/crates/criterion"
+          },
+          {
+            "name": "divan",
+            "description": "Statistically-comfy benchmarking library",
+            "url": "/crates/divan"
+          },
+          {
+            "name": "hdrhistogram",
+            "description": "A port of HdrHistogram to Rust",
+            "url": "/crates/hdrhistogram"
+          },
+          {
+            "name": "inferno",
+            "description": "Rust port of the FlameGraph performance profiling tool suite",
+            "url": "/crates/inferno"
+          },
+          {
+            "name": "profiling",
+            "description": "very thin abstraction over other profiler crates",
+            "url": "/crates/profiling"
+          },
+          {
+            "name": "pprof",
+            "description": "An internal perf tools for rust programs",
+            "url": "/crates/pprof"
+          },
+          {
+            "name": "dhat",
+            "description": "heap profiling and ad hoc profiling with DHAT",
+            "url": "/crates/dhat"
+          },
+          {
+            "name": "usdt",
+            "description": "Cross-platform Userland Statically Defined Tracing probes",
+            "url": "/crates/usdt"
+          },
+          {
+            "name": "brunch",
+            "description": "micro-benchmark runner",
+            "url": "/crates/brunch"
+          },
+          {
+            "name": "crabgrind",
+            "description": "Rust bindings to \"Valgrind Client Request\" interface",
+            "url": "/crates/crabgrind"
+          },
+          {
+            "name": "triton-cli",
+            "description": "Command Line Interface to run, prove, and…",
+            "url": "/crates/triton-cli"
+          },
+          {
+            "name": "hitrace-bench",
+            "description": "Allows benching of servo on ohos using the hitrace library",
+            "url": "/crates/hitrace-bench"
+          },
+          {
+            "name": "gix-discover",
+            "description": "Discover git repositories and check if a directory is a git repository",
+            "url": "/crates/gix-discover"
+          },
+          {
+            "name": "codspeed-criterion-compat",
+            "description": "Criterion.rs compatibility layer for CodSpeed",
+            "url": "/crates/codspeed-criterion-compat"
+          }
+        ],
+        "totalCrates": 954
+      },
+      {
+        "name": "Cargo plugins",
+        "description": "Subcommands that extend the capabilities of Cargo.",
+        "url": "/development-tools/cargo-plugins",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "cargo_metadata",
+            "description": "structured access to the output of `cargo metadata`",
+            "url": "/crates/cargo_metadata"
+          },
+          {
+            "name": "cargo-hack",
+            "description": "Cargo subcommand to provide various options…",
+            "url": "/crates/cargo-hack"
+          },
+          {
+            "name": "clap-cargo",
+            "description": "Re-usable CLI flags for `cargo` plugins",
+            "url": "/crates/clap-cargo"
+          },
+          {
+            "name": "cargo-sort",
+            "description": "Check if tables and items in a .toml file are lexically sorted",
+            "url": "/crates/cargo-sort"
+          },
+          {
+            "name": "cargo-deb",
+            "description": "Make Debian packages (.deb) easily with a Cargo subcommand",
+            "url": "/crates/cargo-deb"
+          },
+          {
+            "name": "cargo-careful",
+            "description": "Execute Rust code carefully, with extra checking along the way",
+            "url": "/crates/cargo-careful"
+          },
+          {
+            "name": "cargo-tarpaulin",
+            "description": "determine code coverage achieved via tests",
+            "url": "/crates/cargo-tarpaulin"
+          },
+          {
+            "name": "cargo-generate-rpm",
+            "description": "Generate a binary RPM package (.rpm) from Cargo projects",
+            "url": "/crates/cargo-generate-rpm"
+          },
+          {
+            "name": "cargo-semver-checks",
+            "description": "Scan your Rust crate for semver violations",
+            "url": "/crates/cargo-semver-checks"
+          },
+          {
+            "name": "cargo-supply-chain",
+            "description": "Gather author, contributor, publisher data…",
+            "url": "/crates/cargo-supply-chain"
+          }
+        ],
+        "totalCrates": 1540
+      },
+      {
+        "name": "Procedural macros",
+        "description": "Extend Rust language with procedural macros.",
+        "url": "/development-tools/procedural-macro-helpers",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "syn",
+            "description": "Parser for Rust source code",
+            "url": "/crates/syn"
+          },
+          {
+            "name": "darling",
+            "description": "A proc-macro library for reading attributes into structs when",
+            "url": "/crates/darling"
+          },
+          {
+            "name": "strum",
+            "description": "macros for working with enums and strings",
+            "url": "/crates/strum"
+          },
+          {
+            "name": "proc-macro-crate",
+            "description": "Replacement for crate (macro_rules keyword) in proc-macros",
+            "url": "/crates/proc-macro-crate"
+          },
+          {
+            "name": "ctor",
+            "description": "__attribute__((constructor)) for Rust",
+            "url": "/crates/ctor"
+          },
+          {
+            "name": "proc-macro-error2",
+            "description": "Almost drop-in replacement to panics in proc-macros",
+            "url": "/crates/proc-macro-error2"
+          },
+          {
+            "name": "proc-macro2",
+            "description": "substitute implementation of the compiler's…",
+            "url": "/crates/proc-macro2"
+          },
+          {
+            "name": "macrotest",
+            "description": "Test harness for macro expansion",
+            "url": "/crates/macrotest"
+          },
+          {
+            "name": "quote",
+            "description": "Quasi-quoting macro quote!(...)",
+            "url": "/crates/quote"
+          },
+          {
+            "name": "testutils",
+            "description": "Offers a range of utility functions, macros…",
+            "url": "/crates/testutils"
+          },
+          {
+            "name": "conjure-codegen",
+            "description": "Rust code generation for Conjure definitions",
+            "url": "/crates/conjure-codegen"
+          },
+          {
+            "name": "clippy_utils",
+            "description": "tools for writing lints, provided as they are used in Clippy",
+            "url": "/crates/clippy_utils"
+          },
+          {
+            "name": "facet-macro-types",
+            "description": "Unsynn grammar and type definitions for facet macro ecosystem",
+            "url": "/crates/facet-macro-types"
+          }
+        ],
+        "totalCrates": 10202
+      },
+      {
+        "name": "Text processing",
+        "description": "Deal with the complexities of human language when expressed in textual form.",
+        "url": "/text-processing",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "regex",
+            "description": "regular expressions for Rust. This implementation uses",
+            "url": "/crates/regex"
+          },
+          {
+            "name": "unicode-width",
+            "description": "Determine displayed width of `char` and `str` types",
+            "url": "/crates/unicode-width"
+          },
+          {
+            "name": "textwrap",
+            "description": "word wrapping, indenting, and dedenting strings…",
+            "url": "/crates/textwrap"
+          },
+          {
+            "name": "tokenizers",
+            "description": "today's most used tokenizers,",
+            "url": "/crates/tokenizers"
+          },
+          {
+            "name": "encoding_rs",
+            "description": "A Gecko-oriented implementation of the Encoding Standard",
+            "url": "/crates/encoding_rs"
+          },
+          {
+            "name": "fancy-regex",
+            "description": "regexes, supporting a relatively rich set of features…",
+            "url": "/crates/fancy-regex"
+          },
+          {
+            "name": "ropey",
+            "description": "A fast and robust text rope for Rust",
+            "url": "/crates/ropey"
+          },
+          {
+            "name": "similar",
+            "description": "A diff library for Rust",
+            "url": "/crates/similar"
+          },
+          {
+            "name": "rdfless",
+            "description": "colorful pretty printer for RDF (Turtle/TriG/N-Triples/N-Quads/PROV-N)…",
+            "url": "/crates/rdfless"
+          },
+          {
+            "name": "rumdl",
+            "description": "A fast Markdown linter written in Rust (Ru(st) MarkDown Linter)",
+            "url": "/crates/rumdl"
+          },
+          {
+            "name": "lumis",
+            "description": "Syntax highlighter powered by Tree-sitter and Neovim themes",
+            "url": "/crates/lumis"
+          },
+          {
+            "name": "kreuzberg-cli",
+            "description": "Command-line interface for Kreuzberg document intelligence",
+            "url": "/crates/kreuzberg-cli"
+          },
+          {
+            "name": "css_lexer",
+            "description": "spec-compliant CSS tokenizer with zero-copy…",
+            "url": "/crates/css_lexer"
+          },
+          {
+            "name": "harper-core",
+            "description": "The language checker for developers",
+            "url": "/crates/harper-core"
+          },
+          {
+            "name": "base-d",
+            "description": "Universal base encoder: Encode binary data…",
+            "url": "/crates/base-d"
+          }
+        ],
+        "totalCrates": 5361
+      },
+      {
+        "name": "Web programming",
+        "description": "Create applications for the Web.",
+        "url": "/web-programming",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "wgpu",
+            "description": "Cross-platform, safe, pure-rust graphics API",
+            "url": "/crates/wgpu"
+          },
+          {
+            "name": "web-sys",
+            "description": "Bindings for all Web APIs, a procedurally generated crate from WebIDL",
+            "url": "/crates/web-sys"
+          },
+          {
+            "name": "object_store",
+            "description": "generic object store interface for uniformly interacting with AWS S3…",
+            "url": "/crates/object_store"
+          },
+          {
+            "name": "webbrowser",
+            "description": "Open URLs in web browsers available on a platform",
+            "url": "/crates/webbrowser"
+          },
+          {
+            "name": "jsonschema",
+            "description": "JSON schema validaton library",
+            "url": "/crates/jsonschema"
+          },
+          {
+            "name": "httparse",
+            "description": "A tiny, safe, speedy, zero-copy HTTP/1.x parser",
+            "url": "/crates/httparse"
+          },
+          {
+            "name": "jsonpath-rust",
+            "description": "basic functionality to find the set of the…",
+            "url": "/crates/jsonpath-rust"
+          },
+          {
+            "name": "wasm-bindgen-test",
+            "description": "Internal testing crate for wasm-bindgen",
+            "url": "/crates/wasm-bindgen-test"
+          },
+          {
+            "name": "css-inline",
+            "description": "High-performance library for inlining CSS into HTML 'style' attributes",
+            "url": "/crates/css-inline"
+          },
+          {
+            "name": "kuchikikiki",
+            "description": "HTML tree manipulation library",
+            "url": "/crates/kuchikikiki"
+          },
+          {
+            "name": "fontcull-cli",
+            "description": "CLI tool to subset fonts based on actual glyph usage from web pages",
+            "url": "/crates/fontcull-cli"
+          },
+          {
+            "name": "oseda-cli",
+            "description": "OSEDA project scaffolding",
+            "url": "/crates/oseda-cli"
+          },
+          {
+            "name": "styled_components",
+            "description": "AST Transforms for styled-components",
+            "url": "/crates/styled_components"
+          }
+        ],
+        "totalCrates": 6475
+      },
+      {
+        "name": "HTTP server",
+        "description": "Server-side programming",
+        "url": "/web-programming/http-server",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "hyper",
+            "description": "A protective and efficient HTTP library for all",
+            "url": "/crates/hyper"
+          },
+          {
+            "name": "axum",
+            "description": "Web framework that focuses on ergonomics and modularity",
+            "url": "/crates/axum"
+          },
+          {
+            "name": "actix-web",
+            "description": "Actix Web is a powerful, pragmatic, and extremely…",
+            "url": "/crates/actix-web"
+          },
+          {
+            "name": "rmcp",
+            "description": "Rust SDK for Model Context Protocol",
+            "url": "/crates/rmcp"
+          },
+          {
+            "name": "hyper-rustls",
+            "description": "Rustls+hyper integration for pure rust HTTPS",
+            "url": "/crates/hyper-rustls"
+          },
+          {
+            "name": "leptos",
+            "description": "full-stack, isomorphic Rust web framework…",
+            "url": "/crates/leptos"
+          },
+          {
+            "name": "axum-test",
+            "description": "For spinning up and testing Axum servers",
+            "url": "/crates/axum-test"
+          },
+          {
+            "name": "actix-cors",
+            "description": "Cross-Origin Resource Sharing (CORS) controls for Actix Web",
+            "url": "/crates/actix-cors"
+          },
+          {
+            "name": "graphql-tools",
+            "description": "Tools for working with GraphQL in Rust",
+            "url": "/crates/graphql-tools"
+          },
+          {
+            "name": "yar",
+            "description": "An incremental static site generator written in Rust",
+            "url": "/crates/yar"
+          },
+          {
+            "name": "serwus",
+            "description": "Helpers for building actix-web/diesel based services",
+            "url": "/crates/serwus"
+          },
+          {
+            "name": "http-mitm-proxy",
+            "description": "HTTP proxy server library intended to be…",
+            "url": "/crates/http-mitm-proxy"
+          },
+          {
+            "name": "styled_jsx",
+            "description": "AST transforms visitor for styled-jsx",
+            "url": "/crates/styled_jsx"
+          },
+          {
+            "name": "inapt",
+            "description": "minimal Debian/Ubuntu APT repository proxy written in Rust…",
+            "url": "/crates/inapt"
+          },
+          {
+            "name": "apicentric",
+            "description": "Toolkit for building, recording, and sharing mock APIs",
+            "url": "/crates/apicentric"
+          },
+          {
+            "name": "swc_formatjs_transform",
+            "description": "formatjs custom transform visitor for SWC",
+            "url": "/crates/swc_formatjs_transform"
+          }
+        ],
+        "totalCrates": 4275
+      },
+      {
+        "name": "HTTP client",
+        "description": "Make HTTP network requests.",
+        "url": "/web-programming/http-client",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "ureq",
+            "description": "safe HTTP client",
+            "url": "/crates/ureq"
+          },
+          {
+            "name": "reqwest",
+            "description": "higher level HTTP client library",
+            "url": "/crates/reqwest"
+          },
+          {
+            "name": "octocrab",
+            "description": "A modern, extensible GitHub API client",
+            "url": "/crates/octocrab"
+          },
+          {
+            "name": "reqwest-middleware",
+            "description": "Wrapper around reqwest to allow for client middleware chains",
+            "url": "/crates/reqwest-middleware"
+          },
+          {
+            "name": "graphql_client",
+            "description": "Typed GraphQL requests and responses",
+            "url": "/crates/graphql_client"
+          },
+          {
+            "name": "h3",
+            "description": "An async HTTP/3 implementation",
+            "url": "/crates/h3"
+          },
+          {
+            "name": "thirtyfour",
+            "description": "Selenium / WebDriver library for Rust, for…",
+            "url": "/crates/thirtyfour"
+          },
+          {
+            "name": "twilight-http",
+            "description": "Discord REST API client for the Twilight ecosystem",
+            "url": "/crates/twilight-http"
+          },
+          {
+            "name": "reqwest_cookie_store",
+            "description": "providing an implementation of the `reqwest::cookie::CookieStore`…",
+            "url": "/crates/reqwest_cookie_store"
+          },
+          {
+            "name": "frankenstein",
+            "description": "Telegram bot API client for Rust",
+            "url": "/crates/frankenstein"
+          },
+          {
+            "name": "lesspass-client",
+            "description": "LessPass API server client library and CLI written in Rust",
+            "url": "/crates/lesspass-client"
+          },
+          {
+            "name": "nekosbest",
+            "description": "nekos.best API wrapper",
+            "url": "/crates/nekosbest"
+          }
+        ],
+        "totalCrates": 1336
+      },
+      {
+        "name": "WebSocket",
+        "description": "Communicate over the WebSocket protocol.",
+        "url": "/web-programming/websocket",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "tungstenite",
+            "description": "Lightweight stream-based WebSocket implementation",
+            "url": "/crates/tungstenite"
+          },
+          {
+            "name": "async-tungstenite",
+            "description": "Async binding for Tungstenite, the Lightweight…",
+            "url": "/crates/async-tungstenite"
+          },
+          {
+            "name": "worker",
+            "description": "SDK for writing Cloudflare Workers",
+            "url": "/crates/worker"
+          },
+          {
+            "name": "tokio-tungstenite",
+            "description": "Tokio binding for Tungstenite, the Lightweight…",
+            "url": "/crates/tokio-tungstenite"
+          },
+          {
+            "name": "ws_stream_wasm",
+            "description": "A convenience library for using websockets in WASM",
+            "url": "/crates/ws_stream_wasm"
+          },
+          {
+            "name": "actix-ws",
+            "description": "WebSockets for Actix Web, without actors",
+            "url": "/crates/actix-ws"
+          },
+          {
+            "name": "tokio-websockets",
+            "description": "High performance, strict, tokio-util based WebSockets implementation",
+            "url": "/crates/tokio-websockets"
+          },
+          {
+            "name": "fastwebsockets",
+            "description": "A fast RFC6455 WebSocket server implementation",
+            "url": "/crates/fastwebsockets"
+          },
+          {
+            "name": "yawc",
+            "description": "websocket library. But a fast, secure WebSocket…",
+            "url": "/crates/yawc"
+          },
+          {
+            "name": "sms-server",
+            "description": "SMS server for GSM modem hardware with HTTP/WebSocket APIs…",
+            "url": "/crates/sms-server"
+          },
+          {
+            "name": "jetstream_websocket",
+            "description": "Jetstream is a RPC framework for Rust, based…",
+            "url": "/crates/jetstream_websocket"
+          }
+        ],
+        "totalCrates": 933
+      },
+      {
+        "name": "WebAssembly",
+        "description": "Targeting or manipulating WebAssembly.",
+        "url": "/wasm",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "getrandom",
+            "description": "small cross-platform library for retrieving…",
+            "url": "/crates/getrandom"
+          },
+          {
+            "name": "wasm-bindgen",
+            "description": "Easy support for interacting between JS and Rust",
+            "url": "/crates/wasm-bindgen"
+          },
+          {
+            "name": "wasm-encoder",
+            "description": "A low-level WebAssembly encoder",
+            "url": "/crates/wasm-encoder"
+          },
+          {
+            "name": "jsonrpsee",
+            "description": "JSON-RPC client/server framework",
+            "url": "/crates/jsonrpsee"
+          },
+          {
+            "name": "wasi",
+            "description": "WASI API bindings for Rust",
+            "url": "/crates/wasi"
+          },
+          {
+            "name": "wit-component",
+            "description": "Tooling for working with `*.wit` and component files together",
+            "url": "/crates/wit-component"
+          },
+          {
+            "name": "wit-bindgen",
+            "description": "bindings generator and runtime support for…",
+            "url": "/crates/wit-bindgen"
+          },
+          {
+            "name": "console_error_panic_hook",
+            "description": "panic hook for `wasm32-unknown-unknown` that logs panics to `console…",
+            "url": "/crates/console_error_panic_hook"
+          },
+          {
+            "name": "ratzilla",
+            "description": "Build terminal-themed web applications with Ratatui and WebAssembly",
+            "url": "/crates/ratzilla"
+          },
+          {
+            "name": "virtual-fs",
+            "description": "Wasmer Virtual FileSystem",
+            "url": "/crates/virtual-fs"
+          },
+          {
+            "name": "wasmer-sys-utils",
+            "description": "Wasmer utilities for a sys environment",
+            "url": "/crates/wasmer-sys-utils"
+          },
+          {
+            "name": "wasmer",
+            "description": "High-performance WebAssembly runtime",
+            "url": "/crates/wasmer"
+          }
+        ],
+        "totalCrates": 3485
+      },
+      {
+        "name": "Filesystem",
+        "description": "Crates for dealing with files and filesystems.",
+        "url": "/filesystem",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "tempfile",
+            "description": "managing temporary files and directories",
+            "url": "/crates/tempfile"
+          },
+          {
+            "name": "dirs",
+            "description": "tiny low-level library that provides platform-specific…",
+            "url": "/crates/dirs"
+          },
+          {
+            "name": "which",
+            "description": "equivalent of Unix command \"which\". Locate…",
+            "url": "/crates/which"
+          },
+          {
+            "name": "camino",
+            "description": "UTF-8 paths",
+            "url": "/crates/camino"
+          },
+          {
+            "name": "notify",
+            "description": "Cross-platform filesystem notification library",
+            "url": "/crates/notify"
+          },
+          {
+            "name": "fs-err",
+            "description": "A drop-in replacement for std::fs with more helpful error messages",
+            "url": "/crates/fs-err"
+          },
+          {
+            "name": "glob",
+            "description": "Support for matching file paths against Unix shell style patterns",
+            "url": "/crates/glob"
+          },
+          {
+            "name": "shellexpand",
+            "description": "Shell-like expansions in strings",
+            "url": "/crates/shellexpand"
+          },
+          {
+            "name": "typed-path",
+            "description": "typed variants of Path and PathBuf for Unix and Windows",
+            "url": "/crates/typed-path"
+          },
+          {
+            "name": "notify-debouncer-full",
+            "description": "notify event debouncer optimized for ease of use",
+            "url": "/crates/notify-debouncer-full"
+          },
+          {
+            "name": "toccofs",
+            "description": "FUSE-based network filesystem for Tocco",
+            "url": "/crates/toccofs"
+          },
+          {
+            "name": "gix-dir",
+            "description": "gitoxide project dealing with directory walks",
+            "url": "/crates/gix-dir"
+          },
+          {
+            "name": "cachey",
+            "description": "Read-through cache for object storage",
+            "url": "/crates/cachey"
+          },
+          {
+            "name": "prefer",
+            "description": "lightweight library for managing application…",
+            "url": "/crates/prefer"
+          },
+          {
+            "name": "rcp-tools-rrm",
+            "description": "Fast file removal tool - efficiently removes…",
+            "url": "/crates/rcp-tools-rrm"
+          },
+          {
+            "name": "gix-tempfile",
+            "description": "A tempfile implementation with a global registry to assure cleanup",
+            "url": "/crates/gix-tempfile"
+          }
+        ],
+        "totalCrates": 4321
+      },
+      {
+        "name": "Parser implementations",
+        "description": "Parse data formats or languages.",
+        "url": "/parser-implementations",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "quick-xml",
+            "description": "High performance xml reader and writer",
+            "url": "/crates/quick-xml"
+          },
+          {
+            "name": "simd-json",
+            "description": "High performance JSON parser based on a port of simdjson",
+            "url": "/crates/simd-json"
+          },
+          {
+            "name": "semver",
+            "description": "Parser and evaluator for Cargo's flavor of Semantic Versioning",
+            "url": "/crates/semver"
+          },
+          {
+            "name": "url",
+            "description": "based on the WHATWG URL Standard",
+            "url": "/crates/url"
+          },
+          {
+            "name": "sqlparser",
+            "description": "Extensible SQL Lexer and Parser with support for ANSI SQL:2011",
+            "url": "/crates/sqlparser"
+          },
+          {
+            "name": "roxmltree",
+            "description": "Represent an XML as a read-only tree",
+            "url": "/crates/roxmltree"
+          },
+          {
+            "name": "goblin",
+            "description": "impish, cross-platform, ELF, Mach-o, and…",
+            "url": "/crates/goblin"
+          },
+          {
+            "name": "byte-unit",
+            "description": "interacting with units of bytes",
+            "url": "/crates/byte-unit"
+          },
+          {
+            "name": "cargo-util-schemas",
+            "description": "Deserialization schemas for Cargo",
+            "url": "/crates/cargo-util-schemas"
+          },
+          {
+            "name": "can-dbc",
+            "description": "parser for the DBC format. The DBC format…",
+            "url": "/crates/can-dbc"
+          },
+          {
+            "name": "comrak",
+            "description": "100% CommonMark-compatible GitHub Flavored…",
+            "url": "/crates/comrak"
+          },
+          {
+            "name": "cfg-expr",
+            "description": "A parser and evaluator for Rust `cfg()` expressions",
+            "url": "/crates/cfg-expr"
+          },
+          {
+            "name": "gpu-usage-waybar",
+            "description": "display gpu usage in Waybar",
+            "url": "/crates/gpu-usage-waybar"
+          },
+          {
+            "name": "conjure-http",
+            "description": "HTTP interfaces for generated Conjure services",
+            "url": "/crates/conjure-http"
+          }
+        ],
+        "totalCrates": 7510
+      },
+      {
+        "name": "Parser tooling",
+        "description": "Low-level tools and parser generators.",
+        "url": "/parsing",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "pest",
+            "description": "The Elegant Parser",
+            "url": "/crates/pest"
+          },
+          {
+            "name": "nom",
+            "description": "A byte-oriented, zero-copy, parser combinators library",
+            "url": "/crates/nom"
+          },
+          {
+            "name": "logos",
+            "description": "Create ridiculously fast Lexers",
+            "url": "/crates/logos"
+          },
+          {
+            "name": "chumsky",
+            "description": "A parser library for humans with powerful error recovery",
+            "url": "/crates/chumsky"
+          },
+          {
+            "name": "combine",
+            "description": "Fast parser combinators on arbitrary streams with zero-copy support",
+            "url": "/crates/combine"
+          },
+          {
+            "name": "lalrpop",
+            "description": "convenient LR(1) parser generator",
+            "url": "/crates/lalrpop"
+          },
+          {
+            "name": "pom",
+            "description": "PEG parser combinators using operator overloading without macros",
+            "url": "/crates/pom"
+          },
+          {
+            "name": "parol",
+            "description": "LL(k) and LALR(1) parser generator for Rust",
+            "url": "/crates/parol"
+          },
+          {
+            "name": "nimbleparse",
+            "description": "Yacc grammar debugging tool",
+            "url": "/crates/nimbleparse"
+          },
+          {
+            "name": "pdl-runtime",
+            "description": "PDL's runtime library",
+            "url": "/crates/pdl-runtime"
+          },
+          {
+            "name": "lrtable",
+            "description": "LR grammar table generation",
+            "url": "/crates/lrtable"
+          },
+          {
+            "name": "parsy",
+            "description": "efficient parser combinators library",
+            "url": "/crates/parsy"
+          },
+          {
+            "name": "minparser",
+            "description": "parsing functions",
+            "url": "/crates/minparser"
+          },
+          {
+            "name": "oni-comb-parser-rs",
+            "description": "parser combinators",
+            "url": "/crates/oni-comb-parser-rs"
+          },
+          {
+            "name": "scnr2_generate",
+            "description": "Scanner/Lexer with regex patterns and multiple modes",
+            "url": "/crates/scnr2_generate"
+          },
+          {
+            "name": "scnr2",
+            "description": "Scanner/Lexer with regex patterns and multiple modes",
+            "url": "/crates/scnr2"
+          },
+          {
+            "name": "nl-sre-english",
+            "description": "Probabilistic Semantic Disambiguation Engine…",
+            "url": "/crates/nl-sre-english"
+          }
+        ],
+        "totalCrates": 673
+      },
+      {
+        "name": "Operating systems",
+        "description": "Bindings to operating system-specific APIs.",
+        "url": "/os",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "libc",
+            "description": "Raw FFI bindings to platform libraries like libc",
+            "url": "/crates/libc"
+          },
+          {
+            "name": "whoami",
+            "description": "getting information about the current user and environment",
+            "url": "/crates/whoami"
+          },
+          {
+            "name": "os_info",
+            "description": "Detect the operating system type and version",
+            "url": "/crates/os_info"
+          },
+          {
+            "name": "errno",
+            "description": "Cross-platform interface to the `errno` variable",
+            "url": "/crates/errno"
+          },
+          {
+            "name": "libloading",
+            "description": "Bindings around the platform's dynamic library…",
+            "url": "/crates/libloading"
+          },
+          {
+            "name": "quanta",
+            "description": "high-speed timing library",
+            "url": "/crates/quanta"
+          },
+          {
+            "name": "hermit-abi",
+            "description": "Hermit system calls definitions",
+            "url": "/crates/hermit-abi"
+          },
+          {
+            "name": "gethostname",
+            "description": "all platforms",
+            "url": "/crates/gethostname"
+          },
+          {
+            "name": "rattler",
+            "description": "install conda environments",
+            "url": "/crates/rattler"
+          },
+          {
+            "name": "watchexec-supervisor",
+            "description": "Watchexec's process supervisor component",
+            "url": "/crates/watchexec-supervisor"
+          },
+          {
+            "name": "osclip",
+            "description": "small utility to copy text from terminal to system clipboard",
+            "url": "/crates/osclip"
+          },
+          {
+            "name": "nodejs_package_managers",
+            "description": "Helpers for npm, pnpm, yarn, and bun package managers",
+            "url": "/crates/nodejs_package_managers"
+          },
+          {
+            "name": "rattler_shell",
+            "description": "help with activation and deactivation of a conda environment",
+            "url": "/crates/rattler_shell"
+          }
+        ],
+        "totalCrates": 2220
+      },
+      {
+        "name": "Unix APIs",
+        "description": "Bindings to Unix-specific APIs.",
+        "url": "/os/unix-apis",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "rustix",
+            "description": "Safe Rust bindings to POSIX/Unix/Linux/Winsock-like syscalls",
+            "url": "/crates/rustix"
+          },
+          {
+            "name": "zbus",
+            "description": "API for D-Bus communication",
+            "url": "/crates/zbus"
+          },
+          {
+            "name": "nix",
+            "description": "Rust friendly bindings to *nix APIs",
+            "url": "/crates/nix"
+          },
+          {
+            "name": "dbus",
+            "description": "Bindings to D-Bus, which is a bus commonly…",
+            "url": "/crates/dbus"
+          },
+          {
+            "name": "notify-rust",
+            "description": "Show desktop notifications (linux, bsd, mac)…",
+            "url": "/crates/notify-rust"
+          },
+          {
+            "name": "home",
+            "description": "Shared definitions of home directories",
+            "url": "/crates/home"
+          },
+          {
+            "name": "oci-spec",
+            "description": "Open Container Initiative Specifications in Rust",
+            "url": "/crates/oci-spec"
+          },
+          {
+            "name": "x11rb",
+            "description": "Rust bindings to X11",
+            "url": "/crates/x11rb"
+          },
+          {
+            "name": "prek",
+            "description": "Better `pre-commit`, re-engineered in Rust",
+            "url": "/crates/prek"
+          },
+          {
+            "name": "arch-reflector",
+            "description": "Retrieve and filter a list of the latest Arch Linux mirrors",
+            "url": "/crates/arch-reflector"
+          },
+          {
+            "name": "nvidia_oc",
+            "description": "command line tool to overclock Nvidia GPUs…",
+            "url": "/crates/nvidia_oc"
+          },
+          {
+            "name": "linutil_core",
+            "description": "The backend of Linutil",
+            "url": "/crates/linutil_core"
+          },
+          {
+            "name": "miro-pdf",
+            "description": "native pdf viewer for Windows and Linux (Wayland/X11)…",
+            "url": "/crates/miro-pdf"
+          },
+          {
+            "name": "rootasrole",
+            "description": "A better alternative to sudo(-rs)/su",
+            "url": "/crates/rootasrole"
+          },
+          {
+            "name": "aptmirs",
+            "description": "mirroring apt/deb repositories",
+            "url": "/crates/aptmirs"
+          },
+          {
+            "name": "unitbus",
+            "description": "SDK for Linux systemd: control units/jobs via D-Bus (systemctl-like)…",
+            "url": "/crates/unitbus"
+          },
+          {
+            "name": "rattler_pty",
+            "description": "create pty",
+            "url": "/crates/rattler_pty"
+          }
+        ],
+        "totalCrates": 2220
+      },
+      {
+        "name": "Windows APIs",
+        "description": "Bindings to Windows-specific APIs.",
+        "url": "/os/windows-apis",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "windows",
+            "description": "Rust for Windows",
+            "url": "/crates/windows"
+          },
+          {
+            "name": "embed-resource",
+            "description": "Cargo library to handle compilation and inclusion…",
+            "url": "/crates/embed-resource"
+          },
+          {
+            "name": "winreg",
+            "description": "Rust bindings to MS Windows Registry API",
+            "url": "/crates/winreg"
+          },
+          {
+            "name": "fd-lock",
+            "description": "Advisory cross-platform lock on a file using a file descriptor to it",
+            "url": "/crates/fd-lock"
+          },
+          {
+            "name": "wild",
+            "description": "Glob (wildcard) expanded command-line arguments on Windows",
+            "url": "/crates/wild"
+          },
+          {
+            "name": "wmi",
+            "description": "WMI crate for rust",
+            "url": "/crates/wmi"
+          },
+          {
+            "name": "winapi",
+            "description": "Raw FFI bindings for all of Windows API",
+            "url": "/crates/winapi"
+          },
+          {
+            "name": "windows-service",
+            "description": "that provides facilities for management and…",
+            "url": "/crates/windows-service"
+          },
+          {
+            "name": "junction",
+            "description": "working with NTFS junctions",
+            "url": "/crates/junction"
+          },
+          {
+            "name": "win32_notif",
+            "description": "Wrapper around Windows UWP XAML (WinRT) Notification api",
+            "url": "/crates/win32_notif"
+          },
+          {
+            "name": "windows_shared_memory",
+            "description": "working with shared memory on Windows systems",
+            "url": "/crates/windows_shared_memory"
+          },
+          {
+            "name": "webview2-com",
+            "description": "Rust bindings for the WebView2 COM APIs",
+            "url": "/crates/webview2-com"
+          },
+          {
+            "name": "inno",
+            "description": "reading Inno Setup executables",
+            "url": "/crates/inno"
+          },
+          {
+            "name": "winmsg-executor",
+            "description": "Per-thread async rust executor for windows",
+            "url": "/crates/winmsg-executor"
+          }
+        ],
+        "totalCrates": 765
+      },
+      {
+        "name": "macOS and iOS APIs",
+        "description": "Bindings to Apple-specific APIs.",
+        "url": "/os/macos-apis",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "core-foundation",
+            "description": "Bindings to Core Foundation for macOS",
+            "url": "/crates/core-foundation"
+          },
+          {
+            "name": "mach2",
+            "description": "interface to the user-space API of the Mach 3…",
+            "url": "/crates/mach2"
+          },
+          {
+            "name": "objc2",
+            "description": "Objective-C interface and runtime bindings",
+            "url": "/crates/objc2"
+          },
+          {
+            "name": "core-text",
+            "description": "Bindings to the Core Text framework",
+            "url": "/crates/core-text"
+          },
+          {
+            "name": "objc",
+            "description": "Objective-C Runtime bindings and wrapper for Rust",
+            "url": "/crates/objc"
+          },
+          {
+            "name": "screencapturekit",
+            "description": "Safe Rust bindings for Apple's ScreenCaptureKit…",
+            "url": "/crates/screencapturekit"
+          },
+          {
+            "name": "block2",
+            "description": "Apple's C language extension of blocks",
+            "url": "/crates/block2"
+          },
+          {
+            "name": "swift-bridge",
+            "description": "Generate FFI bindings for safe interop between Rust and Swift",
+            "url": "/crates/swift-bridge"
+          },
+          {
+            "name": "fse_dump",
+            "description": "Dumps the fseventsd entries from a mac",
+            "url": "/crates/fse_dump"
+          },
+          {
+            "name": "applevisor",
+            "description": "Rust bindings for the Apple Silicon Hypervisor Framework",
+            "url": "/crates/applevisor"
+          },
+          {
+            "name": "media-remote",
+            "description": "Bindings for MediaRemote.framework",
+            "url": "/crates/media-remote"
+          },
+          {
+            "name": "idevice",
+            "description": "interact with services on iOS devices",
+            "url": "/crates/idevice"
+          },
+          {
+            "name": "rattler_virtual_packages",
+            "description": "work with and detect Conda virtual packages",
+            "url": "/crates/rattler_virtual_packages"
+          }
+        ],
+        "totalCrates": 518
+      },
+      {
+        "name": "Android",
+        "description": "Mobile development",
+        "url": "/os/android-apis",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "android-activity",
+            "description": "Glue for building Rust applications on Android…",
+            "url": "/crates/android-activity"
+          },
+          {
+            "name": "android_logger",
+            "description": "A logging implementation for `log` which hooks to android log output",
+            "url": "/crates/android_logger"
+          },
+          {
+            "name": "findshlibs",
+            "description": "Find the set of shared libraries loaded in…",
+            "url": "/crates/findshlibs"
+          },
+          {
+            "name": "proguard",
+            "description": "Basic proguard mapping file handling for Rust",
+            "url": "/crates/proguard"
+          },
+          {
+            "name": "font-kit",
+            "description": "A cross-platform font loading library",
+            "url": "/crates/font-kit"
+          },
+          {
+            "name": "mopro-ffi",
+            "description": "Mopro is a toolkit for ZK app development on mobile…",
+            "url": "/crates/mopro-ffi"
+          },
+          {
+            "name": "android_log-sys",
+            "description": "FFI bindings to Android log Library",
+            "url": "/crates/android_log-sys"
+          },
+          {
+            "name": "apkeep",
+            "description": "A command-line tool for downloading APK files from various sources",
+            "url": "/crates/apkeep"
+          },
+          {
+            "name": "xfont",
+            "description": "font query",
+            "url": "/crates/xfont"
+          },
+          {
+            "name": "rsbinder-tools",
+            "description": "few CLI binder tools for Linux",
+            "url": "/crates/rsbinder-tools"
+          },
+          {
+            "name": "dab-cli",
+            "description": "Android package manager CLI tool",
+            "url": "/crates/dab-cli"
+          },
+          {
+            "name": "ahqstore-types",
+            "description": "Standard types used by AHQ Store",
+            "url": "/crates/ahqstore-types"
+          },
+          {
+            "name": "payload_packer",
+            "description": "standalone tool for generating full and incremental…",
+            "url": "/crates/payload_packer"
+          }
+        ],
+        "totalCrates": 112
+      },
+      {
+        "name": "Science",
+        "description": "Solving problems involving math, physics, and other scientific fields.",
+        "url": "/science",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "hdf5-metno",
+            "description": "Thread-safe Rust bindings for the HDF5 library",
+            "url": "/crates/hdf5-metno"
+          },
+          {
+            "name": "splashsurf",
+            "description": "Command-line tool for surface reconstruction of SPH particle data",
+            "url": "/crates/splashsurf"
+          },
+          {
+            "name": "mendeleev",
+            "description": "List of chemical elements, their isotopes, and their properties",
+            "url": "/crates/mendeleev"
+          },
+          {
+            "name": "roqoqo-test",
+            "description": "Testing helper functions for roqoqo toolkit",
+            "url": "/crates/roqoqo-test"
+          },
+          {
+            "name": "app_units",
+            "description": "Servo app units type (Au)",
+            "url": "/crates/app_units"
+          },
+          {
+            "name": "biodivine-algo-bdd-scc",
+            "description": "BDD-based algorithms for symbolic SCC detection in Boolean networks",
+            "url": "/crates/biodivine-algo-bdd-scc"
+          },
+          {
+            "name": "row",
+            "description": "command line tool that helps you manage workflows on HPC resources",
+            "url": "/crates/row"
+          },
+          {
+            "name": "beamdpr",
+            "description": "Combine and transform egsphsp (EGS phase space)…",
+            "url": "/crates/beamdpr"
+          },
+          {
+            "name": "gxf2bed",
+            "description": "fastest GTF/GFF-to-BED converter chilling around",
+            "url": "/crates/gxf2bed"
+          },
+          {
+            "name": "rumtk-core",
+            "description": "Core library for providing general functionality…",
+            "url": "/crates/rumtk-core"
+          },
+          {
+            "name": "elements_rs",
+            "description": "comprehensive library for chemical elements…",
+            "url": "/crates/elements_rs"
+          },
+          {
+            "name": "h5inspect",
+            "description": "A terminal based HDF5 file inspector",
+            "url": "/crates/h5inspect"
+          },
+          {
+            "name": "molar_python",
+            "description": "python bindings for molar",
+            "url": "/crates/molar_python"
+          }
+        ],
+        "totalCrates": 4566
+      },
+      {
+        "name": "Math",
+        "description": "Solving problems involving math and logic.",
+        "url": "/science/math",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "num-bigint",
+            "description": "Big integer implementation for Rust",
+            "url": "/crates/num-bigint"
+          },
+          {
+            "name": "statrs",
+            "description": "Statistical computing library for Rust",
+            "url": "/crates/statrs"
+          },
+          {
+            "name": "kurbo",
+            "description": "A 2D curves library",
+            "url": "/crates/kurbo"
+          },
+          {
+            "name": "bigdecimal",
+            "description": "Arbitrary precision decimal numbers",
+            "url": "/crates/bigdecimal"
+          },
+          {
+            "name": "nalgebra",
+            "description": "General-purpose linear algebra library with…",
+            "url": "/crates/nalgebra"
+          },
+          {
+            "name": "rug",
+            "description": "Arbitrary-precision integers, rational, floating-point…",
+            "url": "/crates/rug"
+          },
+          {
+            "name": "euclid",
+            "description": "Geometry primitives",
+            "url": "/crates/euclid"
+          },
+          {
+            "name": "num-traits",
+            "description": "Numeric traits for generic mathematics",
+            "url": "/crates/num-traits"
+          },
+          {
+            "name": "fend",
+            "description": "Arbitrary-precision unit-aware calculator",
+            "url": "/crates/fend"
+          },
+          {
+            "name": "vec3-rs",
+            "description": "minimal 3d vector implementation",
+            "url": "/crates/vec3-rs"
+          },
+          {
+            "name": "num-primitive",
+            "description": "Traits for primitive numeric types",
+            "url": "/crates/num-primitive"
+          },
+          {
+            "name": "fib-rs",
+            "description": "A fast Fibonacci number calculator",
+            "url": "/crates/fib-rs"
+          },
+          {
+            "name": "assay-policy",
+            "description": "Policy types and compilation logic for Assay",
+            "url": "/crates/assay-policy"
+          },
+          {
+            "name": "feldera-fxp",
+            "description": "Fixed-point decimal with fixed precision and scale",
+            "url": "/crates/feldera-fxp"
+          },
+          {
+            "name": "polyfit",
+            "description": "Because you don't need to be able to build…",
+            "url": "/crates/polyfit"
+          },
+          {
+            "name": "factorion-bot-discord",
+            "description": "factorion-bot (for factorials and related) on Discord",
+            "url": "/crates/factorion-bot-discord"
+          }
+        ],
+        "totalCrates": 4566
+      },
+      {
+        "name": "Machine learning",
+        "description": "AI, ML, NN, etc.",
+        "url": "/science/ml",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "safetensors",
+            "description": "functions to read and write safetensors which aim to be safer than",
+            "url": "/crates/safetensors"
+          },
+          {
+            "name": "ort",
+            "description": "safe Rust wrapper for ONNX Runtime 1.23…",
+            "url": "/crates/ort"
+          },
+          {
+            "name": "fastembed",
+            "description": "generating vector embeddings, reranking locally",
+            "url": "/crates/fastembed"
+          },
+          {
+            "name": "hf-hub",
+            "description": "crates aims ease the interaction with [huggingface]…",
+            "url": "/crates/hf-hub"
+          },
+          {
+            "name": "burn",
+            "description": "Flexible and Comprehensive Deep Learning Framework in Rust",
+            "url": "/crates/burn"
+          },
+          {
+            "name": "tiktoken-rs",
+            "description": "encoding and decoding with the tiktoken library in Rust",
+            "url": "/crates/tiktoken-rs"
+          },
+          {
+            "name": "lance",
+            "description": "columnar data format that is 100x faster…",
+            "url": "/crates/lance"
+          },
+          {
+            "name": "genai",
+            "description": "Multi-AI Providers Library for Rust. (OpenAI…",
+            "url": "/crates/genai"
+          },
+          {
+            "name": "perpetual",
+            "description": "self-generalizing gradient boosting machine…",
+            "url": "/crates/perpetual"
+          },
+          {
+            "name": "medmodels",
+            "description": "Limebit MedModels Crate",
+            "url": "/crates/medmodels"
+          },
+          {
+            "name": "peft-rs",
+            "description": "Comprehensive PEFT (Parameter-Efficient Fine-Tuning)…",
+            "url": "/crates/peft-rs"
+          },
+          {
+            "name": "dynamo-async-openai",
+            "description": "Fork of async-openai customized for Dynamo",
+            "url": "/crates/dynamo-async-openai"
+          },
+          {
+            "name": "dynamo-parsers",
+            "description": "Dynamo Parser Library for Tool Calling and Reasoning",
+            "url": "/crates/dynamo-parsers"
+          },
+          {
+            "name": "assay-core",
+            "description": "High-performance evaluation framework for LLM agents (Core)",
+            "url": "/crates/assay-core"
+          },
+          {
+            "name": "onnx-ir",
+            "description": "pure Rust library for parsing ONNX models…",
+            "url": "/crates/onnx-ir"
+          }
+        ],
+        "totalCrates": 3425
+      },
+      {
+        "name": "Geospatial",
+        "description": "GIS, maps, and stuff on Earth",
+        "url": "/science/geo",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "fake",
+            "description": "easy to use library and command line for…",
+            "url": "/crates/fake"
+          },
+          {
+            "name": "geo",
+            "description": "Geospatial primitives and algorithms",
+            "url": "/crates/geo"
+          },
+          {
+            "name": "geozero",
+            "description": "Zero-Copy reading and writing of geospatial data in WKT/WKB…",
+            "url": "/crates/geozero"
+          },
+          {
+            "name": "google_maps",
+            "description": "unofficial Google Maps Platform client library…",
+            "url": "/crates/google_maps"
+          },
+          {
+            "name": "geos",
+            "description": "Rust bindings for GEOS C API",
+            "url": "/crates/geos"
+          },
+          {
+            "name": "wkt",
+            "description": "Rust read/write support for well-known text (WKT)",
+            "url": "/crates/wkt"
+          },
+          {
+            "name": "i_overlay",
+            "description": "Boolean Operations for 2D Polygons: Supports intersection…",
+            "url": "/crates/i_overlay"
+          },
+          {
+            "name": "anise",
+            "description": "Core of the ANISE library",
+            "url": "/crates/anise"
+          },
+          {
+            "name": "libgweather",
+            "description": "Rust bindings for libgweather",
+            "url": "/crates/libgweather"
+          },
+          {
+            "name": "czdb",
+            "description": "A pure Rust library for parsing CZDB-format IP databases",
+            "url": "/crates/czdb"
+          },
+          {
+            "name": "tzf-rs",
+            "description": "Fast convert longitude,latitude to timezone name",
+            "url": "/crates/tzf-rs"
+          },
+          {
+            "name": "pmtiles",
+            "description": "v3 spec with multiple sync and async backends",
+            "url": "/crates/pmtiles"
+          },
+          {
+            "name": "ferrostar",
+            "description": "The core of modern turn-by-turn navigation",
+            "url": "/crates/ferrostar"
+          },
+          {
+            "name": "versatiles",
+            "description": "toolbox for converting, checking and serving…",
+            "url": "/crates/versatiles"
+          },
+          {
+            "name": "googleapis-tonic-google-maps-weather-v1",
+            "description": "A Google APIs client library generated by tonic-build",
+            "url": "/crates/googleapis-tonic-google-maps-weather-v1"
+          }
+        ],
+        "totalCrates": 755
+      },
+      {
+        "name": "Compression",
+        "description": "Algorithms for making data smaller.",
+        "url": "/compression",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "flate2",
+            "description": "DEFLATE compression and decompression exposed…",
+            "url": "/crates/flate2"
+          },
+          {
+            "name": "zip",
+            "description": "support the reading and writing of zip files",
+            "url": "/crates/zip"
+          },
+          {
+            "name": "tar",
+            "description": "file reader and writer. This library does not",
+            "url": "/crates/tar"
+          },
+          {
+            "name": "parquet",
+            "description": "Apache Parquet implementation in Rust",
+            "url": "/crates/parquet"
+          },
+          {
+            "name": "lz4_flex",
+            "description": "Fastest LZ4 implementation in Rust, no unsafe by default",
+            "url": "/crates/lz4_flex"
+          },
+          {
+            "name": "brotli",
+            "description": "compressor and decompressor that with an…",
+            "url": "/crates/brotli"
+          },
+          {
+            "name": "zstd",
+            "description": "Binding for the zstd compression library",
+            "url": "/crates/zstd"
+          },
+          {
+            "name": "miniz_oxide",
+            "description": "DEFLATE compression and decompression library…",
+            "url": "/crates/miniz_oxide"
+          },
+          {
+            "name": "libz-rs-sys",
+            "description": "A memory-safe zlib implementation written in rust",
+            "url": "/crates/libz-rs-sys"
+          },
+          {
+            "name": "async-tar",
+            "description": "async TAR file reader and writer. This library does not",
+            "url": "/crates/async-tar"
+          },
+          {
+            "name": "zlib-rs",
+            "description": "A memory-safe zlib implementation written in rust",
+            "url": "/crates/zlib-rs"
+          },
+          {
+            "name": "ppmd-rust",
+            "description": "PPMd compression / decompression",
+            "url": "/crates/ppmd-rust"
+          },
+          {
+            "name": "gix-testtools",
+            "description": "Shared code for gitoxide crates to facilitate testing",
+            "url": "/crates/gix-testtools"
+          },
+          {
+            "name": "gix-features",
+            "description": "integrate various capabilities using compile-time feature flags",
+            "url": "/crates/gix-features"
+          },
+          {
+            "name": "archive-to-parquet",
+            "description": "Recursively convert archives to parquet files",
+            "url": "/crates/archive-to-parquet"
+          }
+        ],
+        "totalCrates": 1915
+      },
+      {
+        "name": "Hardware support",
+        "description": "Interface with specific CPU or other hardware features.",
+        "url": "/hardware-support",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "wide",
+            "description": "help you go wide",
+            "url": "/crates/wide"
+          },
+          {
+            "name": "num_cpus",
+            "description": "Get the number of CPUs on a machine",
+            "url": "/crates/num_cpus"
+          },
+          {
+            "name": "serialport",
+            "description": "A cross-platform low-level serial port library",
+            "url": "/crates/serialport"
+          },
+          {
+            "name": "blake2b_simd",
+            "description": "a pure Rust BLAKE2b implementation with dynamic SIMD",
+            "url": "/crates/blake2b_simd"
+          },
+          {
+            "name": "crc32fast",
+            "description": "Fast, SIMD-accelerated CRC32 (IEEE) checksum computation",
+            "url": "/crates/crc32fast"
+          },
+          {
+            "name": "nvml-wrapper",
+            "description": "A safe and ergonomic Rust wrapper for the NVIDIA Management Library",
+            "url": "/crates/nvml-wrapper"
+          },
+          {
+            "name": "raw-cpuid",
+            "description": "parse the x86 CPUID instruction, written…",
+            "url": "/crates/raw-cpuid"
+          },
+          {
+            "name": "enigo",
+            "description": "Cross-platform (Linux, Windows, macOS & BSD)…",
+            "url": "/crates/enigo"
+          },
+          {
+            "name": "cudarc",
+            "description": "Safe and minimal CUDA bindings",
+            "url": "/crates/cudarc"
+          },
+          {
+            "name": "litra",
+            "description": "Control Logitech Litra lights from the command line…",
+            "url": "/crates/litra"
+          },
+          {
+            "name": "doe",
+            "description": "powerful Rust crate designed to enhance development…",
+            "url": "/crates/doe"
+          },
+          {
+            "name": "core-models",
+            "description": "Models of the Rust core library",
+            "url": "/crates/core-models"
+          },
+          {
+            "name": "litra-autotoggle",
+            "description": "Automatically turn your Logitech Litra device…",
+            "url": "/crates/litra-autotoggle"
+          },
+          {
+            "name": "spade-parser",
+            "description": "Helper crate for https://spade-lang.org/",
+            "url": "/crates/spade-parser"
+          },
+          {
+            "name": "spade-mir",
+            "description": "Helper crate for https://spade-lang.org/",
+            "url": "/crates/spade-mir"
+          }
+        ],
+        "totalCrates": 4314
+      },
+      {
+        "name": "Embedded development",
+        "description": "For embedded devices or devices without an operating system.",
+        "url": "/embedded",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "portable-atomic",
+            "description": "Portable atomic types including support for 128-bit atomics…",
+            "url": "/crates/portable-atomic"
+          },
+          {
+            "name": "rhai",
+            "description": "Embedded scripting for Rust",
+            "url": "/crates/rhai"
+          },
+          {
+            "name": "elf",
+            "description": "A pure-rust library for parsing ELF files",
+            "url": "/crates/elf"
+          },
+          {
+            "name": "embedded-graphics",
+            "description": "Embedded graphics library for small hardware displays",
+            "url": "/crates/embedded-graphics"
+          },
+          {
+            "name": "fixed",
+            "description": "Fixed-point numbers",
+            "url": "/crates/fixed"
+          },
+          {
+            "name": "embedded-hal-mock",
+            "description": "A collection of mocked devices that implement the embedded-hal traits",
+            "url": "/crates/embedded-hal-mock"
+          },
+          {
+            "name": "embedded-hal",
+            "description": "A Hardware Abstraction Layer (HAL) for embedded systems",
+            "url": "/crates/embedded-hal"
+          },
+          {
+            "name": "critical-section",
+            "description": "Cross-platform critical section",
+            "url": "/crates/critical-section"
+          },
+          {
+            "name": "dma-api",
+            "description": "Trait for DMA alloc and some collections",
+            "url": "/crates/dma-api"
+          },
+          {
+            "name": "scm-record",
+            "description": "UI component to interactively select changes to include in a commit",
+            "url": "/crates/scm-record"
+          },
+          {
+            "name": "scm-diff-editor",
+            "description": "UI component to interactively select changes to include in a commit",
+            "url": "/crates/scm-diff-editor"
+          },
+          {
+            "name": "eva-lsl",
+            "description": "EVA ICS v4 local service launcher",
+            "url": "/crates/eva-lsl"
+          }
+        ],
+        "totalCrates": 5171
+      },
+      {
+        "name": "Memory management",
+        "description": "Allocation, memory mapping, garbage collection, reference counting, or interfaces to foreign memory managers.",
+        "url": "/memory-management",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "bumpalo",
+            "description": "A fast bump allocation arena for Rust",
+            "url": "/crates/bumpalo"
+          },
+          {
+            "name": "arc-swap",
+            "description": "Atomically swappable Arc",
+            "url": "/crates/arc-swap"
+          },
+          {
+            "name": "slab",
+            "description": "Pre-allocated storage for a uniform data type",
+            "url": "/crates/slab"
+          },
+          {
+            "name": "memmap2",
+            "description": "Cross-platform Rust API for memory-mapped file IO",
+            "url": "/crates/memmap2"
+          },
+          {
+            "name": "tikv-jemallocator",
+            "description": "allocator backed by jemalloc",
+            "url": "/crates/tikv-jemallocator"
+          },
+          {
+            "name": "sharded-slab",
+            "description": "A lock-free concurrent slab",
+            "url": "/crates/sharded-slab"
+          },
+          {
+            "name": "wasmtime",
+            "description": "High-level API to expose the Wasmtime runtime",
+            "url": "/crates/wasmtime"
+          },
+          {
+            "name": "mimalloc",
+            "description": "Performance and security oriented drop-in allocator",
+            "url": "/crates/mimalloc"
+          },
+          {
+            "name": "flexstr",
+            "description": "A flexible, simple to use, clone-efficient string type for Rust",
+            "url": "/crates/flexstr"
+          },
+          {
+            "name": "swage",
+            "description": "Rowhammer framework",
+            "url": "/crates/swage"
+          },
+          {
+            "name": "bufio",
+            "description": "std::io::Write for your potentially uninitialized slice of memory",
+            "url": "/crates/bufio"
+          },
+          {
+            "name": "wrc",
+            "description": "A thread-safe weighted reference counting smart-pointer for Rust",
+            "url": "/crates/wrc"
+          },
+          {
+            "name": "isoalloc",
+            "description": "Security oriented allocator",
+            "url": "/crates/isoalloc"
+          },
+          {
+            "name": "smmalloc",
+            "description": "smalloc is a very simple but performant allocator",
+            "url": "/crates/smmalloc"
+          },
+          {
+            "name": "wasmtime-internal-slab",
+            "description": "INTERNAL: Uni-typed slab with a free list for use in Wasmtime",
+            "url": "/crates/wasmtime-internal-slab"
+          }
+        ],
+        "totalCrates": 1595
+      },
+      {
+        "name": "Command-line interface",
+        "description": "Argument parsers, line-editing, or output coloring and formatting.",
+        "url": "/command-line-interface",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "colored",
+            "description": "The most simple way to add colors in your terminal",
+            "url": "/crates/colored"
+          },
+          {
+            "name": "comfy-table",
+            "description": "easy to use library for building beautiful…",
+            "url": "/crates/comfy-table"
+          },
+          {
+            "name": "rustyline",
+            "description": "readline implementation based on Antirez's Linenoise",
+            "url": "/crates/rustyline"
+          },
+          {
+            "name": "clap",
+            "description": "efficient, and full-featured Command Line Argument Parser",
+            "url": "/crates/clap"
+          },
+          {
+            "name": "crossterm",
+            "description": "A crossplatform terminal library for manipulating terminals",
+            "url": "/crates/crossterm"
+          },
+          {
+            "name": "nu-ansi-term",
+            "description": "ANSI terminal colors and styles (bold, underline)",
+            "url": "/crates/nu-ansi-term"
+          },
+          {
+            "name": "codespan-reporting",
+            "description": "Beautiful diagnostic reporting for text-based programming languages",
+            "url": "/crates/codespan-reporting"
+          },
+          {
+            "name": "indicatif",
+            "description": "A progress bar and cli reporting library for Rust",
+            "url": "/crates/indicatif"
+          },
+          {
+            "name": "r3bl_tui",
+            "description": "TUI library to build modern apps inspired by React…",
+            "url": "/crates/r3bl_tui"
+          },
+          {
+            "name": "argyle",
+            "description": "A lightweight, agnostic CLI argument parser",
+            "url": "/crates/argyle"
+          },
+          {
+            "name": "rucksack",
+            "description": "terminal-based secrets manager, generator…",
+            "url": "/crates/rucksack"
+          },
+          {
+            "name": "zabrze",
+            "description": "ZSH abbreviation exapansion plugin",
+            "url": "/crates/zabrze"
+          },
+          {
+            "name": "isw",
+            "description": "terminal stopwatch application",
+            "url": "/crates/isw"
+          },
+          {
+            "name": "tracexec-backend-ptrace",
+            "description": "Ptrace backend for tracexec [Internal implementation…",
+            "url": "/crates/tracexec-backend-ptrace"
+          }
+        ],
+        "totalCrates": 2468
+      },
+      {
+        "name": "Command line utilities",
+        "description": "Applications to run at the command line.",
+        "url": "/command-line-utilities",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "bat",
+            "description": "A cat(1) clone with wings",
+            "url": "/crates/bat"
+          },
+          {
+            "name": "duct",
+            "description": "running child processes",
+            "url": "/crates/duct"
+          },
+          {
+            "name": "irust",
+            "description": "Cross Platform Rust Repl",
+            "url": "/crates/irust"
+          },
+          {
+            "name": "lsd",
+            "description": "An ls command with a lot of pretty colors and some other stuff",
+            "url": "/crates/lsd"
+          },
+          {
+            "name": "procs",
+            "description": "A modern replacement for ps",
+            "url": "/crates/procs"
+          },
+          {
+            "name": "release-plz",
+            "description": "Update version and changelog based on semantic…",
+            "url": "/crates/release-plz"
+          },
+          {
+            "name": "snazy",
+            "description": "snazzy json log viewer",
+            "url": "/crates/snazy"
+          },
+          {
+            "name": "tuirealm",
+            "description": "A tui-rs framework to build tui interfaces, inspired by React and Elm",
+            "url": "/crates/tuirealm"
+          },
+          {
+            "name": "cranko",
+            "description": "A cross-platform, cross-language release automation tool",
+            "url": "/crates/cranko"
+          },
+          {
+            "name": "r3bl-cmdr",
+            "description": "TUI app suite for developers. Includes a…",
+            "url": "/crates/r3bl-cmdr"
+          },
+          {
+            "name": "komac",
+            "description": "A manifest creator for winget-pkgs",
+            "url": "/crates/komac"
+          },
+          {
+            "name": "uv-sbom",
+            "description": "SBOM generation tool for uv projects - Generate…",
+            "url": "/crates/uv-sbom"
+          },
+          {
+            "name": "mcpls",
+            "description": "Universal MCP to LSP bridge CLI - expose…",
+            "url": "/crates/mcpls"
+          },
+          {
+            "name": "cloudreve-cli",
+            "description": "Command-line interface for Cloudreve API",
+            "url": "/crates/cloudreve-cli"
+          },
+          {
+            "name": "scoop-uv",
+            "description": "Scoop up your Python envs — pyenv-style workflow powered by uv",
+            "url": "/crates/scoop-uv"
+          },
+          {
+            "name": "opencode-cloud",
+            "description": "CLI for managing opencode as a persistent cloud service",
+            "url": "/crates/opencode-cloud"
+          },
+          {
+            "name": "rss-tui",
+            "description": "TUI RSS/Atom reader with vim-like controls and a local-first…",
+            "url": "/crates/rss-tui"
+          },
+          {
+            "name": "jolt-tui",
+            "description": "A beautiful TUI for monitoring battery and energy usage",
+            "url": "/crates/jolt-tui"
+          }
+        ],
+        "totalCrates": 11222
+      },
+      {
+        "name": "Database interfaces",
+        "description": "Interface with database management systems.",
+        "url": "/database",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "rusqlite",
+            "description": "Ergonomic wrapper for SQLite",
+            "url": "/crates/rusqlite"
+          },
+          {
+            "name": "sea-orm",
+            "description": "🐚 An async & dynamic ORM for Rust",
+            "url": "/crates/sea-orm"
+          },
+          {
+            "name": "redis",
+            "description": "driver for Rust",
+            "url": "/crates/redis"
+          },
+          {
+            "name": "sqlx",
+            "description": "🧰 The Rust SQL Toolkit. An async, pure…",
+            "url": "/crates/sqlx"
+          },
+          {
+            "name": "diesel",
+            "description": "safe, extensible ORM and Query Builder for PostgreSQL…",
+            "url": "/crates/diesel"
+          },
+          {
+            "name": "rocksdb",
+            "description": "Rust wrapper for Facebook's RocksDB embeddable database",
+            "url": "/crates/rocksdb"
+          },
+          {
+            "name": "lapin",
+            "description": "AMQP client library",
+            "url": "/crates/lapin"
+          },
+          {
+            "name": "mongodb",
+            "description": "The official MongoDB driver for Rust",
+            "url": "/crates/mongodb"
+          },
+          {
+            "name": "pgwire",
+            "description": "Postgresql wire protocol implemented as a library",
+            "url": "/crates/pgwire"
+          },
+          {
+            "name": "drizzle",
+            "description": "A type-safe SQL query builder for Rust",
+            "url": "/crates/drizzle"
+          },
+          {
+            "name": "assay-mcp-server",
+            "description": "MCP server integration for Assay",
+            "url": "/crates/assay-mcp-server"
+          },
+          {
+            "name": "datafusion-sql",
+            "description": "DataFusion SQL Query Planner",
+            "url": "/crates/datafusion-sql"
+          },
+          {
+            "name": "stoolap",
+            "description": "High-performance embedded SQL database with MVCC…",
+            "url": "/crates/stoolap"
+          },
+          {
+            "name": "datafusion-physical-expr",
+            "description": "Physical expression implementation for DataFusion query engine",
+            "url": "/crates/datafusion-physical-expr"
+          },
+          {
+            "name": "sqruff-lib-dialects",
+            "description": "sql dialects for sqruff",
+            "url": "/crates/sqruff-lib-dialects"
+          }
+        ],
+        "totalCrates": 8176
+      },
+      {
+        "name": "Date and time",
+        "description": "Dealing with the fourth dimension.",
+        "url": "/date-and-time",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "chrono",
+            "description": "Date and time library for Rust",
+            "url": "/crates/chrono"
+          },
+          {
+            "name": "humantime",
+            "description": "A parser and formatter for std::time::{Duration, SystemTime}",
+            "url": "/crates/humantime"
+          },
+          {
+            "name": "chrono-tz",
+            "description": "TimeZone implementations for chrono from the IANA database",
+            "url": "/crates/chrono-tz"
+          },
+          {
+            "name": "iana-time-zone",
+            "description": "get the IANA time zone for the current system",
+            "url": "/crates/iana-time-zone"
+          },
+          {
+            "name": "icu_calendar",
+            "description": "Date APIs for Gregorian and non-Gregorian calendars",
+            "url": "/crates/icu_calendar"
+          },
+          {
+            "name": "duration-str",
+            "description": "duration string parser",
+            "url": "/crates/duration-str"
+          },
+          {
+            "name": "httpdate",
+            "description": "HTTP date parsing and formatting",
+            "url": "/crates/httpdate"
+          },
+          {
+            "name": "hifitime",
+            "description": "Ultra-precise date and time handling in Rust…",
+            "url": "/crates/hifitime"
+          },
+          {
+            "name": "time",
+            "description": "Date and time library. Fully interoperable with the standard library…",
+            "url": "/crates/time"
+          },
+          {
+            "name": "easytime",
+            "description": "Providing wrapper types for safely performing…",
+            "url": "/crates/easytime"
+          },
+          {
+            "name": "periodical",
+            "description": "Management of all kinds of time intervals…",
+            "url": "/crates/periodical"
+          },
+          {
+            "name": "easy_time",
+            "description": "intuitive library for handling time in Rust",
+            "url": "/crates/easy_time"
+          },
+          {
+            "name": "joda_rs",
+            "description": "A java time / joda like wrapper around the time crate",
+            "url": "/crates/joda_rs"
+          },
+          {
+            "name": "dirtgrabber",
+            "description": "dirtbags to find campsites on recreation.gov",
+            "url": "/crates/dirtgrabber"
+          }
+        ],
+        "totalCrates": 1088
+      },
+      {
+        "name": "Database implementations",
+        "description": "Database management systems implemented in Rust.",
+        "url": "/database-implementations",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "arrow",
+            "description": "Apache Arrow",
+            "url": "/crates/arrow"
+          },
+          {
+            "name": "tantivy",
+            "description": "Search engine library",
+            "url": "/crates/tantivy"
+          },
+          {
+            "name": "redb",
+            "description": "Rust Embedded DataBase",
+            "url": "/crates/redb"
+          },
+          {
+            "name": "fjall",
+            "description": "Log-structured, embeddable key-value storage engine",
+            "url": "/crates/fjall"
+          },
+          {
+            "name": "surrealdb",
+            "description": "scalable, distributed, collaborative, document-graph database…",
+            "url": "/crates/surrealdb"
+          },
+          {
+            "name": "surrealkv",
+            "description": "low-level, versioned, embedded, ACID-compliant…",
+            "url": "/crates/surrealkv"
+          },
+          {
+            "name": "sonic-server",
+            "description": "Fast, lightweight and schema-less search backend",
+            "url": "/crates/sonic-server"
+          },
+          {
+            "name": "oxigraph",
+            "description": "SPARQL database and RDF toolkit",
+            "url": "/crates/oxigraph"
+          },
+          {
+            "name": "seekstorm",
+            "description": "Search engine library & multi-tenancy server",
+            "url": "/crates/seekstorm"
+          },
+          {
+            "name": "palletizer",
+            "description": "self-hosted Cargo registry",
+            "url": "/crates/palletizer"
+          },
+          {
+            "name": "nostrdb",
+            "description": "An unfairly fast embedded nostr database backed by lmdb",
+            "url": "/crates/nostrdb"
+          },
+          {
+            "name": "datafusion-session",
+            "description": "",
+            "url": "/crates/datafusion-session"
+          },
+          {
+            "name": "sochdb",
+            "description": "LLM-optimized database with native vector search",
+            "url": "/crates/sochdb"
+          },
+          {
+            "name": "obscura-server",
+            "description": "A server for relaying secure messages using the Signal Protocol",
+            "url": "/crates/obscura-server"
+          },
+          {
+            "name": "re_arrow_util",
+            "description": "Helpers for working with arrow",
+            "url": "/crates/re_arrow_util"
+          }
+        ],
+        "totalCrates": 860
+      },
+      {
+        "name": "Programming languages",
+        "description": "Compilers",
+        "url": "/compilers",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "rustc-demangle",
+            "description": "Rust compiler symbol demangling",
+            "url": "/crates/rustc-demangle"
+          },
+          {
+            "name": "ariadne",
+            "description": "A fancy diagnostics & reporting crate",
+            "url": "/crates/ariadne"
+          },
+          {
+            "name": "tree-sitter",
+            "description": "Rust bindings to the Tree-sitter parsing library",
+            "url": "/crates/tree-sitter"
+          },
+          {
+            "name": "boa_engine",
+            "description": "Boa is a Javascript lexer, parser and compiler written in Rust…",
+            "url": "/crates/boa_engine"
+          },
+          {
+            "name": "typst",
+            "description": "new markup-based typesetting system that is powerful and easy to learn",
+            "url": "/crates/typst"
+          },
+          {
+            "name": "swc_ecma_codegen",
+            "description": "Ecmascript code generator for the swc project",
+            "url": "/crates/swc_ecma_codegen"
+          },
+          {
+            "name": "rquickjs",
+            "description": "High level bindings to the QuickJS JavaScript engine",
+            "url": "/crates/rquickjs"
+          },
+          {
+            "name": "oxc",
+            "description": "A collection of JavaScript tools written in Rust",
+            "url": "/crates/oxc"
+          },
+          {
+            "name": "sus_compiler",
+            "description": "Compiler for the SUS Hardware Design Language",
+            "url": "/crates/sus_compiler"
+          },
+          {
+            "name": "modu",
+            "description": "A fast and simple interpreted language",
+            "url": "/crates/modu"
+          },
+          {
+            "name": "vrl",
+            "description": "Vector Remap Language",
+            "url": "/crates/vrl"
+          },
+          {
+            "name": "wadl",
+            "description": "parser for Rust",
+            "url": "/crates/wadl"
+          },
+          {
+            "name": "haloumi-ir",
+            "description": "Intermediate representation of the haloumi framework",
+            "url": "/crates/haloumi-ir"
+          },
+          {
+            "name": "haloumi-core",
+            "description": "Core types and traits of the Halo2 frontend for LLZK",
+            "url": "/crates/haloumi-core"
+          },
+          {
+            "name": "syster-base",
+            "description": "Core library for SysML v2 and KerML parsing…",
+            "url": "/crates/syster-base"
+          }
+        ],
+        "totalCrates": 2699
+      },
+      {
+        "name": "Authentication",
+        "description": "Help with the process of confirming identities.",
+        "url": "/authentication",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "jsonwebtoken",
+            "description": "Create and decode JWTs in a strongly typed way",
+            "url": "/crates/jsonwebtoken"
+          },
+          {
+            "name": "git2",
+            "description": "Bindings to libgit2 for interoperating with git repositories…",
+            "url": "/crates/git2"
+          },
+          {
+            "name": "argon2",
+            "description": "Pure Rust implementation of the Argon2 password…",
+            "url": "/crates/argon2"
+          },
+          {
+            "name": "keyring",
+            "description": "Sample code and CLI for the Rust Keyring",
+            "url": "/crates/keyring"
+          },
+          {
+            "name": "azure_identity",
+            "description": "wrappers around Microsoft Azure REST APIs…",
+            "url": "/crates/azure_identity"
+          },
+          {
+            "name": "openapiv3",
+            "description": "data structures that represent the OpenAPI v3…",
+            "url": "/crates/openapiv3"
+          },
+          {
+            "name": "rpassword",
+            "description": "Read passwords in console applications",
+            "url": "/crates/rpassword"
+          },
+          {
+            "name": "oauth2",
+            "description": "An extensible, strongly-typed implementation of OAuth2",
+            "url": "/crates/oauth2"
+          },
+          {
+            "name": "gix-sec",
+            "description": "gitoxide project providing a shared trust model",
+            "url": "/crates/gix-sec"
+          },
+          {
+            "name": "stytch",
+            "description": "client",
+            "url": "/crates/stytch"
+          },
+          {
+            "name": "challenge_response",
+            "description": "Perform HMAC-SHA1 and OTP challenges with YubiKey…",
+            "url": "/crates/challenge_response"
+          },
+          {
+            "name": "spiffe",
+            "description": "Core SPIFFE identity types and Workload API sources",
+            "url": "/crates/spiffe"
+          },
+          {
+            "name": "gix-credentials",
+            "description": "gitoxide project to interact with git credentials helpers",
+            "url": "/crates/gix-credentials"
+          },
+          {
+            "name": "ngrok-api",
+            "description": "ngrok API client library for Rust",
+            "url": "/crates/ngrok-api"
+          }
+        ],
+        "totalCrates": 3215
+      },
+      {
+        "name": "Configuration",
+        "description": "Configuration management for applications.",
+        "url": "/config",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "config",
+            "description": "Layered configuration system for Rust applications",
+            "url": "/crates/config"
+          },
+          {
+            "name": "configparser",
+            "description": "configuration parsing utility with no dependencies…",
+            "url": "/crates/configparser"
+          },
+          {
+            "name": "rust-ini",
+            "description": "An Ini configuration file parsing library in Rust",
+            "url": "/crates/rust-ini"
+          },
+          {
+            "name": "dotenvy",
+            "description": "A well-maintained fork of the dotenv crate",
+            "url": "/crates/dotenvy"
+          },
+          {
+            "name": "figment",
+            "description": "A configuration library so con-free, it's unreal",
+            "url": "/crates/figment"
+          },
+          {
+            "name": "etcetera",
+            "description": "unopinionated library for obtaining configuration…",
+            "url": "/crates/etcetera"
+          },
+          {
+            "name": "cedar-policy",
+            "description": "Cedar is a language for defining permissions as policies…",
+            "url": "/crates/cedar-policy"
+          },
+          {
+            "name": "copypasta",
+            "description": "cross-platform library for getting and setting…",
+            "url": "/crates/copypasta"
+          },
+          {
+            "name": "linutil_tui",
+            "description": "Chris Titus Tech's Linux Toolbox - Linutil…",
+            "url": "/crates/linutil_tui"
+          },
+          {
+            "name": "libcorn",
+            "description": "Parsing engine for Corn, a simple and pain-free configuration language",
+            "url": "/crates/libcorn"
+          },
+          {
+            "name": "editorconfiger",
+            "description": "Plain tool to validate and compare .editorconfig files",
+            "url": "/crates/editorconfiger"
+          },
+          {
+            "name": "gix-config-value",
+            "description": "gitoxide project providing git-config value parsing",
+            "url": "/crates/gix-config-value"
+          },
+          {
+            "name": "gix-config",
+            "description": "A git-config file parser and editor from the gitoxide project",
+            "url": "/crates/gix-config"
+          }
+        ],
+        "totalCrates": 2524
+      },
+      {
+        "name": "Internationalization (i18n)",
+        "description": "and localization (l10n). Develop software for various languages and regions.",
+        "url": "/internationalization",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "num-format",
+            "description": "producing string-representations of numbers…",
+            "url": "/crates/num-format"
+          },
+          {
+            "name": "icu_collator",
+            "description": "API for comparing strings according to language-dependent conventions",
+            "url": "/crates/icu_collator"
+          },
+          {
+            "name": "icu_properties",
+            "description": "Definitions for Unicode properties",
+            "url": "/crates/icu_properties"
+          },
+          {
+            "name": "icu_normalizer",
+            "description": "API for normalizing text into Unicode Normalization Forms",
+            "url": "/crates/icu_normalizer"
+          },
+          {
+            "name": "rust-i18n",
+            "description": "I18n is use Rust codegen for load YAML file…",
+            "url": "/crates/rust-i18n"
+          },
+          {
+            "name": "sys-locale",
+            "description": "Small and lightweight library to obtain the active system locale",
+            "url": "/crates/sys-locale"
+          },
+          {
+            "name": "lingua",
+            "description": "accurate natural language detection library…",
+            "url": "/crates/lingua"
+          },
+          {
+            "name": "icu_datetime",
+            "description": "Human-readable formatting of dates, times…",
+            "url": "/crates/icu_datetime"
+          },
+          {
+            "name": "phonelib",
+            "description": "comprehensive library for phone number validation…",
+            "url": "/crates/phonelib"
+          },
+          {
+            "name": "swc_icu_messageformat_parser",
+            "description": "ICU MessageFormat Parser",
+            "url": "/crates/swc_icu_messageformat_parser"
+          },
+          {
+            "name": "ironcalc_base",
+            "description": "Open source spreadsheet engine",
+            "url": "/crates/ironcalc_base"
+          }
+        ],
+        "totalCrates": 945
+      },
+      {
+        "name": "Multimedia",
+        "description": "Audio, video, and image processing or rendering engines.",
+        "url": "/multimedia",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "mime",
+            "description": "Strongly Typed Mimes",
+            "url": "/crates/mime"
+          },
+          {
+            "name": "matrix-sdk-base",
+            "description": "The base component to build a Matrix client library",
+            "url": "/crates/matrix-sdk-base"
+          },
+          {
+            "name": "gio-sys",
+            "description": "FFI bindings to libgio-2.0",
+            "url": "/crates/gio-sys"
+          },
+          {
+            "name": "bgutil-ytdlp-pot-provider",
+            "description": "BgUtils POT Provider - Rust implementation…",
+            "url": "/crates/bgutil-ytdlp-pot-provider"
+          },
+          {
+            "name": "audiobookctl",
+            "description": "CLI tool for reading, editing, and organizing m4b audiobook metadata",
+            "url": "/crates/audiobookctl"
+          },
+          {
+            "name": "cea708-types",
+            "description": "Closed Caption 708 types, parser and serializer",
+            "url": "/crates/cea708-types"
+          },
+          {
+            "name": "zeevonk",
+            "description": "new lighting control system server, that…",
+            "url": "/crates/zeevonk"
+          },
+          {
+            "name": "dwldutil",
+            "description": "parallel downloading",
+            "url": "/crates/dwldutil"
+          },
+          {
+            "name": "simple-whisper",
+            "description": "OpenAI whisper library based on whisper.cpp",
+            "url": "/crates/simple-whisper"
+          },
+          {
+            "name": "embystream",
+            "description": "Emby streaming application (frontend/backend separation)…",
+            "url": "/crates/embystream"
+          },
+          {
+            "name": "fcast-sender-sdk",
+            "description": "An SDK for easily creating senders for FCast and Google cast",
+            "url": "/crates/fcast-sender-sdk"
+          }
+        ],
+        "totalCrates": 2294
+      },
+      {
+        "name": "Images",
+        "description": "Process or make graphics.",
+        "url": "/multimedia/images",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "rgb",
+            "description": "`struct RGB/RGBA/etc.` for sharing pixels…",
+            "url": "/crates/rgb"
+          },
+          {
+            "name": "arboard",
+            "description": "Image and text handling for the OS clipboard",
+            "url": "/crates/arboard"
+          },
+          {
+            "name": "image",
+            "description": "Imaging library. Provides basic image processing…",
+            "url": "/crates/image"
+          },
+          {
+            "name": "png",
+            "description": "PNG decoding and encoding library in pure Rust",
+            "url": "/crates/png"
+          },
+          {
+            "name": "qrcode",
+            "description": "QR code encoder in Rust",
+            "url": "/crates/qrcode"
+          },
+          {
+            "name": "fast_image_resize",
+            "description": "fast image resizing with using of SIMD instructions",
+            "url": "/crates/fast_image_resize"
+          },
+          {
+            "name": "resvg",
+            "description": "An SVG rendering library",
+            "url": "/crates/resvg"
+          },
+          {
+            "name": "palette",
+            "description": "Convert and manage colors with a focus on correctness…",
+            "url": "/crates/palette"
+          },
+          {
+            "name": "moxcms",
+            "description": "Color Management in Rust",
+            "url": "/crates/moxcms"
+          },
+          {
+            "name": "tiffwrite",
+            "description": "Write BioFormats/ImageJ compatible tiffs…",
+            "url": "/crates/tiffwrite"
+          },
+          {
+            "name": "rgb_derivation",
+            "description": "Routines for calculation XYZ-RGB conversion…",
+            "url": "/crates/rgb_derivation"
+          },
+          {
+            "name": "sdl3-image-sys",
+            "description": "Low level Rust bindings for SDL3_image",
+            "url": "/crates/sdl3-image-sys"
+          },
+          {
+            "name": "lucide-leptos",
+            "description": "Leptos port of Lucide",
+            "url": "/crates/lucide-leptos"
+          },
+          {
+            "name": "lucide-slint",
+            "description": "Use lucide icons in Slint applications with ease!",
+            "url": "/crates/lucide-slint"
+          },
+          {
+            "name": "bevy_zeroverse",
+            "description": "bevy zeroverse synthetic dataset generator",
+            "url": "/crates/bevy_zeroverse"
+          }
+        ],
+        "totalCrates": 2294
+      },
+      {
+        "name": "Audio",
+        "description": "Record, output, or process audio.",
+        "url": "/multimedia/audio",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "cpal",
+            "description": "Low-level cross-platform audio I/O library in pure Rust",
+            "url": "/crates/cpal"
+          },
+          {
+            "name": "rodio",
+            "description": "Audio playback library",
+            "url": "/crates/rodio"
+          },
+          {
+            "name": "rubato",
+            "description": "Asynchronous resampling library intended for audio data",
+            "url": "/crates/rubato"
+          },
+          {
+            "name": "hound",
+            "description": "A wav encoding and decoding library",
+            "url": "/crates/hound"
+          },
+          {
+            "name": "symphonia",
+            "description": "Pure Rust media container and audio decoding library",
+            "url": "/crates/symphonia"
+          },
+          {
+            "name": "id3",
+            "description": "reading and writing ID3 metadata",
+            "url": "/crates/id3"
+          },
+          {
+            "name": "lofty",
+            "description": "Audio metadata library",
+            "url": "/crates/lofty"
+          },
+          {
+            "name": "kira",
+            "description": "Expressive audio library for games",
+            "url": "/crates/kira"
+          },
+          {
+            "name": "Vibe_Player",
+            "description": "A music player for the Lyrion Music Server",
+            "url": "/crates/vibe_player"
+          },
+          {
+            "name": "cubeb",
+            "description": "Bindings to libcubeb for interacting with system audio from rust",
+            "url": "/crates/cubeb"
+          },
+          {
+            "name": "rtaudio",
+            "description": "Safe Rust wrapper and bindings for RtAudio",
+            "url": "/crates/rtaudio"
+          },
+          {
+            "name": "parakeet-rs",
+            "description": "Fast ASR & Speaker Diarization with NVIDIA Parakeet via ONNX",
+            "url": "/crates/parakeet-rs"
+          },
+          {
+            "name": "rtgc",
+            "description": "garbage collector which collects resources…",
+            "url": "/crates/rtgc"
+          },
+          {
+            "name": "soundscope",
+            "description": "command-line tool for analyzing audio files and real-time input (FFT…",
+            "url": "/crates/soundscope"
+          },
+          {
+            "name": "sys-voice",
+            "description": "Cross-platform native voice I/O with OS-level…",
+            "url": "/crates/sys-voice"
+          },
+          {
+            "name": "whisper-apr",
+            "description": "WASM-first automatic speech recognition engine…",
+            "url": "/crates/whisper-apr"
+          },
+          {
+            "name": "aic-sdk",
+            "description": "ai-coustics Speech Enhancement SDK",
+            "url": "/crates/aic-sdk"
+          },
+          {
+            "name": "pocket-tts",
+            "description": "High-performance CPU-based Text-to-Speech library using Candle",
+            "url": "/crates/pocket-tts"
+          }
+        ],
+        "totalCrates": 2800
+      },
+      {
+        "name": "Video",
+        "description": "Record, output, or process video.",
+        "url": "/multimedia/video",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "gstreamer",
+            "description": "Rust bindings for GStreamer",
+            "url": "/crates/gstreamer"
+          },
+          {
+            "name": "webrtc",
+            "description": "A pure Rust implementation of WebRTC API",
+            "url": "/crates/webrtc"
+          },
+          {
+            "name": "ffmpeg-next",
+            "description": "Safe FFmpeg wrapper (FFmpeg 4 compatible fork of the ffmpeg crate)",
+            "url": "/crates/ffmpeg-next"
+          },
+          {
+            "name": "rav1e",
+            "description": "The fastest and safest AV1 encoder",
+            "url": "/crates/rav1e"
+          },
+          {
+            "name": "gifski",
+            "description": "pngquant-based GIF maker for nice-looking animGIFs",
+            "url": "/crates/gifski"
+          },
+          {
+            "name": "openh264",
+            "description": "Idiomatic bindings for OpenH264",
+            "url": "/crates/openh264"
+          },
+          {
+            "name": "ffmpeg-sidecar",
+            "description": "Wrap a standalone FFmpeg binary in an intuitive Iterator interface",
+            "url": "/crates/ffmpeg-sidecar"
+          },
+          {
+            "name": "gstreamer-app",
+            "description": "Rust bindings for GStreamer App library",
+            "url": "/crates/gstreamer-app"
+          },
+          {
+            "name": "managarr",
+            "description": "A TUI and CLI to manage your Servarrs",
+            "url": "/crates/managarr"
+          },
+          {
+            "name": "mp4-atom",
+            "description": "A MP4/ISOBMFF atom decoder and encoder",
+            "url": "/crates/mp4-atom"
+          },
+          {
+            "name": "showme",
+            "description": "powerful terminal image and video viewer…",
+            "url": "/crates/showme"
+          },
+          {
+            "name": "av-scenechange",
+            "description": "Estimates frames in a video where a scenecut would be ideal",
+            "url": "/crates/av-scenechange"
+          },
+          {
+            "name": "av-decoders",
+            "description": "Decoders for use in the rust-av ecosystem",
+            "url": "/crates/av-decoders"
+          },
+          {
+            "name": "flix-tmdb",
+            "description": "Clients and models for fetching data from TMDB",
+            "url": "/crates/flix-tmdb"
+          }
+        ],
+        "totalCrates": 1247
+      },
+      {
+        "name": "Rendering",
+        "description": "Real-time or offline rendering of 2D or 3D graphics, usually on a GPU.",
+        "url": "/rendering",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "pangocairo",
+            "description": "Rust bindings for the PangoCairo library",
+            "url": "/crates/pangocairo"
+          },
+          {
+            "name": "minifb",
+            "description": "Cross-platform window setup with optional bitmap rendering",
+            "url": "/crates/minifb"
+          },
+          {
+            "name": "lin_alg",
+            "description": "Vector, matrix, and quaternion operations for general purposes",
+            "url": "/crates/lin_alg"
+          },
+          {
+            "name": "taitank-rs",
+            "description": "A cross-platform Flexbox layout engine in Rust",
+            "url": "/crates/taitank-rs"
+          },
+          {
+            "name": "label-logger",
+            "description": "Cargo-like logging library",
+            "url": "/crates/label-logger"
+          },
+          {
+            "name": "pdfium-bind",
+            "description": "Rust bindings for PDFium with vendored prebuilt binaries",
+            "url": "/crates/pdfium-bind"
+          },
+          {
+            "name": "asset-importer-sys",
+            "description": "Low-level FFI bindings for the Assimp 3D asset import library",
+            "url": "/crates/asset-importer-sys"
+          },
+          {
+            "name": "px2ansi-rs",
+            "description": "Convert pixel art images to ANSI terminal art (Rust port)",
+            "url": "/crates/px2ansi-rs"
+          },
+          {
+            "name": "pangocairo-sys",
+            "description": "FFI bindings to PangoCairo",
+            "url": "/crates/pangocairo-sys"
+          },
+          {
+            "name": "horned-bin",
+            "description": "Command Line tools for OWL Ontologies",
+            "url": "/crates/horned-bin"
+          },
+          {
+            "name": "horned-owl",
+            "description": "OWL Ontologies",
+            "url": "/crates/horned-owl"
+          },
+          {
+            "name": "libasciic",
+            "description": "converting images to ASCII art with optional ANSI colorization",
+            "url": "/crates/libasciic"
+          },
+          {
+            "name": "gpui-animation",
+            "description": "lightweight and fluent animation wrapper for GPUI…",
+            "url": "/crates/gpui-animation"
+          }
+        ],
+        "totalCrates": 2370
+      },
+      {
+        "name": "Graphics APIs",
+        "description": "Direct access to the hardware's or the operating system's rendering capabilities.",
+        "url": "/rendering/graphics-api",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "tiny-skia",
+            "description": "A tiny Skia subset ported to Rust",
+            "url": "/crates/tiny-skia"
+          },
+          {
+            "name": "ash",
+            "description": "Vulkan bindings for Rust",
+            "url": "/crates/ash"
+          },
+          {
+            "name": "glutin",
+            "description": "Cross-platform OpenGL context provider",
+            "url": "/crates/glutin"
+          },
+          {
+            "name": "core-graphics",
+            "description": "Bindings to Core Graphics for macOS",
+            "url": "/crates/core-graphics"
+          },
+          {
+            "name": "metal",
+            "description": "Rust bindings for Metal",
+            "url": "/crates/metal"
+          },
+          {
+            "name": "glow",
+            "description": "GL on Whatever: a set of bindings to run GL (Open GL…",
+            "url": "/crates/glow"
+          },
+          {
+            "name": "alacritty",
+            "description": "A fast, cross-platform, OpenGL terminal emulator",
+            "url": "/crates/alacritty"
+          },
+          {
+            "name": "khronos-egl",
+            "description": "Rust bindings for EGL",
+            "url": "/crates/khronos-egl"
+          },
+          {
+            "name": "naga_oil",
+            "description": "combining and manipulating shaders using naga IR",
+            "url": "/crates/naga_oil"
+          },
+          {
+            "name": "cef",
+            "description": "in Rust",
+            "url": "/crates/cef"
+          },
+          {
+            "name": "slosh3d",
+            "description": "Cross-platform GPU 3D Material Point Method implementation",
+            "url": "/crates/slosh3d"
+          },
+          {
+            "name": "par-term-emu-core-rust",
+            "description": "Comprehensive terminal emulator library in…",
+            "url": "/crates/par-term-emu-core-rust"
+          },
+          {
+            "name": "spottedcat",
+            "description": "game engine",
+            "url": "/crates/spottedcat"
+          },
+          {
+            "name": "deno_webgpu",
+            "description": "WebGPU implementation for Deno",
+            "url": "/crates/deno_webgpu"
+          },
+          {
+            "name": "wgpu_quick_start",
+            "description": "A starter package to get started with wgpu library",
+            "url": "/crates/wgpu_quick_start"
+          }
+        ],
+        "totalCrates": 2370
+      },
+      {
+        "name": "Gfx data formats",
+        "description": "Loading and parsing of data for 2D/3D rendering, like 3D models or animations.",
+        "url": "/rendering/data-formats",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "fontdb",
+            "description": "in-memory font database with CSS-like queries",
+            "url": "/crates/fontdb"
+          },
+          {
+            "name": "gltf",
+            "description": "glTF 2.0 loader",
+            "url": "/crates/gltf"
+          },
+          {
+            "name": "swash",
+            "description": "Font introspection, complex text shaping and glyph rendering",
+            "url": "/crates/swash"
+          },
+          {
+            "name": "noto-sans-mono-bitmap",
+            "description": "pre-rasterized characters from the \"Noto…",
+            "url": "/crates/noto-sans-mono-bitmap"
+          },
+          {
+            "name": "poppler-rs",
+            "description": "High-level (safe) bindings for poppler-glib",
+            "url": "/crates/poppler-rs"
+          },
+          {
+            "name": "build_pbf_glyphs",
+            "description": "CLI utility for generating protobuf-encoded…",
+            "url": "/crates/build_pbf_glyphs"
+          },
+          {
+            "name": "obj-rs",
+            "description": "Wavefront obj parser for Rust. It handles…",
+            "url": "/crates/obj-rs"
+          },
+          {
+            "name": "ab_glyph_rasterizer",
+            "description": "Coverage rasterization for lines, quadratic & cubic beziers",
+            "url": "/crates/ab_glyph_rasterizer"
+          },
+          {
+            "name": "easy-async-opencl3",
+            "description": "declarative, multi-device asynchronous executor…",
+            "url": "/crates/easy-async-opencl3"
+          },
+          {
+            "name": "sdl3-ttf-sys",
+            "description": "Low level Rust bindings for SDL3_ttf",
+            "url": "/crates/sdl3-ttf-sys"
+          },
+          {
+            "name": "bevy_webcam",
+            "description": "bevy webcam plugin",
+            "url": "/crates/bevy_webcam"
+          },
+          {
+            "name": "wesl",
+            "description": "compiler",
+            "url": "/crates/wesl"
+          }
+        ],
+        "totalCrates": 293
+      },
+      {
+        "name": "Rendering engine",
+        "description": "High-level solutions for rendering on the screen.",
+        "url": "/rendering/engine",
+        "isSubcategory": true,
+        "featuredCrates": [
+          {
+            "name": "vk-mem",
+            "description": "ffi bindings and idiomatic wrapper for AMD…",
+            "url": "/crates/vk-mem"
+          },
+          {
+            "name": "meshopt",
+            "description": "Rust ffi bindings and idiomatic wrapper for mesh optimizer",
+            "url": "/crates/meshopt"
+          },
+          {
+            "name": "intel_tex_2",
+            "description": "Rust bindings for Intel's ISPC texture compressor",
+            "url": "/crates/intel_tex_2"
+          },
+          {
+            "name": "debug_timer",
+            "description": "timings",
+            "url": "/crates/debug_timer"
+          },
+          {
+            "name": "textcanvas",
+            "description": "Draw to the terminal like an HTML Canvas",
+            "url": "/crates/textcanvas"
+          },
+          {
+            "name": "all-is-cubes",
+            "description": "Recursive voxel game engine. Can be used for voxel raytracing.",
+            "url": "/crates/all-is-cubes"
+          },
+          {
+            "name": "graphics",
+            "description": "A 3D rendering engine for rust programs, with GUI integration",
+            "url": "/crates/graphics"
+          },
+          {
+            "name": "fragmentcolor",
+            "description": "Easy GPU Rendering for Javascript, Python, Swift and Kotlin",
+            "url": "/crates/fragmentcolor"
+          },
+          {
+            "name": "simple-femto-text-rendering",
+            "description": "Some powerful and simple text rendering function…",
+            "url": "/crates/simple-femto-text-rendering"
+          },
+          {
+            "name": "imagic",
+            "description": "A thin rendering framework, implemented by Rust and WGPU",
+            "url": "/crates/imagic"
+          },
+          {
+            "name": "turbine_scene3d",
+            "description": "Scene graph rendering for the Turbine engine",
+            "url": "/crates/turbine_scene3d"
+          },
+          {
+            "name": "block_compression",
+            "description": "Texture block compression using WGPU compute shader",
+            "url": "/crates/block_compression"
+          }
+        ],
+        "totalCrates": 140
+      },
+      {
+        "name": "Value formatting",
+        "description": "Format values for display to a user, potentially adapting the display to various languages and regions.",
+        "url": "/value-formatting",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "uuid",
+            "description": "generate and parse UUIDs",
+            "url": "/crates/uuid"
+          },
+          {
+            "name": "ryu",
+            "description": "Fast floating point to string conversion",
+            "url": "/crates/ryu"
+          },
+          {
+            "name": "bytesize",
+            "description": "Semantic wrapper for byte count representations",
+            "url": "/crates/bytesize"
+          },
+          {
+            "name": "prettyplease",
+            "description": "A minimal `syn` syntax tree pretty-printer",
+            "url": "/crates/prettyplease"
+          },
+          {
+            "name": "humansize",
+            "description": "configurable crate to easily represent sizes…",
+            "url": "/crates/humansize"
+          },
+          {
+            "name": "uom",
+            "description": "Units of measurement",
+            "url": "/crates/uom"
+          },
+          {
+            "name": "ryu-js",
+            "description": "Fast floating point to string conversion, ECMAScript compliant",
+            "url": "/crates/ryu-js"
+          },
+          {
+            "name": "hex-literal",
+            "description": "macro for converting hexadecimal string literals…",
+            "url": "/crates/hex-literal"
+          },
+          {
+            "name": "phonenumber",
+            "description": "parsing, formatting and validating international phone numbers",
+            "url": "/crates/phonenumber"
+          },
+          {
+            "name": "twyg",
+            "description": "A tiny logging setup for Rust applications",
+            "url": "/crates/twyg"
+          },
+          {
+            "name": "human-time",
+            "description": "human readable elapsed time string",
+            "url": "/crates/human-time"
+          },
+          {
+            "name": "lcax_models",
+            "description": "LCAx is an open, machine and human-readable…",
+            "url": "/crates/lcax_models"
+          },
+          {
+            "name": "lcax_convert",
+            "description": "LCAx is an open, machine and human-readable…",
+            "url": "/crates/lcax_convert"
+          },
+          {
+            "name": "ferrisume-cli",
+            "description": "A JSON resume CLI tool",
+            "url": "/crates/ferrisume-cli"
+          },
+          {
+            "name": "lcax_calculation",
+            "description": "LCAx is an open, machine and human-readable…",
+            "url": "/crates/lcax_calculation"
+          }
+        ],
+        "totalCrates": 829
+      },
+      {
+        "name": "Template engine",
+        "description": "Combine templates with data to produce documents, usually with an emphasis on processing text.",
+        "url": "/template-engine",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "handlebars",
+            "description": "templating implemented in Rust",
+            "url": "/crates/handlebars"
+          },
+          {
+            "name": "minijinja",
+            "description": "a powerful template engine for Rust with minimal dependencies",
+            "url": "/crates/minijinja"
+          },
+          {
+            "name": "askama",
+            "description": "Type-safe, compiled Jinja-like templates for Rust",
+            "url": "/crates/askama"
+          },
+          {
+            "name": "tera",
+            "description": "Template engine based on Jinja2/Django templates",
+            "url": "/crates/tera"
+          },
+          {
+            "name": "liquid",
+            "description": "templating language for Rust",
+            "url": "/crates/liquid"
+          },
+          {
+            "name": "maud",
+            "description": "Compile-time HTML templates",
+            "url": "/crates/maud"
+          },
+          {
+            "name": "hayagriva",
+            "description": "Work with references: Literature database management…",
+            "url": "/crates/hayagriva"
+          },
+          {
+            "name": "mrml",
+            "description": "MJML renderer",
+            "url": "/crates/mrml"
+          },
+          {
+            "name": "askama_web",
+            "description": "compatibility add-on for Askama to support…",
+            "url": "/crates/askama_web"
+          },
+          {
+            "name": "kcr_scylla_scylladb_com",
+            "description": "Kubernetes Custom Resource Bindings",
+            "url": "/crates/kcr_scylla_scylladb_com"
+          },
+          {
+            "name": "askama-markdown-cmark",
+            "description": "Askama filter for markdown, using pulldown-cmark",
+            "url": "/crates/askama-markdown-cmark"
+          },
+          {
+            "name": "fhtmx",
+            "description": "Create html with rust with support for htmx",
+            "url": "/crates/fhtmx"
+          },
+          {
+            "name": "sqruff-lib",
+            "description": "A high-speed SQL linter",
+            "url": "/crates/sqruff-lib"
+          },
+          {
+            "name": "kcr_autoops_k8s_elastic_co",
+            "description": "Kubernetes Custom Resource Bindings",
+            "url": "/crates/kcr_autoops_k8s_elastic_co"
+          }
+        ],
+        "totalCrates": 1573
+      },
+      {
+        "name": "No standard library",
+        "description": "Libraries that function without the Rust standard library.",
+        "url": "/no-std",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "libm",
+            "description": "libm in pure Rust",
+            "url": "/crates/libm"
+          },
+          {
+            "name": "target-lexicon",
+            "description": "LLVM target triple types",
+            "url": "/crates/target-lexicon"
+          },
+          {
+            "name": "hash32",
+            "description": "32-bit hashing algorithms",
+            "url": "/crates/hash32"
+          },
+          {
+            "name": "spectrum-analyzer",
+            "description": "easy to use and fast `no_std` library (with `alloc`)…",
+            "url": "/crates/spectrum-analyzer"
+          },
+          {
+            "name": "average",
+            "description": "Calculate statistics iteratively",
+            "url": "/crates/average"
+          },
+          {
+            "name": "nc",
+            "description": "Access system calls directly",
+            "url": "/crates/nc"
+          },
+          {
+            "name": "inout",
+            "description": "Custom reference types for code generic over…",
+            "url": "/crates/inout"
+          },
+          {
+            "name": "petname",
+            "description": "Generate human readable random names. Usable…",
+            "url": "/crates/petname"
+          },
+          {
+            "name": "shiguredo_mp4",
+            "description": "MP4 library",
+            "url": "/crates/shiguredo_mp4"
+          },
+          {
+            "name": "sdl3-image-src",
+            "description": "Source code of the SDL3_image library",
+            "url": "/crates/sdl3-image-src"
+          },
+          {
+            "name": "ipl3checksum",
+            "description": "calculate the IPL3 checksum for N64 ROMs",
+            "url": "/crates/ipl3checksum"
+          },
+          {
+            "name": "crunch64",
+            "description": "handling common compression formats for N64 games",
+            "url": "/crates/crunch64"
+          },
+          {
+            "name": "line-column",
+            "description": "calculate lines and columns of str index",
+            "url": "/crates/line-column"
+          },
+          {
+            "name": "smol-base-x",
+            "description": "no-std centric implementation of base-x",
+            "url": "/crates/smol-base-x"
+          }
+        ],
+        "totalCrates": 783
+      },
+      {
+        "name": "GUI",
+        "description": "Create a graphical user interface.",
+        "url": "/gui",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "egui",
+            "description": "immediate mode GUI that runs on both web and native",
+            "url": "/crates/egui"
+          },
+          {
+            "name": "gtk4",
+            "description": "Rust bindings of the GTK 4 library",
+            "url": "/crates/gtk4"
+          },
+          {
+            "name": "winit",
+            "description": "Cross-platform window creation library",
+            "url": "/crates/winit"
+          },
+          {
+            "name": "iced",
+            "description": "A cross-platform GUI library inspired by Elm",
+            "url": "/crates/iced"
+          },
+          {
+            "name": "softbuffer",
+            "description": "Cross-platform software buffer",
+            "url": "/crates/softbuffer"
+          },
+          {
+            "name": "taffy",
+            "description": "A flexible UI layout library",
+            "url": "/crates/taffy"
+          },
+          {
+            "name": "wry",
+            "description": "Cross-platform WebView rendering library",
+            "url": "/crates/wry"
+          },
+          {
+            "name": "ashpd",
+            "description": "XDG portals wrapper in Rust using zbus",
+            "url": "/crates/ashpd"
+          },
+          {
+            "name": "native-dialog",
+            "description": "display dialogs. Supports GNU/Linux, BSD Unix, macOS and Windows.",
+            "url": "/crates/native-dialog"
+          },
+          {
+            "name": "egui_file",
+            "description": "File dialog for egui",
+            "url": "/crates/egui_file"
+          },
+          {
+            "name": "iced_layershell",
+            "description": "layershell binding for iced",
+            "url": "/crates/iced_layershell"
+          },
+          {
+            "name": "layershellev",
+            "description": "extra shell binding for layershell with winit like eventloop",
+            "url": "/crates/layershellev"
+          },
+          {
+            "name": "lucide-icons",
+            "description": "Rust definitions for lucide-icons",
+            "url": "/crates/lucide-icons"
+          },
+          {
+            "name": "iced_sessionlock",
+            "description": "sessionlock binding for iced",
+            "url": "/crates/iced_sessionlock"
+          },
+          {
+            "name": "sessionlockev",
+            "description": "extra shell binding for ext-session-shell with winit like eventloop",
+            "url": "/crates/sessionlockev"
+          }
+        ],
+        "totalCrates": 3690
+      },
+      {
+        "name": "Caching",
+        "description": "Store the results of previous computations.",
+        "url": "/caching",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "moka",
+            "description": "A fast and concurrent cache library inspired by Java Caffeine",
+            "url": "/crates/moka"
+          },
+          {
+            "name": "lru",
+            "description": "cache implementation",
+            "url": "/crates/lru"
+          },
+          {
+            "name": "quick_cache",
+            "description": "Lightweight and high performance concurrent cache",
+            "url": "/crates/quick_cache"
+          },
+          {
+            "name": "cached",
+            "description": "Generic cache implementations and simplified function memoization",
+            "url": "/crates/cached"
+          },
+          {
+            "name": "lasso",
+            "description": "multithreaded and single threaded string…",
+            "url": "/crates/lasso"
+          },
+          {
+            "name": "ustr",
+            "description": "Fast, FFI-friendly string interning",
+            "url": "/crates/ustr"
+          },
+          {
+            "name": "http-cache-semantics",
+            "description": "RFC 7234. Parses HTTP headers to correctly…",
+            "url": "/crates/http-cache-semantics"
+          },
+          {
+            "name": "clru",
+            "description": "LRU cache implementation with constant time…",
+            "url": "/crates/clru"
+          },
+          {
+            "name": "fast_pool",
+            "description": "The Fast Pool based on channel",
+            "url": "/crates/fast_pool"
+          },
+          {
+            "name": "loot-condition-interpreter",
+            "description": "Parse and evaluate LOOT metadata condition strings",
+            "url": "/crates/loot-condition-interpreter"
+          },
+          {
+            "name": "rattler_solve",
+            "description": "solve conda environments",
+            "url": "/crates/rattler_solve"
+          },
+          {
+            "name": "foyer",
+            "description": "Hybrid cache for Rust",
+            "url": "/crates/foyer"
+          },
+          {
+            "name": "wasmtime-internal-jit-icache-coherence",
+            "description": "INTERNAL: Utilities for JIT icache maintenance",
+            "url": "/crates/wasmtime-internal-jit-icache-coherence"
+          }
+        ],
+        "totalCrates": 1040
+      },
+      {
+        "name": "Game dev",
+        "description": "Crates for creating games.",
+        "url": "/game-development",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "glam",
+            "description": "fast 3D math library for games and graphics",
+            "url": "/crates/glam"
+          },
+          {
+            "name": "bevy",
+            "description": "A refreshingly simple data-driven game engine and app framework",
+            "url": "/crates/bevy"
+          },
+          {
+            "name": "tobj",
+            "description": "A lightweight OBJ loader in the spirit of tinyobjloader",
+            "url": "/crates/tobj"
+          },
+          {
+            "name": "bevy_egui",
+            "description": "A plugin for Egui integration into Bevy",
+            "url": "/crates/bevy_egui"
+          },
+          {
+            "name": "gilrs",
+            "description": "Game Input Library for Rust",
+            "url": "/crates/gilrs"
+          },
+          {
+            "name": "hecs",
+            "description": "A fast, minimal, and ergonomic entity-component-system library",
+            "url": "/crates/hecs"
+          },
+          {
+            "name": "steamworks",
+            "description": "friendly bindings to the steamworks sdk",
+            "url": "/crates/steamworks"
+          },
+          {
+            "name": "raylib",
+            "description": "Safe Rust bindings for Raylib",
+            "url": "/crates/raylib"
+          },
+          {
+            "name": "bevy_embedded_assets",
+            "description": "A Bevy plugin to embed assets in your game",
+            "url": "/crates/bevy_embedded_assets"
+          },
+          {
+            "name": "lightyear",
+            "description": "Server-client networking library for the…",
+            "url": "/crates/lightyear"
+          },
+          {
+            "name": "pyri_state",
+            "description": "A flexible `bevy_state` alternative",
+            "url": "/crates/pyri_state"
+          },
+          {
+            "name": "lightyear_examples_common",
+            "description": "Common harness for the lightyear examples",
+            "url": "/crates/lightyear_examples_common"
+          },
+          {
+            "name": "bevy_local_commands",
+            "description": "local shell commands for the Bevy game engine",
+            "url": "/crates/bevy_local_commands"
+          }
+        ],
+        "totalCrates": 5361
+      },
+      {
+        "name": "Games",
+        "description": "Fun and entertainment. Games and mods implemented in Rust.",
+        "url": "/games",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "rpfm_cli",
+            "description": "A CLI tool to automate all your Total War modding needs",
+            "url": "/crates/rpfm_cli"
+          },
+          {
+            "name": "modbot",
+            "description": "Discord bot for https://mod.io.",
+            "url": "/crates/modbot"
+          },
+          {
+            "name": "steamlocate",
+            "description": "locating Steam game installation directories (and Steam itself!)",
+            "url": "/crates/steamlocate"
+          },
+          {
+            "name": "protonup-rs",
+            "description": "TUI Program for Custom Proton Download and…",
+            "url": "/crates/protonup-rs"
+          },
+          {
+            "name": "war_card_game",
+            "description": "War (card game) simulation",
+            "url": "/crates/war_card_game"
+          },
+          {
+            "name": "rosu-pp",
+            "description": "Difficulty and performance calculation for osu!",
+            "url": "/crates/rosu-pp"
+          },
+          {
+            "name": "shticker_book_unwritten",
+            "description": "Minimal CLI launcher for the Toontown Rewritten MMORPG",
+            "url": "/crates/shticker_book_unwritten"
+          },
+          {
+            "name": "rs_poker",
+            "description": "help with any Rust code dealing with poker…",
+            "url": "/crates/rs_poker"
+          },
+          {
+            "name": "riven",
+            "description": "Riot Games API Library",
+            "url": "/crates/riven"
+          },
+          {
+            "name": "airshipper",
+            "description": "automatic updates for the voxel RPG Veloren",
+            "url": "/crates/airshipper"
+          },
+          {
+            "name": "darkomen",
+            "description": "Warhammer: Dark Omen library and CLI in Rust",
+            "url": "/crates/darkomen"
+          },
+          {
+            "name": "foreman",
+            "description": "Toolchain manager for simple binary tools",
+            "url": "/crates/foreman"
+          },
+          {
+            "name": "liiga_teletext",
+            "description": "YLE Teksti-TV 221 in your terminal - Finnish…",
+            "url": "/crates/liiga_teletext"
+          }
+        ],
+        "totalCrates": 1960
+      },
+      {
+        "name": "Visualization",
+        "description": "Ways to view data, such as plotting or graphing.",
+        "url": "/visualization",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "plotters",
+            "description": "drawing library focus on data plotting for…",
+            "url": "/crates/plotters"
+          },
+          {
+            "name": "plotly",
+            "description": "A plotting library powered by Plotly.js",
+            "url": "/crates/plotly"
+          },
+          {
+            "name": "egui_plot",
+            "description": "Immediate mode plotting for the egui GUI library",
+            "url": "/crates/egui_plot"
+          },
+          {
+            "name": "prodash",
+            "description": "dashboard for visualizing progress of asynchronous…",
+            "url": "/crates/prodash"
+          },
+          {
+            "name": "tokei",
+            "description": "Count your code, quickly",
+            "url": "/crates/tokei"
+          },
+          {
+            "name": "charming",
+            "description": "A visualization library for Rust",
+            "url": "/crates/charming"
+          },
+          {
+            "name": "rerun",
+            "description": "Log images, point clouds, etc, and visualize them effortlessly",
+            "url": "/crates/rerun"
+          },
+          {
+            "name": "graphviz-rust",
+            "description": "basic access to the graphs in graphviz format…",
+            "url": "/crates/graphviz-rust"
+          },
+          {
+            "name": "serie",
+            "description": "A rich git commit graph in your terminal, like magic",
+            "url": "/crates/serie"
+          },
+          {
+            "name": "oversee",
+            "description": "A modern system monitor for macOS with Apple Silicon GPU support",
+            "url": "/crates/oversee"
+          },
+          {
+            "name": "facet-pretty",
+            "description": "Pretty-printing for Facet types with syntax…",
+            "url": "/crates/facet-pretty"
+          },
+          {
+            "name": "painter",
+            "description": "plotter library",
+            "url": "/crates/painter"
+          },
+          {
+            "name": "re_sdk",
+            "description": "Rerun logging SDK",
+            "url": "/crates/re_sdk"
+          },
+          {
+            "name": "rsand",
+            "description": "Relational Systemwide Asymmetric Network of Dispersion",
+            "url": "/crates/rsand"
+          },
+          {
+            "name": "rerun-cli",
+            "description": "Log images, point clouds, etc, and visualize them effortlessly",
+            "url": "/crates/rerun-cli"
+          },
+          {
+            "name": "re_viewport",
+            "description": "The central viewport panel of the Rerun viewer",
+            "url": "/crates/re_viewport"
+          },
+          {
+            "name": "re_time_panel",
+            "description": "time panel of the Rerun Viewer, allowing…",
+            "url": "/crates/re_time_panel"
+          }
+        ],
+        "totalCrates": 1390
+      },
+      {
+        "name": "Finance",
+        "description": "Payments, accounting, trading using real money",
+        "url": "/finance",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "rust_decimal",
+            "description": "Decimal number implementation written in…",
+            "url": "/crates/rust_decimal"
+          },
+          {
+            "name": "async-stripe",
+            "description": "API bindings for the Stripe HTTP API",
+            "url": "/crates/async-stripe"
+          },
+          {
+            "name": "yahoo_finance_api",
+            "description": "adapter for the yahoo! finance API to fetch…",
+            "url": "/crates/yahoo_finance_api"
+          },
+          {
+            "name": "iso_currency",
+            "description": "ISO 4217 currency codes",
+            "url": "/crates/iso_currency"
+          },
+          {
+            "name": "tackler",
+            "description": "Fast, reliable bookkeeping tool with native…",
+            "url": "/crates/tackler"
+          },
+          {
+            "name": "databento",
+            "description": "Official Databento client library",
+            "url": "/crates/databento"
+          },
+          {
+            "name": "orderbook-rs",
+            "description": "high-performance, lock-free price level implementation…",
+            "url": "/crates/orderbook-rs"
+          },
+          {
+            "name": "trade_aggregation",
+            "description": "Aggregate trades into user defined candles…",
+            "url": "/crates/trade_aggregation"
+          },
+          {
+            "name": "moneta",
+            "description": "Currency-safe computations with money amounts",
+            "url": "/crates/moneta"
+          },
+          {
+            "name": "t-invest-sdk",
+            "description": "T-Bank Invest API SDK. Клиент для…",
+            "url": "/crates/t-invest-sdk"
+          },
+          {
+            "name": "hotfix",
+            "description": "Buy-side FIX engine written in pure Rust",
+            "url": "/crates/hotfix"
+          },
+          {
+            "name": "finam",
+            "description": "SDK для работы с API Финам",
+            "url": "/crates/finam"
+          },
+          {
+            "name": "sber-invest-report",
+            "description": "Парсер инвестиционных…",
+            "url": "/crates/sber-invest-report"
+          }
+        ],
+        "totalCrates": 954
+      },
+      {
+        "name": "Email",
+        "description": "Sending, receiving, formatting, and parsing email.",
+        "url": "/email",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "lettre",
+            "description": "Email client",
+            "url": "/crates/lettre"
+          },
+          {
+            "name": "mailparse",
+            "description": "parser for MIME e-mail messages",
+            "url": "/crates/mailparse"
+          },
+          {
+            "name": "email_address",
+            "description": "providing an implementation of an RFC-compliant `EmailAddress` newtype",
+            "url": "/crates/email_address"
+          },
+          {
+            "name": "imap",
+            "description": "IMAP client for Rust",
+            "url": "/crates/imap"
+          },
+          {
+            "name": "mail-parser",
+            "description": "Fast and robust e-mail parsing library for Rust",
+            "url": "/crates/mail-parser"
+          },
+          {
+            "name": "mail-builder",
+            "description": "E-mail builder library for Rust",
+            "url": "/crates/mail-builder"
+          },
+          {
+            "name": "imap-proto",
+            "description": "IMAP protocol parser and data structures",
+            "url": "/crates/imap-proto"
+          },
+          {
+            "name": "mailchecker",
+            "description": "Cross-language temporary (disposable/throwaway)…",
+            "url": "/crates/mailchecker"
+          },
+          {
+            "name": "m2sync",
+            "description": "synchronizing IMAP and local m2dir",
+            "url": "/crates/m2sync"
+          },
+          {
+            "name": "gix-mailmap",
+            "description": "gitoxide project for parsing mailmap files",
+            "url": "/crates/gix-mailmap"
+          },
+          {
+            "name": "kcr_app_k8s_io",
+            "description": "Kubernetes Custom Resource Bindings",
+            "url": "/crates/kcr_app_k8s_io"
+          },
+          {
+            "name": "opentalk-types-api-v1",
+            "description": "OpenTalk API v1 data types",
+            "url": "/crates/opentalk-types-api-v1"
+          }
+        ],
+        "totalCrates": 892
+      },
+      {
+        "name": "Text editors",
+        "description": "Applications for editing text.",
+        "url": "/text-editors",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "tui-textarea",
+            "description": "powerful text editor widget for ratatui and tui-rs. Multi-line",
+            "url": "/crates/tui-textarea"
+          },
+          {
+            "name": "lsp-server",
+            "description": "Generic LSP server scaffold",
+            "url": "/crates/lsp-server"
+          },
+          {
+            "name": "lsp-types",
+            "description": "Types for interaction with a language server…",
+            "url": "/crates/lsp-types"
+          },
+          {
+            "name": "ra_ap_syntax",
+            "description": "Concrete syntax tree definitions for rust-analyzer",
+            "url": "/crates/ra_ap_syntax"
+          },
+          {
+            "name": "tower-lsp",
+            "description": "Language Server Protocol implementation based on Tower",
+            "url": "/crates/tower-lsp"
+          },
+          {
+            "name": "neocmakelsp",
+            "description": "The Lsp for cmake",
+            "url": "/crates/neocmakelsp"
+          },
+          {
+            "name": "omega",
+            "description": "A performant terminal-based project editor with extensive shortcuts",
+            "url": "/crates/omega"
+          },
+          {
+            "name": "ra_ap_ide_db",
+            "description": "Core data structure representing IDE state for rust-analyzer",
+            "url": "/crates/ra_ap_ide_db"
+          },
+          {
+            "name": "ruskel",
+            "description": "Generates skeletonized outlines of Rust crates",
+            "url": "/crates/ruskel"
+          },
+          {
+            "name": "solp",
+            "description": "Microsoft Visual Studio solution parsing library",
+            "url": "/crates/solp"
+          },
+          {
+            "name": "solv",
+            "description": "SOLution Validation tool that analyzes Microsoft…",
+            "url": "/crates/solv"
+          },
+          {
+            "name": "kak-tree-sitter",
+            "description": "Server between Kakoune and tree-sitter",
+            "url": "/crates/kak-tree-sitter"
+          },
+          {
+            "name": "lemma-cli",
+            "description": "A language that means business",
+            "url": "/crates/lemma-cli"
+          },
+          {
+            "name": "csskit",
+            "description": "Refreshing CSS!",
+            "url": "/crates/csskit"
+          },
+          {
+            "name": "syster-lsp",
+            "description": "Language Server Protocol implementation for SysML v2",
+            "url": "/crates/syster-lsp"
+          }
+        ],
+        "totalCrates": 1032
+      },
+      {
+        "name": "Simulation",
+        "description": "Model or construct models for some activity, e.g. to simulate a networking protocol.",
+        "url": "/simulation",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "rapier3d",
+            "description": "3-dimensional physics engine in Rust",
+            "url": "/crates/rapier3d"
+          },
+          {
+            "name": "madsim",
+            "description": "Deterministic Simulator for distributed systems",
+            "url": "/crates/madsim"
+          },
+          {
+            "name": "biodivine-lib-param-bn",
+            "description": "working with parametrized Boolean networks",
+            "url": "/crates/biodivine-lib-param-bn"
+          },
+          {
+            "name": "wellen",
+            "description": "Fast VCD and FST library for waveform viewers written in Rust",
+            "url": "/crates/wellen"
+          },
+          {
+            "name": "google-policysimulator1-cli",
+            "description": "A complete library to interact with Policy Simulator (protocol v1)",
+            "url": "/crates/google-policysimulator1-cli"
+          },
+          {
+            "name": "dubins_paths",
+            "description": "Rust code for calculating Dubin's Paths",
+            "url": "/crates/dubins_paths"
+          },
+          {
+            "name": "rebop",
+            "description": "A fast stochastic simulator for chemical reaction networks",
+            "url": "/crates/rebop"
+          },
+          {
+            "name": "dive-deco",
+            "description": "A dive decompression models library (Buhlmann ZH-L 16C)",
+            "url": "/crates/dive-deco"
+          },
+          {
+            "name": "siderust",
+            "description": "High-precision astronomy and satellite mechanics in Rust",
+            "url": "/crates/siderust"
+          },
+          {
+            "name": "struqture",
+            "description": "HQS tool for representing operators, Hamiltonians and open systems",
+            "url": "/crates/struqture"
+          },
+          {
+            "name": "precice",
+            "description": "Rust bindinds for precice",
+            "url": "/crates/precice"
+          },
+          {
+            "name": "struqture-py",
+            "description": "Python interface of struqture, the HQS tool…",
+            "url": "/crates/struqture-py"
+          }
+        ],
+        "totalCrates": 1169
+      },
+      {
+        "name": "Emulators",
+        "description": "Run software or games not available natively on the host computer.",
+        "url": "/emulators",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "emuman",
+            "description": "managing emulator ROM files",
+            "url": "/crates/emuman"
+          },
+          {
+            "name": "agb",
+            "description": "Game Boy Advance Development",
+            "url": "/crates/agb"
+          },
+          {
+            "name": "librashader-runtime-mtl",
+            "description": "RetroArch shaders for all",
+            "url": "/crates/librashader-runtime-mtl"
+          },
+          {
+            "name": "jailer",
+            "description": "Process for starting Firecracker in production…",
+            "url": "/gh/firecracker-microvm/firecracker/jailer"
+          },
+          {
+            "name": "mos6502",
+            "description": "A MOS 6502 Emulator",
+            "url": "/crates/mos6502"
+          },
+          {
+            "name": "boytacean",
+            "description": "A Game Boy emulator that is written in Rust",
+            "url": "/crates/boytacean"
+          },
+          {
+            "name": "virt",
+            "description": "Rust bindings to the libvirt C library",
+            "url": "/crates/virt"
+          },
+          {
+            "name": "mizu",
+            "description": "accurate gameboy(DMG) and gameboy color emulator…",
+            "url": "/crates/mizu"
+          },
+          {
+            "name": "udbserver",
+            "description": "Provide Unicorn emulator with a debug server",
+            "url": "/crates/udbserver"
+          },
+          {
+            "name": "aranya-policy-vm",
+            "description": "The Aranya Policy Virtual Machine",
+            "url": "/crates/aranya-policy-vm"
+          },
+          {
+            "name": "librashader-pack",
+            "description": "RetroArch shaders for all",
+            "url": "/crates/librashader-pack"
+          },
+          {
+            "name": "librashader-presets",
+            "description": "RetroArch shaders for all",
+            "url": "/crates/librashader-presets"
+          },
+          {
+            "name": "librashader-reflect",
+            "description": "RetroArch shaders for all",
+            "url": "/crates/librashader-reflect"
+          }
+        ],
+        "totalCrates": 550
+      },
+      {
+        "name": "Accessibility",
+        "description": "Assistive technologies",
+        "url": "/accessibility",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "accesskit",
+            "description": "UI accessibility infrastructure across platforms",
+            "url": "/crates/accesskit"
+          },
+          {
+            "name": "atspi",
+            "description": "Pure-Rust, zbus-based AT-SPI2 protocol implementation",
+            "url": "/crates/atspi"
+          },
+          {
+            "name": "mathcat",
+            "description": "Math Capable Assistive Technology ('Speech and braille from MathML')",
+            "url": "/crates/mathcat"
+          },
+          {
+            "name": "simple-hotkeys",
+            "description": "AutoHotkeys for Hyprland",
+            "url": "/crates/simple-hotkeys"
+          },
+          {
+            "name": "macos-accessibility-client",
+            "description": "Wrapper around macOS' accessibility client APIs",
+            "url": "/crates/macos-accessibility-client"
+          },
+          {
+            "name": "lector",
+            "description": "A terminal screen reader",
+            "url": "/crates/lector"
+          },
+          {
+            "name": "a11ywatch_cli",
+            "description": "A11yWatch web accessibility CLI",
+            "url": "/crates/a11ywatch_cli"
+          },
+          {
+            "name": "brlapi",
+            "description": "Safe Rust bindings for the BrlAPI library",
+            "url": "/crates/brlapi"
+          },
+          {
+            "name": "whisp",
+            "description": "Unobtrusive global speech-to-text",
+            "url": "/crates/whisp"
+          },
+          {
+            "name": "accesskit_atspi_common",
+            "description": "AccessKit UI accessibility infrastructure:…",
+            "url": "/crates/accesskit_atspi_common"
+          },
+          {
+            "name": "accesskit_winit",
+            "description": "AccessKit UI accessibility infrastructure: winit adapter",
+            "url": "/crates/accesskit_winit"
+          },
+          {
+            "name": "accesskit_unix",
+            "description": "AccessKit UI accessibility infrastructure: Linux adapter",
+            "url": "/crates/accesskit_unix"
+          }
+        ],
+        "totalCrates": 166
+      },
+      {
+        "name": "Security",
+        "description": "anti-malware, pentesting, reversing, and code reviews",
+        "url": "/security",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "cargo-auditable",
+            "description": "Make production Rust binaries auditable",
+            "url": "/crates/cargo-auditable"
+          },
+          {
+            "name": "zizmor",
+            "description": "Static analysis for GitHub Actions",
+            "url": "/crates/zizmor"
+          },
+          {
+            "name": "rustsec",
+            "description": "Client library for the RustSec security advisory database",
+            "url": "/crates/rustsec"
+          },
+          {
+            "name": "cargo-vet",
+            "description": "Supply-chain security for Rust",
+            "url": "/crates/cargo-vet"
+          },
+          {
+            "name": "rustdllproxy",
+            "description": "ease the development of proxy DLLs in Rust",
+            "url": "/crates/rustdllproxy"
+          },
+          {
+            "name": "clamav-client",
+            "description": "ClamAV client library with optional support for async-std…",
+            "url": "/crates/clamav-client"
+          },
+          {
+            "name": "idalib",
+            "description": "Idiomatic bindings to IDA SDK",
+            "url": "/crates/idalib"
+          },
+          {
+            "name": "cosmian_kmip",
+            "description": "Cosmian KMIP library",
+            "url": "/crates/cosmian_kmip"
+          },
+          {
+            "name": "cosmian_kms_interfaces",
+            "description": "exposing APIs for plugins to the Cosmian KMS",
+            "url": "/crates/cosmian_kms_interfaces"
+          },
+          {
+            "name": "utimaco_pkcs11_loader",
+            "description": "Utimaco HSM PKCS#11 loader",
+            "url": "/crates/utimaco_pkcs11_loader"
+          },
+          {
+            "name": "cosmian_kms_client",
+            "description": "Cosmian KMS REST Client",
+            "url": "/crates/cosmian_kms_client"
+          }
+        ],
+        "totalCrates": 328
+      },
+      {
+        "name": "Biology",
+        "description": "Bioinformatics",
+        "url": "/science/bio",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "needletail",
+            "description": "FASTX parsing and k-mer methods",
+            "url": "/crates/needletail"
+          },
+          {
+            "name": "bio",
+            "description": "bioinformatics library for Rust. This library…",
+            "url": "/crates/bio"
+          },
+          {
+            "name": "rust-lapper",
+            "description": "A fast and easy interval overlap library",
+            "url": "/crates/rust-lapper"
+          },
+          {
+            "name": "rust-htslib",
+            "description": "HTSlib bindings and a high level Rust API…",
+            "url": "/crates/rust-htslib"
+          },
+          {
+            "name": "minimap2",
+            "description": "Bindings to libminimap2",
+            "url": "/crates/minimap2"
+          },
+          {
+            "name": "rasusa",
+            "description": "Randomly subsample reads or alignments",
+            "url": "/crates/rasusa"
+          },
+          {
+            "name": "bio-seq",
+            "description": "Bit packed and well-typed biological sequences",
+            "url": "/crates/bio-seq"
+          },
+          {
+            "name": "seq_io",
+            "description": "Fast FASTA, FASTQ and FASTX parsing",
+            "url": "/crates/seq_io"
+          },
+          {
+            "name": "seqsizzle",
+            "description": "pager for viewing FASTQ and FASTA files with fuzzy matching…",
+            "url": "/crates/seqsizzle"
+          },
+          {
+            "name": "gtars-genomicdist",
+            "description": "port of GenomicDistributions: tools for computing…",
+            "url": "/crates/gtars-genomicdist"
+          },
+          {
+            "name": "seq-hash",
+            "description": "A SIMD-accelerated library to compute hashes of DNA sequences",
+            "url": "/crates/seq-hash"
+          },
+          {
+            "name": "binseq",
+            "description": "A high efficiency binary format for sequencing data",
+            "url": "/crates/binseq"
+          },
+          {
+            "name": "barbell",
+            "description": "Extremely fast and accurate Nanopore demultiplexing",
+            "url": "/crates/barbell"
+          },
+          {
+            "name": "opentools",
+            "description": "toolbox that process OpenST chip data",
+            "url": "/crates/opentools"
+          },
+          {
+            "name": "convert_genome",
+            "description": "Convert DTC, VCF, or BCF genome files to VCF, BCF, or PLINK 1.9",
+            "url": "/crates/convert_genome"
+          }
+        ],
+        "totalCrates": 897
+      },
+      {
+        "name": "Robotics",
+        "description": "Robotics and vehicle engineering",
+        "url": "/science/robotics",
+        "isSubcategory": false,
+        "featuredCrates": [
+          {
+            "name": "rsruckig",
+            "description": "Ruckig motion planning library for Rust",
+            "url": "/crates/rsruckig"
+          },
+          {
+            "name": "zenoh-plugin-dds",
+            "description": "Zenoh plugin for ROS2 and DDS in general",
+            "url": "/crates/zenoh-plugin-dds"
+          },
+          {
+            "name": "vex-sdk",
+            "description": "FFI bindings to VEXos system APIs",
+            "url": "/crates/vex-sdk"
+          },
+          {
+            "name": "roslibrust",
+            "description": "An async trait based interface to ROS1 and ROS2",
+            "url": "/crates/roslibrust"
+          },
+          {
+            "name": "optimization_engine",
+            "description": "pure Rust framework for embedded nonconvex optimization…",
+            "url": "/crates/optimization_engine"
+          },
+          {
+            "name": "maviola",
+            "description": "High-level MAVLink communication library…",
+            "url": "/crates/maviola"
+          },
+          {
+            "name": "rs-opw-kinematics",
+            "description": "Inverse and forward kinematics for 6 axis…",
+            "url": "/crates/rs-opw-kinematics"
+          },
+          {
+            "name": "ethercrab",
+            "description": "A pure Rust EtherCAT MainDevice supporting std and no_std environments",
+            "url": "/crates/ethercrab"
+          },
+          {
+            "name": "transforms",
+            "description": "transform library to track reference frames…",
+            "url": "/crates/transforms"
+          },
+          {
+            "name": "dora-cli",
+            "description": "`dora` goal is to be a low latency, composable…",
+            "url": "/crates/dora-cli"
+          },
+          {
+            "name": "ros-core-rs",
+            "description": "A pure Rust implementation of the Robot Operating System (ROS) core",
+            "url": "/crates/ros-core-rs"
+          },
+          {
+            "name": "dora-tracing",
+            "description": "`dora` goal is to be a low latency, composable…",
+            "url": "/crates/dora-tracing"
+          }
+        ],
+        "totalCrates": 636
+      }
+    ]
+  }
+}

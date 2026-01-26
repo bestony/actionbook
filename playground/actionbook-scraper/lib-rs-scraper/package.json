@@ -1,0 +1,31 @@
+{
+  "name": "lib-rs-scraper",
+  "version": "1.0.0",
+  "description": "lib.rs scraper using Actionbook verified selectors",
+  "main": "scraper.js",
+  "scripts": {
+    "scrape": "node scraper.js",
+    "scrape:homepage": "node scraper.js --mode homepage",
+    "scrape:category": "node scraper.js --mode category --category",
+    "scrape:rust-patterns": "node scraper.js --mode category --category /rust-patterns --output rust-patterns.json",
+    "scrape:algorithms": "node scraper.js --mode category --category /algorithms --output algorithms.json",
+    "scrape:network": "node scraper.js --mode category --category /network-programming --output network.json",
+    "scrape:detail": "node scraper.js --mode detail --crate",
+    "scrape:tokio": "node scraper.js --mode detail --crate tokio --output tokio.json",
+    "scrape:serde": "node scraper.js --mode detail --crate serde --output serde.json",
+    "scrape:search": "node scraper.js --mode search --search",
+    "scrape:all": "node scraper.js --mode all --output lib-rs-full.json"
+  },
+  "keywords": [
+    "scraper",
+    "lib.rs",
+    "rust",
+    "crates",
+    "actionbook",
+    "playwright"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

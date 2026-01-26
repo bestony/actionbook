@@ -1,0 +1,53 @@
+{
+  "metadata": {
+    "source": "crates.io",
+    "scrapedAt": "2026-01-22T09:36:29.219Z",
+    "mode": "detail",
+    "actionbookActionIds": [
+      "https://crates.io/",
+      "https://crates.io/crates",
+      "https://crates.io/crates/{crate_name}"
+    ]
+  },
+  "crate": {
+    "name": "tokio",
+    "version": "1.49.0",
+    "description": "An event-driven, non-blocking I/O platform for writing asynchronous I/O\nbacked applications.",
+    "keywords": [
+      "#io",
+      "#async",
+      "#non-blocking",
+      "#futures"
+    ],
+    "publishedAt": "2026-01-03T17:59:20+08:00",
+    "publishedAtRelative": "19 days ago",
+    "msrv": "v1.71.0",
+    "edition": "",
+    "license": "MIT",
+    "lineCount": "44K\n              SLoC",
+    "packageSize": "837 KiB",
+    "purl": "pkg:cargo/tokio@1.49.0",
+    "repository": "https://github.com/tokio-rs/tokio",
+    "documentation": "https://docs.rs/tokio/1.49.0",
+    "owners": [
+      {
+        "name": "tokio-rs/Core",
+        "profile": "/teams/github:tokio-rs:core"
+      },
+      {
+        "name": "Carl Lerche",
+        "profile": "/users/carllerche"
+      },
+      {
+        "name": "Alice Ryhl",
+        "profile": "/users/Darksonn"
+      }
+    ],
+    "categories": [
+      "Asynchronous",
+      "Network programming"
+    ],
+    "readme": "",
+    "stats": {}
+  }
+}

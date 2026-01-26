@@ -1,0 +1,196 @@
+{
+  "name": "tokio",
+  "description": "An event-driven, non-blocking I/O platform for writing asynchronous I/O\nbacked applications",
+  "labels": [],
+  "latestVersion": "1.49.0",
+  "publishDate": "Jan 3, 2026",
+  "versions": [
+    {
+      "version": "1.49.0",
+      "date": "Jan 3, 2026"
+    },
+    {
+      "version": "1.48.0",
+      "date": "Oct 14, 2025"
+    },
+    {
+      "version": "1.47.3",
+      "date": "Jan 2, 2026"
+    },
+    {
+      "version": "1.47.1",
+      "date": "Aug 1, 2025"
+    },
+    {
+      "version": "0.0.0",
+      "date": "Jul 1, 2016"
+    }
+  ],
+  "downloads": 25008926,
+  "categoryRanking": 1,
+  "dependentCrates": 55609,
+  "license": "MIT",
+  "packageSize": "3.5MB",
+  "sloc": "48K",
+  "authors": [
+    "Carl Lerche",
+    "Alice Ryhl",
+    "tokio-rs"
+  ],
+  "categories": [
+    "Asynchronous"
+  ],
+  "keywords": [
+    "async-io",
+    "async"
+  ],
+  "links": {
+    "librs": "https://lib.rs/crates/tokio",
+    "apiDocs": "https://docs.rs/tokio",
+    "github": "https://github.com/tokio-rs/tokio"
+  },
+  "dependencies": [
+    {
+      "name": "backtrace",
+      "version": "0.3.58",
+      "optional": true
+    },
+    {
+      "name": "tracing",
+      "version": "0.1.29",
+      "optional": true
+    },
+    {
+      "name": "bytes",
+      "version": "1.2.1",
+      "optional": true
+    },
+    {
+      "name": "io-uring",
+      "version": "new",
+      "optional": true
+    },
+    {
+      "name": "libc",
+      "version": "0.2.168",
+      "optional": true
+    },
+    {
+      "name": "mio",
+      "version": "1.0.1",
+      "optional": true
+    },
+    {
+      "name": "slab",
+      "version": "0.4.9",
+      "optional": true
+    },
+    {
+      "name": "socket2",
+      "version": "new",
+      "optional": true
+    },
+    {
+      "name": "windows-sys",
+      "version": "0.61",
+      "optional": true
+    },
+    {
+      "name": "signal-hook-registry",
+      "version": "1.1.1",
+      "optional": true
+    },
+    {
+      "name": "parking_lot",
+      "version": "0.12.0",
+      "optional": true
+    },
+    {
+      "name": "pin-project-lite",
+      "version": "0.2.11",
+      "optional": false
+    },
+    {
+      "name": "tokio-macros",
+      "version": "~2.6.0",
+      "optional": true
+    }
+  ],
+  "devDependencies": [
+    {
+      "name": "async-stream",
+      "version": "0.3"
+    },
+    {
+      "name": "futures",
+      "version": "0.3.0"
+    },
+    {
+      "name": "futures-concurrency",
+      "version": "7.6.3"
+    },
+    {
+      "name": "futures-test",
+      "version": "0.3.31"
+    },
+    {
+      "name": "mockall",
+      "version": "outdated"
+    },
+    {
+      "name": "proptest",
+      "version": "1"
+    },
+    {
+      "name": "rand",
+      "version": "new"
+    },
+    {
+      "name": "tempfile",
+      "version": "3.1.0"
+    },
+    {
+      "name": "tokio-stream",
+      "version": "0.1"
+    },
+    {
+      "name": "tokio-test",
+      "version": "0.4.0"
+    },
+    {
+      "name": "tokio-util",
+      "version": "0.7"
+    },
+    {
+      "name": "loom",
+      "version": "new"
+    },
+    {
+      "name": "mio-aio",
+      "version": "new"
+    },
+    {
+      "name": "nix",
+      "version": "obsolete"
+    },
+    {
+      "name": "tracing-mock",
+      "version": "outdated"
+    },
+    {
+      "name": "wasm-bindgen-test",
+      "version": "0.3.0"
+    }
+  ],
+  "features": [
+    "fs",
+    "io-std",
+    "rt",
+    "rt-multi-thread",
+    "sync",
+    "test-util",
+    "time"
+  ],
+  "readmeHtml": "\n<h1 id=\"readme-tokio\">Tokio</h1>\n<p>A runtime for writing reliable, asynchronous, and slim applications with\nthe Rust programming language. It is:</p>\n<ul>\n<li>\n<p><strong>Fast</strong>: Tokio's zero-cost abstractions give you bare-metal\nperformance.</p>\n</li>\n<li>\n<p><strong>Reliable</strong>: Tokio leverages Rust's ownership, type system, and\nconcurrency model to reduce bugs and ensure thread safety.</p>\n</li>\n<li>\n<p><strong>Scalable</strong>: Tokio has a minimal footprint, and handles backpressure\nand cancellation naturally.</p>\n</li>\n</ul>\n<p><a href=\"https://crates.io/crates/tokio\" rel=\"ugc noopener\"><img src=\"https://img.shields.io/crates/v/tokio.svg\" alt=\"Crates.io\" decoding=\"async\" width=\"110\" height=\"20\"></a>\n<a href=\"https://github.com/tokio-rs/tokio/blob/master/LICENSE\" rel=\"ugc noopener\"><img src=\"https://img.shields.io/badge/license-MIT-blue.svg\" alt=\"MIT licensed\" decoding=\"async\" width=\"78\" height=\"20\"></a>\n<a href=\"https://github.com/tokio-rs/tokio/actions?query=workflow%3ACI+branch%3Amaster\" rel=\"ugc noopener\"><img alt=\"Build Status\" decoding=\"async\" crossorigin=\"anonymous\" src=\"https://img.gs/czjpqfbdkz/full/https://github.com/tokio-rs/tokio/workflows/CI/badge.svg\" width=\"90\" height=\"20\"></a>\n<a href=\"https://discord.gg/tokio\" rel=\"ugc noopener\"><img src=\"https://img.shields.io/discord/500028886025895936.svg?logo=discord&amp;style=flat-square\" alt=\"Discord chat\" decoding=\"async\" width=\"125\" height=\"20\"></a></p>\n<p><a href=\"https://tokio.rs\" rel=\"ugc noopener\">Website</a> |\n<a href=\"https://tokio.rs/tokio/tutorial\" rel=\"ugc noopener\">Guides</a> |\n<a href=\"https://docs.rs/tokio/latest/tokio\" rel=\"ugc noopener\">API Docs</a> |\n<a href=\"https://discord.gg/tokio\" rel=\"ugc noopener\">Chat</a></p>\n<h2 id=\"readme-overview\">Overview</h2>\n<p>Tokio is an event-driven, non-blocking I/O platform for writing\nasynchronous applications with the Rust programming language. At a high\nlevel, it provides a few major components:</p>\n<ul>\n<li>A multithreaded, work-stealing based task <a href=\"https://docs.rs/tokio/latest/tokio/runtime/index.html\" rel=\"ugc noopener\">scheduler</a>.</li>\n<li>A reactor backed by the operating system's event queue (epoll, kqueue,\nIOCP, etc.).</li>\n<li>Asynchronous <a href=\"https://docs.rs/tokio/latest/tokio/net/index.html\" rel=\"ugc noopener\">TCP and UDP</a> sockets.</li>\n</ul>\n<p>These components provide the runtime components necessary for building\nan asynchronous application.</p>\n<h2 id=\"readme-example\">Example</h2>\n<p>A basic TCP echo server with Tokio.</p>\n<p>Make sure you enable the full features of the tokio crate on Cargo.toml:</p>\n<pre lang=\"toml\"><code><tt class=\"src-toml\"><tt class=\"m-tag m-tag-tbl\"><tt class=\"pun-def pun-def-tbl\">[</tt><tt class=\"ent-tbl ent-tbl-toml\">dependencies</tt><tt class=\"pun-def pun-def-tbl\">]</tt>\n<tt class=\"ent-n ent-n-tag\">tokio = { version = \"1.49.0\", features </tt><tt class=\"pun-sep pun-sep-kv\">=</tt> <tt class=\"m-arr m-arr-toml\"><tt class=\"pun-def pun-def-arr\">[</tt><tt class=\"str-q str-q-dbl\"><tt class=\"pun-def pun-def-str\">\"</tt>full<tt class=\"pun-def pun-def-str\">\"</tt></tt><tt class=\"pun-def pun-def-arr\">]</tt></tt> }\n</tt></tt></code></pre>\n<p>Then, on your main.rs:</p>\n<pre lang=\"rust,no_run\"><code><tt class=\"src-rs\"><tt class=\"k-ot k-ot-rs\">use</tt> <tt class=\"m-path m-path-rs\">tokio<tt class=\"pun-acc pun-acc-rs\">::</tt></tt><tt class=\"m-path m-path-rs\">net<tt class=\"pun-acc pun-acc-rs\">::</tt></tt>TcpListener<tt class=\"pun-term pun-term-rs\">;</tt>\n<tt class=\"k-ot k-ot-rs\">use</tt> <tt class=\"m-path m-path-rs\">tokio<tt class=\"pun-acc pun-acc-rs\">::</tt></tt><tt class=\"m-path m-path-rs\">io<tt class=\"pun-acc pun-acc-rs\">::</tt></tt><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">{</tt>AsyncReadExt<tt class=\"pun-sep pun-sep-rs\">,</tt> AsyncWriteExt</tt><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">}</tt></tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n<tt class=\"m-ann m-ann-rs\"><tt class=\"pun-def pun-def-ann\">#</tt><tt class=\"pun-sec pun-sec-grp\">[</tt><tt class=\"var-ann var-ann-rs\">tokio</tt>::<tt class=\"var-ann var-ann-rs\">main</tt><tt class=\"pun-sec pun-sec-grp\">]</tt></tt>\nasync <tt class=\"m-fn m-fn-rs\"><tt class=\"stor-ty stor-ty-fn\">fn</tt> <tt class=\"ent-n ent-n-fn\">main</tt></tt><tt class=\"m-fn m-fn-rs\"><tt class=\"m-fn m-fn-parms\"><tt class=\"pun-sec pun-sec-parms\">(</tt></tt><tt class=\"m-fn m-fn-parms\"><tt class=\"pun-sec pun-sec-parms\">)</tt></tt></tt><tt class=\"m-fn m-fn-rs\"> <tt class=\"m-fn m-fn-ret-ty\"><tt class=\"pun-sep pun-sep-rs\">-&gt;</tt> <tt class=\"m-gen m-gen-rs\"><tt class=\"sup-ty sup-ty-rs\">Result</tt><tt class=\"pun-def pun-def-gen\">&lt;</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"pun-sec pun-sec-grp\">)</tt>, <tt class=\"sup-ty sup-ty-rs\">Box</tt><tt class=\"pun-def pun-def-gen\">&lt;</tt>dyn <tt class=\"m-path m-path-rs\">std<tt class=\"pun-acc pun-acc-rs\">::</tt></tt><tt class=\"m-path m-path-rs\">error<tt class=\"pun-acc pun-acc-rs\">::</tt></tt>Error<tt class=\"pun-def pun-def-gen\">&gt;</tt><tt class=\"pun-def pun-def-gen\">&gt;</tt></tt></tt> </tt><tt class=\"m-fn m-fn-rs\"><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">{</tt>\n    <tt class=\"stor-ty stor-ty-rs\">let</tt> listener <tt class=\"k-op k-op-asgn\">=</tt> <tt class=\"m-path m-path-rs\">TcpListener<tt class=\"pun-acc pun-acc-rs\">::</tt></tt>bind<tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"str-q str-q-dbl\"><tt class=\"pun-def pun-def-str\">\"</tt>127.0.0.1:8080<tt class=\"pun-def pun-def-str\">\"</tt></tt><tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>await<tt class=\"k-op k-op-rs\">?</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n    <tt class=\"k-ctrl k-ctrl-rs\">loop</tt> <tt class=\"pun-sec pun-sec-bl\">{</tt>\n        <tt class=\"stor-ty stor-ty-rs\">let</tt> <tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"stor-mod stor-mod-rs\">mut</tt> socket<tt class=\"pun-sep pun-sep-rs\">,</tt> <tt class=\"k-op k-op-rs\">_</tt><tt class=\"pun-sec pun-sec-grp\">)</tt> <tt class=\"k-op k-op-asgn\">=</tt> listener<tt class=\"pun-acc pun-acc-dot\">.</tt><tt class=\"sup-fn sup-fn-rs\">accept</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>await<tt class=\"k-op k-op-rs\">?</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n        <tt class=\"m-path m-path-rs\">tokio<tt class=\"pun-acc pun-acc-rs\">::</tt></tt>spawn<tt class=\"pun-sec pun-sec-grp\">(</tt>async <tt class=\"stor-mod stor-mod-rs\">move</tt> <tt class=\"pun-sec pun-sec-bl\">{</tt>\n            <tt class=\"stor-ty stor-ty-rs\">let</tt> <tt class=\"stor-mod stor-mod-rs\">mut</tt> buf <tt class=\"k-op k-op-asgn\">=</tt> <tt class=\"pun-sec pun-sec-grp\">[</tt><tt class=\"const-num const-num-int\">0</tt><tt class=\"pun-sep pun-sep-rs\">;</tt> <tt class=\"const-num const-num-int\">1024</tt><tt class=\"pun-sec pun-sec-grp\">]</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n            <tt class=\"com-ln com-ln-dbl-sl\"><tt class=\"pun-def pun-def-com\">//</tt> In a loop, read data from the socket and write the data back.</tt>\n            <tt class=\"k-ctrl k-ctrl-rs\">loop</tt> <tt class=\"pun-sec pun-sec-bl\">{</tt>\n                <tt class=\"stor-ty stor-ty-rs\">let</tt> n <tt class=\"k-op k-op-asgn\">=</tt> <tt class=\"k-ctrl k-ctrl-rs\">match</tt> socket<tt class=\"pun-acc pun-acc-dot\">.</tt><tt class=\"sup-fn sup-fn-rs\">read</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"k-op k-op-bit\">&amp;</tt><tt class=\"stor-mod stor-mod-rs\">mut</tt> buf<tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>await <tt class=\"pun-sec pun-sec-bl\">{</tt>\n                    <tt class=\"com-ln com-ln-dbl-sl\"><tt class=\"pun-def pun-def-com\">//</tt> socket closed</tt>\n                    <tt class=\"sup-ty sup-ty-rs\">Ok</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"const-num const-num-int\">0</tt><tt class=\"pun-sec pun-sec-grp\">)</tt> <tt class=\"k-op k-op-rs\">=&gt;</tt> <tt class=\"k-ctrl k-ctrl-rs\">return</tt><tt class=\"pun-sep pun-sep-rs\">,</tt>\n                    <tt class=\"sup-ty sup-ty-rs\">Ok</tt><tt class=\"pun-sec pun-sec-grp\">(</tt>n<tt class=\"pun-sec pun-sec-grp\">)</tt> <tt class=\"k-op k-op-rs\">=&gt;</tt> n<tt class=\"pun-sep pun-sep-rs\">,</tt>\n                    <tt class=\"sup-ty sup-ty-rs\">Err</tt><tt class=\"pun-sec pun-sec-grp\">(</tt>e<tt class=\"pun-sec pun-sec-grp\">)</tt> <tt class=\"k-op k-op-rs\">=&gt;</tt> <tt class=\"pun-sec pun-sec-bl\">{</tt>\n                        <tt class=\"sup-mac sup-mac-rs\">eprintln!</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"str-q str-q-dbl\"><tt class=\"pun-def pun-def-str\">\"</tt>failed to read from socket; err = <tt class=\"const-ot const-ot-phold\">{:?}</tt><tt class=\"pun-def pun-def-str\">\"</tt></tt><tt class=\"pun-sep pun-sep-rs\">,</tt> e<tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n                        <tt class=\"k-ctrl k-ctrl-rs\">return</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n                    <tt class=\"pun-sec pun-sec-bl\">}</tt>\n                <tt class=\"pun-sec pun-sec-bl\">}</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n\n                <tt class=\"com-ln com-ln-dbl-sl\"><tt class=\"pun-def pun-def-com\">//</tt> Write the data back</tt>\n                <tt class=\"k-ctrl k-ctrl-rs\">if</tt> <tt class=\"stor-ty stor-ty-rs\">let</tt> <tt class=\"sup-ty sup-ty-rs\">Err</tt><tt class=\"pun-sec pun-sec-grp\">(</tt>e<tt class=\"pun-sec pun-sec-grp\">)</tt> <tt class=\"k-op k-op-asgn\">=</tt> socket<tt class=\"pun-acc pun-acc-dot\">.</tt><tt class=\"sup-fn sup-fn-rs\">write_all</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"k-op k-op-bit\">&amp;</tt>buf<tt class=\"pun-sec pun-sec-grp\">[</tt><tt class=\"const-num const-num-int\">0</tt><tt class=\"k-op k-op-ran\">..</tt>n<tt class=\"pun-sec pun-sec-grp\">]</tt><tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>await <tt class=\"pun-sec pun-sec-bl\">{</tt>\n                    <tt class=\"sup-mac sup-mac-rs\">eprintln!</tt><tt class=\"pun-sec pun-sec-grp\">(</tt><tt class=\"str-q str-q-dbl\"><tt class=\"pun-def pun-def-str\">\"</tt>failed to write to socket; err = <tt class=\"const-ot const-ot-phold\">{:?}</tt><tt class=\"pun-def pun-def-str\">\"</tt></tt><tt class=\"pun-sep pun-sep-rs\">,</tt> e<tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n                    <tt class=\"k-ctrl k-ctrl-rs\">return</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n                <tt class=\"pun-sec pun-sec-bl\">}</tt>\n            <tt class=\"pun-sec pun-sec-bl\">}</tt>\n        <tt class=\"pun-sec pun-sec-bl\">}</tt><tt class=\"pun-sec pun-sec-grp\">)</tt><tt class=\"pun-term pun-term-rs\">;</tt>\n    <tt class=\"pun-sec pun-sec-bl\">}</tt>\n</tt><tt class=\"m-bl m-bl-rs\"><tt class=\"pun-sec pun-sec-bl\">}</tt></tt></tt>\n</tt></code></pre>\n<p>More examples can be found <a href=\"https://github.com/tokio-rs/tokio/tree/master/examples\" rel=\"ugc noopener\">here</a>. For a larger \"real world\" example, see the\n<a href=\"https://github.com/tokio-rs/mini-redis/\" rel=\"ugc noopener\">mini-redis</a> repository.</p>\n<p>To see a list of the available feature flags that can be enabled, check our\n<a href=\"https://docs.rs/tokio/#feature-flags\" rel=\"ugc noopener\">docs</a>.</p>\n<h2 id=\"readme-getting-help\">Getting Help</h2>\n<p>First, see if the answer to your question can be found in the <a href=\"https://tokio.rs/tokio/tutorial\" rel=\"ugc noopener\">Guides</a> or the\n<a href=\"https://docs.rs/tokio/latest/tokio\" rel=\"ugc noopener\">API documentation</a>. If the answer is not there, there is an active community in\nthe <a href=\"https://discord.gg/tokio\" rel=\"ugc noopener\">Tokio Discord server</a>. We would be happy to try to answer your\nquestion. You can also ask your question on <a href=\"https://github.com/tokio-rs/tokio/discussions\" rel=\"ugc noopener\">the discussions page</a>.</p>\n<h2 id=\"readme-contributing\">Contributing</h2>\n<p>🎈 Thanks for your help improving the project! We are so happy to have\nyou! We have a <a href=\"https://github.com/tokio-rs/tokio/blob/master/docs/contributing/README.md\" rel=\"ugc noopener\">contributing guide</a> to help you get involved in the Tokio\nproject.</p>\n<h2 id=\"readme-related-projects\">Related Projects</h2>\n<p>In addition to the crates in this repository, the Tokio project also maintains\nseveral other libraries, including:</p>\n<ul>\n<li>\n<p><a href=\"https://github.com/tokio-rs/axum\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">axum</tt></code></a>: A web application framework that focuses on ergonomics and modularity.</p>\n</li>\n<li>\n<p><a href=\"https://github.com/hyperium/hyper\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">hyper</tt></code></a>: A fast and correct HTTP/1.1 and HTTP/2 implementation for Rust.</p>\n</li>\n<li>\n<p><a href=\"https://github.com/hyperium/tonic\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">tonic</tt></code></a>: A gRPC over HTTP/2 implementation focused on high performance, interoperability, and flexibility.</p>\n</li>\n<li>\n<p><a href=\"https://github.com/seanmonstar/warp\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">warp</tt></code></a>: A super-easy, composable, web server framework for warp speeds.</p>\n</li>\n<li>\n<p><a href=\"https://github.com/tower-rs/tower\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">tower</tt></code></a>: A library of modular and reusable components for building robust networking clients and servers.</p>\n</li>\n<li>\n<p><a href=\"https://github.com/tokio-rs/tracing\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">tracing</tt></code></a> (formerly <code><tt class=\"txt-plain\">tokio-trace</tt></code>): A framework for application-level tracing and async-aware diagnostics.</p>\n</li>\n<li>\n<p><a href=\"https://github.com/tokio-rs/mio\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">mio</tt></code></a>: A low-level, cross-platform abstraction over OS I/O APIs that powers <code><tt class=\"src-rs\">tokio</tt></code>.</p>\n</li>\n<li>\n<p><a href=\"https://github.com/tokio-rs/bytes\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">bytes</tt></code></a>: Utilities for working with bytes, including efficient byte buffers.</p>\n</li>\n<li>\n<p><a href=\"https://github.com/tokio-rs/loom\" rel=\"ugc noopener\"><code><tt class=\"src-rs\">loom</tt></code></a>: A testing tool for concurrent Rust code.</p>\n</li>\n</ul>\n<h2 id=\"readme-changelog\">Changelog</h2>\n<p>The Tokio repository contains multiple crates. Each crate has its own changelog.</p>\n<ul>\n<li><code><tt class=\"src-rs\">tokio</tt></code> - <a href=\"https://github.com/tokio-rs/tokio/blob/master/tokio/CHANGELOG.md\" rel=\"ugc noopener\">view changelog</a></li>\n<li><code><tt class=\"txt-plain\">tokio-util</tt></code> - <a href=\"https://github.com/tokio-rs/tokio/blob/master/tokio-util/CHANGELOG.md\" rel=\"ugc noopener\">view changelog</a></li>\n<li><code><tt class=\"txt-plain\">tokio-stream</tt></code> - <a href=\"https://github.com/tokio-rs/tokio/blob/master/tokio-stream/CHANGELOG.md\" rel=\"ugc noopener\">view changelog</a></li>\n<li><code><tt class=\"txt-plain\">tokio-macros</tt></code> - <a href=\"https://github.com/tokio-rs/tokio/blob/master/tokio-macros/CHANGELOG.md\" rel=\"ugc noopener\">view changelog</a></li>\n<li><code><tt class=\"txt-plain\">tokio-test</tt></code> - <a href=\"https://github.com/tokio-rs/tokio/blob/master/tokio-test/CHANGELOG.md\" rel=\"ugc noopener\">view changelog</a></li>\n</ul>\n<h2 id=\"readme-supported-rust-versions\">Supported Rust Versions</h2>\n<p>Tokio will keep a rolling MSRV (minimum supported rust version) policy of <strong>at\nleast</strong> 6 months. When increasing the MSRV, the new Rust version must have been\nreleased at least six months ago. The current MSRV is 1.71.</p>\n<p>Note that the MSRV is not increased automatically, and only as part of a minor\nrelease. The MSRV history for past minor releases can be found below:</p>\n<ul>\n<li>1.48 to now - Rust 1.71</li>\n<li>1.39 to 1.47 - Rust 1.70</li>\n<li>1.30 to 1.38 - Rust 1.63</li>\n<li>1.27 to 1.29 - Rust 1.56</li>\n<li>1.17 to 1.26 - Rust 1.49</li>\n<li>1.15 to 1.16 - Rust 1.46</li>\n<li>1.0 to 1.14 - Rust 1.45</li>\n</ul>\n<p>Note that although we try to avoid the situation where a dependency transitively\nincreases the MSRV of Tokio, we do not guarantee that this does not happen.\nHowever, every minor release will have some set of versions of dependencies that\nworks with the MSRV of that minor release.</p>\n<h2 id=\"readme-release-schedule\">Release schedule</h2>\n<p>Tokio doesn't follow a fixed release schedule, but we typically make one minor\nrelease each month. We make patch releases for bugfixes as necessary.</p>\n<h2 id=\"readme-bug-patching-policy\">Bug patching policy</h2>\n<p>For the purposes of making patch releases with bugfixes, we have designated\ncertain minor releases as LTS (long term support) releases. Whenever a bug\nwarrants a patch release with a fix for the bug, it will be backported and\nreleased as a new patch release for each LTS minor version. Our current LTS\nreleases are:</p>\n<ul>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">43</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until March 2026. (MSRV 1.70)</li>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">47</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until September 2026. (MSRV 1.70)</li>\n</ul>\n<p>Each LTS release will continue to receive backported fixes for at least a year.\nIf you wish to use a fixed minor release in your project, we recommend that you\nuse an LTS release.</p>\n<p>To use a fixed minor version, you can specify the version with a tilde. For\nexample, to specify that you wish to use the newest <code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">43</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> patch release, you\ncan use the following dependency specification:</p>\n<pre lang=\"text\" class=\"one-liner\"><code><tt class=\"txt-plain\">tokio = { version = \"~1.43\", features = [...] }\n</tt></code></pre>\n<h3 id=\"readme-previous-lts-releases\">Previous LTS releases</h3>\n<ul>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">8</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until February 2022.</li>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">14</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until June 2022.</li>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">18</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until June 2023.</li>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">20</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until September 2023.</li>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">25</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until March 2024.</li>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">32</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until September 2024.</li>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">36</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until March 2025.</li>\n<li><code><tt class=\"src-rs\"><tt class=\"const-num const-num-flt\">1.</tt><tt class=\"const-num const-num-flt\">38</tt><tt class=\"pun-acc pun-acc-dot\">.</tt>x</tt></code> - LTS release until July 2025.</li>\n</ul>\n<h2 id=\"readme-license\">License</h2>\n<p>This project is licensed under the <a href=\"https://github.com/tokio-rs/tokio/blob/master/LICENSE\" rel=\"ugc noopener\">MIT license</a>.</p>\n<h3 id=\"readme-contribution\">Contribution</h3>\n<p>Unless you explicitly state otherwise, any contribution intentionally submitted\nfor inclusion in Tokio by you shall be licensed as MIT, without any additional\nterms or conditions.</p>\n",
+  "scrapedAt": "2026-01-24T08:59:06.814Z"
+}

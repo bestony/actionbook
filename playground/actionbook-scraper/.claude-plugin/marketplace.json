@@ -1,0 +1,15 @@
+{
+  "name": "actionbook-scraper-collection",
+  "owner": {
+    "name": "Actionbook",
+    "url": "https://github.com/actionbook"
+  },
+  "plugins": [
+    {
+      "name": "actionbook-scraper",
+      "source": "./",
+      "description": "Generate accurate web scraper code using Actionbook's verified selectors",
+      "version": "0.1.0"
+    }
+  ]
+}
