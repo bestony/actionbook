@@ -3,7 +3,7 @@ import chalk from 'chalk'
 import { spawnAgentBrowser, installAgentBrowser } from '../utils/process.js'
 
 export const browserCommand = new Command('browser')
-  .description('Execute agent-browser commands (browser automation)')
+  .description('Execute actionbook browser commands (browser automation)')
   .allowUnknownOption(true) // Critical: allow any args through
   .allowExcessArguments(true)
   .helpOption('-h, --help', 'Display help for actionbook browser')
@@ -20,7 +20,7 @@ Setup:
   $ actionbook browser install          # Download Chromium browser
   $ actionbook browser install --with-deps  # Linux: include system dependencies
 
-For detailed agent-browser commands:
+For detailed commands:
   $ actionbook browser
 
 Learn more: ${chalk.cyan('https://github.com/vercel-labs/agent-browser')}
