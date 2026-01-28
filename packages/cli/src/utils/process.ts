@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
-import { readFileSync } from 'node:fs'
+import { existsSync, readdirSync } from 'node:fs'
 import chalk from 'chalk'
 
 /**
@@ -120,46 +120,78 @@ export function showAgentBrowserInstallation(): void {
 }
 
 /**
- * Get playwright-core version from agent-browser's package.json
- * Returns version string like "1.57.0" (without ^ or ~ prefix)
+ * Find playwright-core CLI path from node_modules
+ * Supports both npm and pnpm node_modules structures
  */
-function getAgentBrowserPlaywrightVersion(cliPackageRoot: string): string {
-  try {
-    const agentBrowserPkgPath = join(cliPackageRoot, 'node_modules', 'agent-browser', 'package.json')
-    const pkgContent = readFileSync(agentBrowserPkgPath, 'utf-8')
-    const pkg = JSON.parse(pkgContent)
-    const playwrightCoreVersion = pkg.dependencies?.['playwright-core'] || ''
-    // Remove ^ ~ or other semver prefixes
-    return playwrightCoreVersion.replace(/^[\^~]/, '')
-  } catch (error) {
-    console.warn(chalk.yellow('Warning: Could not read agent-browser version, using latest playwright'))
-    return 'latest'
+function findPlaywrightCoreCli(baseDir: string): string | null {
+  const dirsToCheck = [
+    baseDir, // Current package dir
+    join(baseDir, '..', '..'), // Workspace root (for pnpm workspace)
+  ]
+
+  for (const dir of dirsToCheck) {
+    // Check pnpm structure - find any playwright-core@* version
+    const pnpmDir = join(dir, 'node_modules', '.pnpm')
+    if (existsSync(pnpmDir)) {
+      try {
+        const entries = readdirSync(pnpmDir)
+        for (const entry of entries) {
+          if (entry.startsWith('playwright-core@')) {
+            const cliPath = join(pnpmDir, entry, 'node_modules', 'playwright-core', 'cli.js')
+            if (existsSync(cliPath)) {
+              return cliPath
+            }
+          }
+        }
+      } catch (error) {
+        // Ignore read errors, try other methods
+      }
+    }
+
+    // Check npm flat structure
+    const npmFlatPath = join(dir, 'node_modules', 'playwright-core', 'cli.js')
+    if (existsSync(npmFlatPath)) {
+      return npmFlatPath
+    }
+
+    // Check npm nested under agent-browser
+    const npmNestedPath = join(dir, 'node_modules', 'agent-browser', 'node_modules', 'playwright-core', 'cli.js')
+    if (existsSync(npmNestedPath)) {
+      return npmNestedPath
+    }
   }
+
+  return null
 }
 
 /**
  * Install Chromium browser binaries for agent-browser
+ * Uses playwright-core CLI from package dependencies to ensure version compatibility
  * @param installArgs - Additional arguments like ['--with-deps'] for Linux
  */
 export async function installAgentBrowser(installArgs: string[] = []): Promise<number> {
   console.log(chalk.cyan('Setting up browser automation...\n'))
   console.log(chalk.yellow('Downloading Chromium browser binaries...\n'))
 
-  // Get CLI package root directory to run npx from there
+  // Get CLI package root directory
   const __dirname = dirname(fileURLToPath(import.meta.url))
   const cliPackageRoot = join(__dirname, '..', '..')
 
-  // Dynamically get playwright version from agent-browser to ensure binary compatibility
-  const playwrightVersion = getAgentBrowserPlaywrightVersion(cliPackageRoot)
-  const playwrightArgs = [`playwright@${playwrightVersion}`, 'install', 'chromium']
+  // Find playwright-core CLI
+  const playwrightCliPath = findPlaywrightCoreCli(cliPackageRoot)
+  if (!playwrightCliPath) {
+    console.error(chalk.red('\nFailed to locate playwright-core CLI.'))
+    console.error(chalk.white('Please ensure agent-browser and its dependencies are properly installed.\n'))
+    return 1
+  }
 
-  // Add --with-deps if requested (Linux only)
+  const installArgs2 = ['install', 'chromium']
   if (installArgs.includes('--with-deps')) {
-    playwrightArgs.push('--with-deps')
+    installArgs2.push('--with-deps')
   }
 
   const exitCode = await new Promise<number>((resolve) => {
-    const child = spawn('npx', playwrightArgs, {
+    const child = spawn('node', [playwrightCliPath, ...installArgs2], {
       stdio: 'inherit',
       shell: false,
       env: process.env,
