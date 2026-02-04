@@ -128,6 +128,28 @@ src/
     └── profile.rs       # Profile management commands
 ```
 
+## Prerequisites
+
+| Requirement | Description |
+|-------------|-------------|
+| **Chromium-based Browser** | One of: Google Chrome, Brave, Microsoft Edge, Arc, or Chromium |
+
+### What You DON'T Need
+
+| Traditional Tools | actionbook-rs |
+|-------------------|---------------|
+| Node.js runtime | **Not needed** |
+| Download Chromium | **Not needed** (uses system browser) |
+| WebDriver/Selenium | **Not needed** (direct CDP) |
+| Python | **Not needed** |
+
+### Verify Prerequisites
+
+```bash
+# Check if a supported browser is detected
+actionbook browser status
+```
+
 ## Installation
 
 ### From Source
