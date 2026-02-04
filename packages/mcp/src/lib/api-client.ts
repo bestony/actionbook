@@ -9,6 +9,7 @@ export type {
   SourceListResult,
   SourceSearchResult,
   SearchActionsParams,
+  SearchActionsLegacyParams,
 } from '@actionbookdev/sdk'
 
 /**

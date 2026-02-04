@@ -1,8 +1,8 @@
 # Actionbook MCP Server
 
 MCP server for Claude / Cursor and other AI Agents, providing two-step query capabilities:
-- `search_actions`: Search for site / page / element / scenario metadata
-- `get_action_by_id`: Get complete content by ID (Markdown, optional JSON)
+- `search_actions`: Search for action manuals by keyword
+- `get_action_by_area_id`: Get complete action content by area ID (plain text)
 
 ## Installation & Running
 
@@ -167,6 +167,6 @@ import { ActionbookMcpServer } from '@actionbookdev/mcp';
 
 ## Test Coverage
 - Core libs: config/protocol/errors/logger/formatter/schema/types/api-client
-- Tools: search_actions / get_action_by_id
+- Tools: search_actions / get_action_by_area_id
 - Server: tool registration and invocation
 - Integration: local HTTP stub to verify tool calls with actual API client

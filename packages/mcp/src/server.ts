@@ -15,6 +15,7 @@ import { ServerConfig } from './lib/config.js'
 import { ActionbookError, ErrorCodes, isActionbookError } from './lib/errors.js'
 import { toolInputToJsonSchema } from './lib/schema.js'
 import { createSearchActionsTool } from './tools/search-actions.js'
+import { createGetActionByAreaIdTool } from './tools/get-action-by-area-id.js'
 import { createGetActionByIdTool } from './tools/get-action-by-id.js'
 import { createListSourcesTool } from './tools/list-sources.js'
 import { createSearchSourcesTool } from './tools/search-sources.js'
@@ -92,7 +93,7 @@ export class ActionbookMcpServer {
       throw new ActionbookError(
         ErrorCodes.INVALID_QUERY,
         `Unknown tool: ${name}`,
-        'Available: search_actions, get_action_by_id, list_sources, search_sources'
+        'Available: search_actions, get_action_by_area_id, list_sources, search_sources'
       )
     }
 
@@ -108,7 +109,11 @@ export class ActionbookMcpServer {
   }
 
   private registerTools(): void {
+    // New text-based tools
     this.registerTool(createSearchActionsTool(this.apiClient))
+    this.registerTool(createGetActionByAreaIdTool(this.apiClient))
+
+    // Legacy tools (kept for backward compatibility)
     this.registerTool(createGetActionByIdTool(this.apiClient))
     this.registerTool(createListSourcesTool(this.apiClient))
     this.registerTool(createSearchSourcesTool(this.apiClient))

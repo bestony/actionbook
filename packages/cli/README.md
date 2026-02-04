@@ -14,14 +14,8 @@ npm install -g @actionbookdev/cli
 # Search for actions
 actionbook search "airbnb search"
 
-# Get action details
-actionbook get "https://www.airbnb.com/search"
-
-# List available sources
-actionbook sources
-
-# Search sources
-actionbook sources search "linkedin"
+# Get action details by area_id
+actionbook get "airbnb.com:/:default"
 
 # Browser automation (requires agent-browser)
 actionbook browser open example.com
@@ -36,62 +30,28 @@ Search for action manuals by keyword.
 
 ```bash
 actionbook search "google login"
-actionbook search "airbnb" --type vector --limit 10
-actionbook search "login" --source-ids 1,2,3
+actionbook search "airbnb" --domain airbnb.com
+actionbook search "login" --page 2 --page-size 20
 ```
 
 **Options:**
-- `-t, --type <type>` - Search type: `vector`, `fulltext`, or `hybrid` (default: `hybrid`)
-- `-l, --limit <number>` - Maximum results 1-100 (default: `5`)
-- `-s, --source-ids <ids>` - Filter by source IDs (comma-separated)
-- `--min-score <score>` - Minimum similarity score 0-1
-- `-j, --json` - Output raw JSON
+- `-d, --domain <domain>` - Filter by domain (e.g., "airbnb.com")
+- `-u, --url <url>` - Filter by URL
+- `-p, --page <number>` - Page number (default: `1`)
+- `-s, --page-size <number>` - Results per page 1-100 (default: `10`)
 
 **Alias:** `actionbook s`
 
-### `actionbook get <id>`
+### `actionbook get <area_id>`
 
-Get complete action details by action ID.
+Get complete action details by area ID.
 
 ```bash
-actionbook get "https://www.airbnb.com/search"
-actionbook get "airbnb.com/search"  # fuzzy matching supported
-actionbook get "releases.rs"        # domain only
+actionbook get "airbnb.com:/:default"
+actionbook get "github.com:/login:default"
 ```
-
-**Options:**
-- `-j, --json` - Output raw JSON
 
 **Alias:** `actionbook g`
-
-### `actionbook sources`
-
-List all available sources (websites).
-
-```bash
-actionbook sources
-actionbook sources --limit 100
-actionbook sources --json
-```
-
-**Options:**
-- `-l, --limit <number>` - Maximum results (default: `50`)
-- `-j, --json` - Output raw JSON
-
-### `actionbook sources search <query>`
-
-Search for sources by keyword.
-
-```bash
-actionbook sources search "airbnb"
-actionbook sources search "e-commerce" --limit 20
-```
-
-**Options:**
-- `-l, --limit <number>` - Maximum results (default: `10`)
-- `-j, --json` - Output raw JSON
-
-**Alias:** `actionbook sources s`
 
 ### `actionbook browser [command]`
 
@@ -162,15 +122,9 @@ Or pass it as an option:
 actionbook --api-key your_api_key search "query"
 ```
 
-## Output Formats
+## Output Format
 
-By default, the CLI outputs formatted, colorized results for human readability.
-
-Use `--json` flag for raw JSON output, useful for piping to other tools:
-
-```bash
-actionbook search "login" --json | jq '.results[0].action_id'
-```
+The CLI outputs plain text results optimized for both human readability and AI agent consumption.
 
 ## Examples
 
@@ -180,34 +134,24 @@ actionbook search "login" --json | jq '.results[0].action_id'
 # 1. Search for actions
 actionbook search "airbnb search"
 
-# 2. Get details for a specific action
-actionbook get "https://www.airbnb.com/search"
+# 2. Get details for a specific action using area_id from search results
+actionbook get "airbnb.com:/:default"
 
 # 3. Use the selectors in your automation script
 ```
 
-### Filter by Source
+### Filter by Domain
 
 ```bash
-# List sources to find IDs
-actionbook sources
-
-# Search within specific sources
-actionbook search "login" --source-ids 1,2
-```
-
-### JSON Output for Scripts
-
-```bash
-# Get action and extract selectors
-actionbook get "booking.com" --json | jq '.elements'
+# Search within a specific domain
+actionbook search "login" --domain github.com
 ```
 
 ### Browser Automation Workflow
 
 ```bash
 # 1. Get action details with verified selectors
-actionbook get "github.com/login"
+actionbook get "github.com:/login:default"
 
 # 2. Use browser command to automate
 actionbook browser open "https://github.com/login"

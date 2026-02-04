@@ -11,20 +11,33 @@ const baseConfig: ServerConfig = {
 }
 
 describe('ActionbookMcpServer', () => {
+  const mockTextResponse = `## Overview
+
+Found 0 actions matching your query.
+- Total: 0
+- Page: 1 of 1
+
+----------
+
+## Results
+`
+
   it('registers tools', () => {
     const server = new ActionbookMcpServer(baseConfig, {
       apiClient: {
         searchActions: vi
           .fn()
           .mockResolvedValue({ results: [], total: 0, hasMore: false }),
+        searchActions: vi.fn().mockResolvedValue(mockTextResponse),
         getActionById: vi.fn(),
+        getActionByAreaId: vi.fn(),
         healthCheck: vi.fn(),
       } as any,
     })
 
     const tools = server.listTools()
     expect(tools.map((t) => t.name)).toEqual(
-      expect.arrayContaining(['search_actions', 'get_action_by_id'])
+      expect.arrayContaining(['search_actions', 'get_action_by_id', 'get_action_by_area_id'])
     )
   })
 
@@ -33,7 +46,9 @@ describe('ActionbookMcpServer', () => {
       searchActions: vi
         .fn()
         .mockResolvedValue({ results: [], total: 0, hasMore: false }),
+      searchActions: vi.fn().mockResolvedValue(mockTextResponse),
       getActionById: vi.fn(),
+      getActionByAreaId: vi.fn(),
       healthCheck: vi.fn(),
     }
     const server = new ActionbookMcpServer(baseConfig, {
@@ -41,9 +56,15 @@ describe('ActionbookMcpServer', () => {
     })
     const output = await server.callTool('search_actions', {
       query: 'airbnb',
-      page: 1,
-      limit: 10,
     })
-    expect(output).toContain('Search Results for "airbnb"')
+    // Now uses text API, which returns markdown directly
+    expect(output).toContain('## Overview')
+    expect(apiClient.searchActions).toHaveBeenCalledWith({
+      query: 'airbnb',
+      domain: undefined,
+      url: undefined,
+      page: undefined,
+      page_size: undefined,
+    })
   })
 })

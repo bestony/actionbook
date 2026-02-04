@@ -1,11 +1,13 @@
 import { ApiClient, type FetchFunction } from './api-client.js'
 import {
+  // New text-based API schemas
   searchActionsDescription,
   searchActionsParams,
   searchActionsSchema,
-  getActionByIdDescription,
-  getActionByIdParams,
-  getActionByIdSchema,
+  getActionByAreaIdDescription,
+  getActionByAreaIdParams,
+  getActionByAreaIdSchema,
+  // Other schemas
   listSourcesDescription,
   listSourcesParams,
   listSourcesSchema,
@@ -13,14 +15,12 @@ import {
   searchSourcesParams,
   searchSourcesSchema,
   type SearchActionsInput,
-  type GetActionByIdInput,
+  type GetActionByAreaIdInput,
   type ListSourcesInput,
   type SearchSourcesInput,
   type ToolParams,
 } from './tool-defs.js'
 import type {
-  ChunkSearchResult,
-  ChunkActionDetail,
   SourceListResult,
   SourceSearchResult,
 } from './types.js'
@@ -37,13 +37,13 @@ export interface ToolMethod<TInput, TOutput> {
 }
 
 /**
- * Overloaded method signature for searchActions
+ * Method signature for searchActions (text-based API)
  */
 export interface SearchActionsMethod {
   /** Search with query string only */
-  (query: string): Promise<ChunkSearchResult>
+  (query: string): Promise<string>
   /** Search with full options */
-  (options: SearchActionsInput): Promise<ChunkSearchResult>
+  (options: SearchActionsInput): Promise<string>
   /** Tool description for LLM */
   description: string
   /** Tool parameters in JSON Schema and Zod formats */
@@ -51,17 +51,17 @@ export interface SearchActionsMethod {
 }
 
 /**
- * Overloaded method signature for getActionById
+ * Method signature for getActionByAreaId (text-based API)
  */
-export interface GetActionByIdMethod {
-  /** Get action by URL-based ID */
-  (id: string): Promise<ChunkActionDetail>
+export interface GetActionByAreaIdMethod {
+  /** Get action by area_id */
+  (areaId: string): Promise<string>
   /** Get action with options object */
-  (options: GetActionByIdInput): Promise<ChunkActionDetail>
+  (options: GetActionByAreaIdInput): Promise<string>
   /** Tool description for LLM */
   description: string
   /** Tool parameters in JSON Schema and Zod formats */
-  params: ToolParams<typeof getActionByIdSchema>
+  params: ToolParams<typeof getActionByAreaIdSchema>
 }
 
 /**
@@ -126,11 +126,11 @@ export interface ActionbookOptions {
  *
  * const client = new Actionbook({ apiKey: 'YOUR_API_KEY' })
  *
- * // Search for actions
+ * // Search for actions (returns plain text)
  * const results = await client.searchActions('airbnb search')
  *
- * // Get action details
- * const action = await client.getActionById(123)
+ * // Get action details by area_id (returns plain text)
+ * const action = await client.getActionByAreaId('airbnb.com:/:default')
  *
  * // Access tool definitions for LLM integration
  * console.log(client.searchActions.description)
@@ -141,11 +141,11 @@ export interface ActionbookOptions {
 export class Actionbook {
   private readonly apiClient: ApiClient
 
-  /** Search for action manuals by keyword */
+  /** Search for actions (returns plain text) */
   public readonly searchActions: SearchActionsMethod
 
-  /** Get complete action details by action ID */
-  public readonly getActionById: GetActionByIdMethod
+  /** Get action details by area_id (returns plain text) */
+  public readonly getActionByAreaId: GetActionByAreaIdMethod
 
   /** List all available sources */
   public readonly listSources: ListSourcesMethod
@@ -164,43 +164,47 @@ export class Actionbook {
       fetch: options.fetch,
     })
 
-    // Create searchActions method with attached tool definition
+    // Create searchActions method (text-based API)
     const searchActionsFn = async (
       queryOrOptions: string | SearchActionsInput
-    ): Promise<ChunkSearchResult> => {
-      const options =
+    ): Promise<string> => {
+      const opts =
         typeof queryOrOptions === 'string'
           ? { query: queryOrOptions }
           : queryOrOptions
 
       return this.apiClient.searchActions({
-        query: options.query,
-        type: options.type ?? 'hybrid',
-        limit: options.limit ?? 5,
-        sourceIds: options.sourceIds,
-        minScore: options.minScore,
+        query: opts.query,
+        domain: opts.domain,
+        background: opts.background,
+        url: opts.url,
+        page: opts.page,
+        page_size: opts.page_size,
       })
     }
 
     // Attach tool definition to the method
-    ;(searchActionsFn as SearchActionsMethod).description =
-      searchActionsDescription
+    ;(searchActionsFn as SearchActionsMethod).description = searchActionsDescription
     ;(searchActionsFn as SearchActionsMethod).params = searchActionsParams
     this.searchActions = searchActionsFn as SearchActionsMethod
 
-    // Create getActionById method with attached tool definition
-    const getActionByIdFn = async (
-      idOrOptions: string | GetActionByIdInput
-    ): Promise<ChunkActionDetail> => {
-      const id = typeof idOrOptions === 'string' ? idOrOptions : idOrOptions.id
-      return this.apiClient.getActionById(id)
+    // Create getActionByAreaId method (text-based API)
+    const getActionByAreaIdFn = async (
+      areaIdOrOptions: string | GetActionByAreaIdInput
+    ): Promise<string> => {
+      const areaId =
+        typeof areaIdOrOptions === 'string'
+          ? areaIdOrOptions
+          : areaIdOrOptions.area_id
+      return this.apiClient.getActionByAreaId(areaId)
     }
 
     // Attach tool definition to the method
-    ;(getActionByIdFn as GetActionByIdMethod).description =
-      getActionByIdDescription
-    ;(getActionByIdFn as GetActionByIdMethod).params = getActionByIdParams
-    this.getActionById = getActionByIdFn as GetActionByIdMethod
+    ;(getActionByAreaIdFn as GetActionByAreaIdMethod).description =
+      getActionByAreaIdDescription
+    ;(getActionByAreaIdFn as GetActionByAreaIdMethod).params =
+      getActionByAreaIdParams
+    this.getActionByAreaId = getActionByAreaIdFn as GetActionByAreaIdMethod
 
     // Create listSources method with attached tool definition
     const listSourcesFn = async (

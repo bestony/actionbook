@@ -47,6 +47,24 @@ describe('ApiClient', () => {
   })
 
   describe('searchActions', () => {
+    const mockTextResponse = `## Overview
+
+Found 1 actions matching your query.
+- Total: 1
+- Page: 1 of 1
+
+----------
+
+## Results
+
+### airbnb.com:/:default
+
+- ID: airbnb.com:/:default
+- Type: page
+- Description: Airbnb homepage
+- URL: https://airbnb.com/
+`
+
     it('calls search endpoint with query params', async () => {
       const client = new ApiClient({
         apiKey: 'test-key',
@@ -54,79 +72,55 @@ describe('ApiClient', () => {
         retry: { maxRetries: 0 },
       })
       fetchMock.mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            success: true,
-            query: 'company',
-            results: [],
-            count: 0,
-            total: 0,
-            hasMore: false,
-          }),
-          { status: 200 }
-        )
+        new Response(mockTextResponse, {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
       )
 
-      await client.searchActions({
-        query: 'company',
-        type: 'hybrid',
-        limit: 10,
-      })
+      const result = await client.searchActions({ query: 'airbnb search' })
+      expect(result).toBe(mockTextResponse)
+
       const url = new URL(fetchMock.mock.calls[0][0] as string)
-      expect(url.pathname).toBe('/api/actions/search')
-      expect(url.searchParams.get('q')).toBe('company')
-      expect(url.searchParams.get('type')).toBe('hybrid')
-      expect(url.searchParams.get('limit')).toBe('10')
+      expect(url.pathname).toBe('/api/search_actions')
+      expect(url.searchParams.get('query')).toBe('airbnb search')
     })
 
-    it('includes optional sourceIds parameter', async () => {
+    it('includes optional domain parameter', async () => {
       const client = new ApiClient({
         apiKey: 'test-key',
         baseUrl: API_URL,
         retry: { maxRetries: 0 },
       })
       fetchMock.mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            success: true,
-            query: 'test',
-            results: [],
-            count: 0,
-            total: 0,
-            hasMore: false,
-          }),
-          { status: 200 }
-        )
+        new Response(mockTextResponse, {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
       )
 
-      await client.searchActions({ query: 'test', sourceIds: '1,2,3' })
+      await client.searchActions({ query: 'search', domain: 'airbnb.com' })
       const url = new URL(fetchMock.mock.calls[0][0] as string)
-      expect(url.searchParams.get('sourceIds')).toBe('1,2,3')
+      expect(url.searchParams.get('domain')).toBe('airbnb.com')
     })
 
-    it('includes minScore parameter', async () => {
+    it('includes pagination parameters', async () => {
       const client = new ApiClient({
         apiKey: 'test-key',
         baseUrl: API_URL,
         retry: { maxRetries: 0 },
       })
       fetchMock.mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            success: true,
-            query: 'test',
-            results: [],
-            count: 0,
-            total: 0,
-            hasMore: false,
-          }),
-          { status: 200 }
-        )
+        new Response(mockTextResponse, {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
       )
 
-      await client.searchActions({ query: 'test', minScore: 0.7 })
+      await client.searchActions({ query: 'search', page: 2, page_size: 20 })
       const url = new URL(fetchMock.mock.calls[0][0] as string)
-      expect(url.searchParams.get('minScore')).toBe('0.7')
+      expect(url.searchParams.get('page')).toBe('2')
+      expect(url.searchParams.get('page_size')).toBe('20')
     })
   })
 
@@ -368,6 +362,165 @@ describe('ApiClient', () => {
       const url = new URL(fetchMock.mock.calls[0][0] as string)
       expect(url.pathname).toBe('/api/sources/search')
       expect(url.searchParams.get('q')).toBe('airbnb')
+    })
+  })
+
+  describe('searchActions', () => {
+    it('calls new text-based search endpoint', async () => {
+      const client = new ApiClient({
+        apiKey: 'test-key',
+        baseUrl: API_URL,
+        retry: { maxRetries: 0 },
+      })
+      const responseText = '## Overview\n\nFound 1 action.\n\n## Results\n...'
+      fetchMock.mockResolvedValue(
+        new Response(responseText, {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      )
+
+      const result = await client.searchActions({ query: 'airbnb search' })
+      expect(result).toBe(responseText)
+
+      const url = new URL(fetchMock.mock.calls[0][0] as string)
+      expect(url.pathname).toBe('/api/search_actions')
+      expect(url.searchParams.get('query')).toBe('airbnb search')
+    })
+
+    it('includes optional domain parameter', async () => {
+      const client = new ApiClient({
+        apiKey: 'test-key',
+        baseUrl: API_URL,
+        retry: { maxRetries: 0 },
+      })
+      fetchMock.mockResolvedValue(
+        new Response('## Overview\n...', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      )
+
+      await client.searchActions({ query: 'search', domain: 'airbnb.com' })
+      const url = new URL(fetchMock.mock.calls[0][0] as string)
+      expect(url.searchParams.get('domain')).toBe('airbnb.com')
+    })
+
+    it('includes optional url parameter', async () => {
+      const client = new ApiClient({
+        apiKey: 'test-key',
+        baseUrl: API_URL,
+        retry: { maxRetries: 0 },
+      })
+      fetchMock.mockResolvedValue(
+        new Response('## Overview\n...', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      )
+
+      await client.searchActions({
+        query: 'search',
+        url: 'https://airbnb.com/',
+      })
+      const url = new URL(fetchMock.mock.calls[0][0] as string)
+      expect(url.searchParams.get('url')).toBe('https://airbnb.com/')
+    })
+
+    it('includes pagination parameters', async () => {
+      const client = new ApiClient({
+        apiKey: 'test-key',
+        baseUrl: API_URL,
+        retry: { maxRetries: 0 },
+      })
+      fetchMock.mockResolvedValue(
+        new Response('## Overview\n...', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      )
+
+      await client.searchActions({ query: 'search', page: 2, page_size: 20 })
+      const url = new URL(fetchMock.mock.calls[0][0] as string)
+      expect(url.searchParams.get('page')).toBe('2')
+      expect(url.searchParams.get('page_size')).toBe('20')
+    })
+
+    it('uses Accept: text/plain header', async () => {
+      const client = new ApiClient({
+        apiKey: 'test-key',
+        baseUrl: API_URL,
+        retry: { maxRetries: 0 },
+      })
+      fetchMock.mockResolvedValue(
+        new Response('## Overview\n...', {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      )
+
+      await client.searchActions({ query: 'test' })
+      const options = fetchMock.mock.calls[0][1] as RequestInit
+      expect(options.headers).toHaveProperty('Accept', 'text/plain')
+    })
+  })
+
+  describe('getActionByAreaId', () => {
+    it('calls new text-based get action endpoint', async () => {
+      const client = new ApiClient({
+        apiKey: 'test-key',
+        baseUrl: API_URL,
+        retry: { maxRetries: 0 },
+      })
+      const responseText = '## Overview\n\nAction found: airbnb.com:/:default\n...'
+      fetchMock.mockResolvedValue(
+        new Response(responseText, {
+          status: 200,
+          headers: { 'Content-Type': 'text/plain' },
+        })
+      )
+
+      const result = await client.getActionByAreaId(
+        'airbnb.com:/:default'
+      )
+      expect(result).toBe(responseText)
+
+      const url = new URL(fetchMock.mock.calls[0][0] as string)
+      expect(url.pathname).toBe('/api/get_action_by_area_id')
+      expect(url.searchParams.get('area_id')).toBe(
+        'airbnb.com:/:default'
+      )
+    })
+
+    it('handles error response as text', async () => {
+      const client = new ApiClient({
+        apiKey: 'test-key',
+        baseUrl: API_URL,
+        retry: { maxRetries: 0 },
+      })
+      const errorText = '## Error\n\nAction not found.'
+      // Use mockImplementation to return a fresh Response for each call
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(
+          new Response(errorText, {
+            status: 404,
+            headers: { 'Content-Type': 'text/plain' },
+          })
+        )
+      )
+
+      await expect(
+        client.getActionByAreaId('invalid:id')
+      ).rejects.toBeInstanceOf(ActionbookError)
+
+      try {
+        await client.getActionByAreaId('invalid:id')
+      } catch (error) {
+        if (error instanceof ActionbookError) {
+          expect(error.code).toBe(ErrorCodes.NOT_FOUND)
+          expect(error.message).toContain('Action not found')
+        }
+      }
     })
   })
 })

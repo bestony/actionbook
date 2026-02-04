@@ -1,18 +1,16 @@
 import { Command } from 'commander'
-import { Actionbook, formatSearchResults } from '@actionbookdev/sdk'
+import { Actionbook } from '@actionbookdev/sdk'
 import chalk from 'chalk'
-import { getApiKey, handleError, outputResult } from '../output.js'
-import type { SearchType } from '@actionbookdev/sdk'
+import { getApiKey, handleError } from '../output.js'
 
 export const searchCommand = new Command('search')
   .alias('s')
   .description('Search for action manuals by keyword')
   .argument('<query>', 'Search keyword (e.g., "airbnb search", "google login")')
-  .option('-t, --type <type>', 'Search type: vector, fulltext, or hybrid', 'hybrid')
-  .option('-l, --limit <number>', 'Maximum results (1-100)', '5')
-  .option('-s, --source-ids <ids>', 'Filter by source IDs (comma-separated)')
-  .option('--min-score <score>', 'Minimum similarity score (0-1)')
-  .option('-j, --json', 'Output raw JSON')
+  .option('-d, --domain <domain>', 'Filter by domain (e.g., "airbnb.com")')
+  .option('-u, --url <url>', 'Filter by URL')
+  .option('-p, --page <number>', 'Page number', '1')
+  .option('-s, --page-size <number>', 'Results per page (1-100)', '10')
   .action(async (query: string, options) => {
     try {
       const apiKey = getApiKey(options)
@@ -20,45 +18,17 @@ export const searchCommand = new Command('search')
 
       const result = await client.searchActions({
         query,
-        type: options.type as SearchType,
-        limit: parseInt(options.limit, 10),
-        sourceIds: options.sourceIds,
-        minScore: options.minScore ? parseFloat(options.minScore) : undefined,
+        domain: options.domain,
+        url: options.url,
+        page: parseInt(options.page, 10),
+        page_size: parseInt(options.pageSize, 10),
       })
 
-      if (options.json) {
-        outputResult(result)
-      } else {
-        // Formatted output
-        if (result.results.length === 0) {
-          console.log(chalk.yellow(`No actions found for "${query}"`))
-          console.log(chalk.dim('Try broader search terms or different search type'))
-        } else {
-          console.log(chalk.bold.cyan(`\nSearch Results for "${query}"\n`))
-          console.log(chalk.dim(`Found ${result.count} result(s)\n`))
+      // Result is now plain text, output directly
+      console.log(result)
 
-          result.results.forEach((action, index) => {
-            const num = index + 1
-            console.log(chalk.bold.white(`${num}. ${action.action_id}`))
-            console.log(chalk.dim(`   Score: ${(action.score ?? 0).toFixed(3)}`))
-            console.log(chalk.gray(`   ${truncate(action.content, 120)}`))
-            console.log()
-          })
-
-          if (result.hasMore) {
-            console.log(chalk.dim('More results available. Increase --limit to see more.\n'))
-          }
-
-          console.log(chalk.cyan('Next step: ') + chalk.white(`actionbook get "<action_id>"`))
-        }
-      }
+      console.log(chalk.cyan('\nNext step: ') + chalk.white(`actionbook get "<area_id>"`))
     } catch (error) {
       handleError(error)
     }
   })
-
-function truncate(str: string, maxLen: number): string {
-  const cleaned = str.replace(/\n/g, ' ').trim()
-  if (cleaned.length <= maxLen) return cleaned
-  return cleaned.substring(0, maxLen) + '...'
-}
