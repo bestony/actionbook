@@ -2,7 +2,6 @@ import { tool } from 'ai'
 import {
   searchActionsSchema,
   searchActionsDescription,
-  type ChunkSearchResult,
   type SearchActionsInput,
 } from '@actionbookdev/sdk'
 import { getClient, success, failure, type ToolOptions, type ToolResponse } from './utils.js'
@@ -31,7 +30,7 @@ export function searchActions(options?: ToolOptions) {
   return tool({
     description: searchActionsDescription,
     parameters: searchActionsSchema,
-    execute: async (input: SearchActionsInput): Promise<ToolResponse<ChunkSearchResult>> => {
+    execute: async (input: SearchActionsInput): Promise<ToolResponse<string>> => {
       try {
         const client = getClient(options)
         const result = await client.searchActions(input)

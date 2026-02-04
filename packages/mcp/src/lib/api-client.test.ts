@@ -20,26 +20,20 @@ describe('ApiClient', () => {
 
   it('calls search endpoint with query params', async () => {
     const client = new ApiClient(API_URL, { retry: { maxRetries: 0 } })
+    const mockTextResponse = '## Overview\n\nFound 0 actions.\n'
     fetchMock.mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          success: true,
-          query: 'company',
-          results: [],
-          count: 0,
-          total: 0,
-          hasMore: false,
-        }),
-        { status: 200 }
-      )
+      new Response(mockTextResponse, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
+      })
     )
 
-    await client.searchActions({ query: 'company', type: 'hybrid', limit: 10 })
+    const result = await client.searchActions({ query: 'company' })
+    expect(result).toBe(mockTextResponse)
+
     const url = new URL(fetchMock.mock.calls[0][0] as string)
-    expect(url.pathname).toBe('/api/actions/search')
-    expect(url.searchParams.get('q')).toBe('company')
-    expect(url.searchParams.get('type')).toBe('hybrid')
-    expect(url.searchParams.get('limit')).toBe('10')
+    expect(url.pathname).toBe('/api/search_actions')
+    expect(url.searchParams.get('query')).toBe('company')
   })
 
   it('gets action by numeric id', async () => {

@@ -1,14 +1,13 @@
 import { tool } from 'ai'
 import {
-  getActionByIdSchema,
-  getActionByIdDescription,
-  type ChunkActionDetail,
-  type GetActionByIdInput,
+  getActionByAreaIdSchema,
+  getActionByAreaIdDescription,
+  type GetActionByAreaIdInput,
 } from '@actionbookdev/sdk'
 import { getClient, success, failure, type ToolOptions, type ToolResponse } from './utils.js'
 
 /**
- * Get complete action details by action ID.
+ * Get complete action details by area ID.
  *
  * @param options - Optional configuration (API key, base URL, timeout)
  * @returns Vercel AI SDK tool for getting action details
@@ -20,7 +19,7 @@ import { getClient, success, failure, type ToolOptions, type ToolResponse } from
  *
  * const { text } = await generateText({
  *   model: yourModel,
- *   prompt: 'Get details for action https://example.com/page',
+ *   prompt: 'Get details for action airbnb.com:/:default',
  *   tools: {
  *     getActionById: getActionById(),
  *   },
@@ -29,12 +28,12 @@ import { getClient, success, failure, type ToolOptions, type ToolResponse } from
  */
 export function getActionById(options?: ToolOptions) {
   return tool({
-    description: getActionByIdDescription,
-    parameters: getActionByIdSchema,
-    execute: async (input: GetActionByIdInput): Promise<ToolResponse<ChunkActionDetail>> => {
+    description: getActionByAreaIdDescription,
+    parameters: getActionByAreaIdSchema,
+    execute: async (input: GetActionByAreaIdInput): Promise<ToolResponse<string>> => {
       try {
         const client = getClient(options)
-        const result = await client.getActionById(input.id)
+        const result = await client.getActionByAreaId(input.area_id)
         return success(result)
       } catch (error) {
         return failure(error)

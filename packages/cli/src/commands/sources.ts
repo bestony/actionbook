@@ -104,10 +104,10 @@ function formatSourceList(sources: SourceItem[], count: number): void {
   console.log()
   console.log(
     chalk.cyan('Tip: ') +
-      chalk.white('Use --source-ids with search to filter by source')
+      chalk.white('Use --domain with search to filter by domain')
   )
   console.log(
-    chalk.dim('Example: actionbook search "login" --source-ids 1,2')
+    chalk.dim('Example: actionbook search "login" --domain github.com')
   )
 }
 

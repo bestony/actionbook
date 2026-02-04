@@ -37,7 +37,22 @@ export interface ApiClientOptions {
   fetch?: FetchFunction
 }
 
+/**
+ * Parameters for searchActions API
+ */
 export interface SearchActionsParams {
+  query: string
+  domain?: string
+  background?: string
+  url?: string
+  page?: number
+  page_size?: number
+}
+
+/**
+ * @deprecated Use SearchActionsParams instead
+ */
+export interface SearchActionsLegacyParams {
   query: string
   type?: SearchType
   limit?: number
@@ -58,7 +73,7 @@ export class ApiClient {
   private readonly fetchFn: FetchFunction
 
   constructor(options: ApiClientOptions) {
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/$/, '')
+    this.baseUrl = (options.baseUrl ?? process.env.ACTIONBOOK_API_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '')
     this.apiKey = options.apiKey ?? ''
     this.timeoutMs = options.timeoutMs ?? 30000
     this.retry = {
@@ -74,7 +89,10 @@ export class ApiClient {
     return res?.status === 'ok' || res?.status === 'healthy'
   }
 
-  async searchActions(params: SearchActionsParams): Promise<ChunkSearchResult> {
+  /**
+   * @deprecated Use searchActions() instead. This legacy method returns JSON.
+   */
+  async searchActionsLegacy(params: SearchActionsLegacyParams): Promise<ChunkSearchResult> {
     const url = new URL('/api/actions/search', this.baseUrl)
     url.searchParams.set('q', params.query)
     if (params.type) url.searchParams.set('type', params.type)
@@ -106,6 +124,37 @@ export class ApiClient {
     url.searchParams.set('q', query)
     if (limit) url.searchParams.set('limit', String(limit))
     return this.request<SourceSearchResult>(url.toString())
+  }
+
+  // ============================================
+  // Text-based API methods (primary)
+  // ============================================
+
+  /**
+   * Search for actions.
+   * Returns plain text formatted for LLM consumption.
+   */
+  async searchActions(params: SearchActionsParams): Promise<string> {
+    const url = new URL('/api/search_actions', this.baseUrl)
+    url.searchParams.set('query', params.query)
+    if (params.domain) url.searchParams.set('domain', params.domain)
+    if (params.background) url.searchParams.set('background', params.background)
+    if (params.url) url.searchParams.set('url', params.url)
+    if (params.page) url.searchParams.set('page', String(params.page))
+    if (params.page_size) url.searchParams.set('page_size', String(params.page_size))
+
+    return this.requestText(url.toString())
+  }
+
+  /**
+   * Get action details by area_id.
+   * Returns plain text formatted for LLM consumption.
+   */
+  async getActionByAreaId(areaId: string): Promise<string> {
+    const url = new URL('/api/get_action_by_area_id', this.baseUrl)
+    url.searchParams.set('area_id', areaId)
+
+    return this.requestText(url.toString())
   }
 
   private async request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -144,6 +193,74 @@ export class ApiClient {
 
         const data = (await response.json()) as T
         return data
+      } catch (error) {
+        const isAbort =
+          error instanceof DOMException && error.name === 'AbortError'
+        const shouldRetry =
+          isAbort ||
+          (error instanceof ActionbookError &&
+            error.code === ErrorCodes.TIMEOUT)
+
+        if (attempt < this.retry.maxRetries && shouldRetry) {
+          await delay(this.retry.retryDelay)
+          continue
+        }
+
+        if (error instanceof ActionbookError) {
+          throw error
+        }
+
+        const message =
+          error instanceof Error ? error.message : 'Unknown API error'
+        throw new ActionbookError(ErrorCodes.API_ERROR, message)
+      }
+    }
+
+    throw new ActionbookError(
+      ErrorCodes.INTERNAL_ERROR,
+      'Request failed after retries'
+    )
+  }
+
+  /**
+   * Make a request expecting text response (for new text-based APIs)
+   */
+  private async requestText(url: string, init?: RequestInit): Promise<string> {
+    for (let attempt = 0; attempt <= this.retry.maxRetries; attempt += 1) {
+      try {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
+
+        const headers: Record<string, string> = {
+          Accept: 'text/plain',
+          'X-API-Key': this.apiKey,
+          ...((init?.headers as Record<string, string>) ?? {}),
+        }
+
+        const response = await this.fetchFn(url, {
+          method: init?.method ?? 'GET',
+          headers,
+          signal: controller.signal,
+          ...(init?.body != null ? { body: init.body } : {}),
+        })
+        clearTimeout(timeout)
+
+        const text = await response.text()
+
+        if (!response.ok) {
+          const code =
+            response.status === 404
+              ? ErrorCodes.NOT_FOUND
+              : response.status === 429
+                ? ErrorCodes.RATE_LIMITED
+                : ErrorCodes.API_ERROR
+          throw new ActionbookError(
+            code,
+            text || `API request failed with status ${response.status}`
+          )
+        }
+
+        return text
       } catch (error) {
         const isAbort =
           error instanceof DOMException && error.name === 'AbortError'

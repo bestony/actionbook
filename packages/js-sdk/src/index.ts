@@ -4,14 +4,19 @@ export type {
   ActionbookOptions,
   ToolMethod,
   SearchActionsMethod,
-  GetActionByIdMethod,
+  GetActionByAreaIdMethod,
   ListSourcesMethod,
   SearchSourcesMethod,
 } from './client.js'
 
 // API client (for advanced usage)
 export { ApiClient } from './api-client.js'
-export type { ApiClientOptions, FetchFunction } from './api-client.js'
+export type {
+  ApiClientOptions,
+  FetchFunction,
+  SearchActionsParams,
+  SearchActionsLegacyParams,
+} from './api-client.js'
 
 // Types
 export type {
@@ -22,7 +27,6 @@ export type {
   SourceItem,
   SourceListResult,
   SourceSearchResult,
-  SearchActionsParams,
 } from './types.js'
 
 // Errors
@@ -46,11 +50,19 @@ export {
   // Tool definition utilities
   defineTool,
   createCleanParams,
-  // searchActions
+  // searchActions (new text API)
   searchActionsSchema,
   searchActionsDescription,
   searchActionsParams,
-  // getActionById
+  // searchActions (legacy JSON API)
+  searchActionsLegacySchema,
+  searchActionsLegacyDescription,
+  searchActionsLegacyParams,
+  // getActionByAreaId (new text API)
+  getActionByAreaIdSchema,
+  getActionByAreaIdDescription,
+  getActionByAreaIdParams,
+  // getActionById (legacy JSON API)
   getActionByIdSchema,
   getActionByIdDescription,
   getActionByIdParams,
@@ -65,6 +77,8 @@ export {
 } from './tool-defs.js'
 export type {
   SearchActionsInput,
+  SearchActionsLegacyInput,
+  GetActionByAreaIdInput,
   GetActionByIdInput,
   ListSourcesInput,
   SearchSourcesInput,

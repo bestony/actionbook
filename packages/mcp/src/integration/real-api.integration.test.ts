@@ -34,26 +34,29 @@ describe('Real API integration (skippable)', () => {
 
   it('search_actions hits real API', async () => {
     const client = new ApiClient(API_URL, {
+      apiKey: process.env.ACTIONBOOK_API_KEY,
       retry: { maxRetries: 0 },
       timeoutMs: 5000,
     })
     try {
+      // searchActions now returns text
       const result = await client.searchActions({
         query: 'airbnb',
-        limit: 3,
         page: 1,
+        page_size: 3,
       })
-      expect(result.results.length).toBeGreaterThan(0)
+      // Result is now text, not JSON
+      expect(typeof result).toBe('string')
+      expect(result.length).toBeGreaterThan(0)
     } catch (error) {
       if (error instanceof Error && error.message.includes('fetch failed')) {
         return // treat as skip when fetch not reachable
       }
-      if (
-        error instanceof ActionbookError &&
-        error.code === 'API_ERROR' &&
-        error.message.includes('401')
-      ) {
-        return // skip when API requires authentication
+      if (error instanceof ActionbookError) {
+        // Skip when API requires authentication or other API errors
+        if (error.message.includes('api-key') || error.message.includes('401')) {
+          return
+        }
       }
       throw error
     }
@@ -61,30 +64,31 @@ describe('Real API integration (skippable)', () => {
 
   it('get_action_by_id hits real API', async () => {
     const client = new ApiClient(API_URL, {
+      apiKey: process.env.ACTIONBOOK_API_KEY,
       retry: { maxRetries: 0 },
       timeoutMs: 5000,
     })
-    // Use first search result ID; adjust based on actual data
+    // Use getActionByAreaId with a known ID; skip if not available
     try {
-      const search = await client.searchActions({
-        query: 'airbnb',
-        limit: 1,
-        page: 1,
-      })
-      const first = search.results[0]
-      expect(first).toBeDefined()
-      const content = await client.getActionById(first.action_id)
-      expect(content.action_id).toBe(first.action_id)
+      const result = await client.getActionByAreaId(
+        'airbnb.com:/:default'
+      )
+      // Result is now text
+      expect(typeof result).toBe('string')
+      expect(result.length).toBeGreaterThan(0)
     } catch (error) {
       if (error instanceof Error && error.message.includes('fetch failed')) {
         return // treat as skip when fetch not reachable
       }
-      if (
-        error instanceof ActionbookError &&
-        error.code === 'API_ERROR' &&
-        error.message.includes('401')
-      ) {
-        return // skip when API requires authentication
+      if (error instanceof ActionbookError) {
+        // Skip when API requires authentication, not found, or other errors
+        if (
+          error.message.includes('api-key') ||
+          error.message.includes('401') ||
+          error.code === 'NOT_FOUND'
+        ) {
+          return
+        }
       }
       throw error
     }

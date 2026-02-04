@@ -3,7 +3,6 @@ import {
   searchActionsSchema,
   searchActionsDescription,
   type SearchActionsInput,
-  formatSearchResults,
 } from '@actionbookdev/sdk'
 import { ApiClient } from '../lib/api-client.js'
 
@@ -19,14 +18,15 @@ export function createSearchActionsTool(
     description: searchActionsDescription,
     inputSchema: searchActionsSchema,
     handler: async (input: SearchActionsInput): Promise<string> => {
-      const result = await apiClient.searchActions({
+      // Use the new text-based API
+      return apiClient.searchActions({
         query: input.query,
-        type: input.type ?? 'hybrid',
-        limit: input.limit ?? 5,
-        sourceIds: input.sourceIds,
-        minScore: input.minScore,
+        domain: input.domain,
+        background: input.background,
+        url: input.url,
+        page: input.page,
+        page_size: input.page_size,
       })
-      return formatSearchResults(result, input.query)
     },
   })
 }

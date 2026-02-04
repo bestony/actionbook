@@ -58,26 +58,102 @@ export function createCleanParams<T extends z.ZodTypeAny>(
 }
 
 // ============================================
-// searchActions tool definition
+// searchActions tool definition (new text API)
 // ============================================
 
 export const searchActionsSchema = z.object({
   query: z
     .string()
-    .min(1, "Query cannot be empty")
-    .max(200, "Query too long")
-    .describe("Search keyword (e.g., 'airbnb search', 'login button', 'google login')"),
-  type: z
-    .enum(["vector", "fulltext", "hybrid"])
+    .min(1, 'Query cannot be empty')
+    .max(200, 'Query too long')
+    .describe(
+      "Search keyword describing the action you want to perform (e.g., 'airbnb search', 'login button', 'google login')"
+    ),
+  domain: z
+    .string()
     .optional()
-    .describe("Search type: vector (semantic), fulltext (keyword), or hybrid (default)"),
+    .describe(
+      "Filter by domain name to narrow search scope (e.g., 'airbnb.com', 'google.com')"
+    ),
+  background: z
+    .string()
+    .optional()
+    .describe(
+      'Background context for the search - describe what you are trying to accomplish (helps improve search relevance)'
+    ),
+  url: z
+    .string()
+    .optional()
+    .describe(
+      'Filter by specific page URL when you know the exact page'
+    ),
+  page: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe('Page number for pagination (default: 1)'),
+  page_size: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .describe('Number of results per page (1-100, default: 10)'),
+})
+
+export type SearchActionsInput = z.infer<typeof searchActionsSchema>
+
+export const searchActionsDescription = `Search for website action manuals by keyword.
+
+Use this tool to find actions, page elements, and their selectors for browser automation.
+
+**Parameters:**
+- query (required): Search keyword describing the action
+- domain (optional): Filter by website domain (e.g., 'airbnb.com')
+- background (optional): Context for your search - describe what you're trying to accomplish
+- url (optional): Filter by specific page URL
+- page (optional): Page number for pagination
+- page_size (optional): Results per page (default: 10)
+
+**Example queries:**
+- "airbnb search" → find Airbnb search-related actions
+- "google login" → find Google login actions
+- "linkedin message" → find LinkedIn messaging actions
+
+**Typical workflow:**
+1. Search for actions: search_actions({ query: "airbnb search" })
+2. Get area_id from results (e.g., "airbnb.com:/:default")
+3. Get full details: get_action_by_area_id({ area_id: "airbnb.com:/:default" })
+4. Use returned selectors with Playwright/browser automation
+
+Returns area_id identifiers with descriptions and health scores.`
+
+export const searchActionsParams = createParams(searchActionsSchema)
+
+// ============================================
+// searchActions tool definition (legacy JSON API)
+// ============================================
+
+export const searchActionsLegacySchema = z.object({
+  query: z
+    .string()
+    .min(1, 'Query cannot be empty')
+    .max(200, 'Query too long')
+    .describe(
+      "Search keyword (e.g., 'airbnb search', 'login button', 'google login')"
+    ),
+  type: z
+    .enum(['vector', 'fulltext', 'hybrid'])
+    .optional()
+    .describe('Search type: vector (semantic), fulltext (keyword), or hybrid (default)'),
   limit: z
     .number()
     .int()
     .min(1)
     .max(100)
     .optional()
-    .describe("Maximum number of results to return (1-100, default: 5)"),
+    .describe('Maximum number of results to return (1-100, default: 5)'),
   sourceIds: z
     .string()
     .optional()
@@ -87,12 +163,12 @@ export const searchActionsSchema = z.object({
     .min(0)
     .max(1)
     .optional()
-    .describe("Minimum similarity score (0-1, e.g., 0.7 for high relevance only)"),
-});
+    .describe('Minimum similarity score (0-1, e.g., 0.7 for high relevance only)'),
+})
 
-export type SearchActionsInput = z.infer<typeof searchActionsSchema>;
+export type SearchActionsLegacyInput = z.infer<typeof searchActionsLegacySchema>
 
-export const searchActionsDescription = `Search for action manuals by keyword.
+export const searchActionsLegacyDescription = `[LEGACY] Search for action manuals by keyword.
 
 Use this tool to find website actions, page elements, and their selectors for browser automation.
 
@@ -107,24 +183,71 @@ Use this tool to find website actions, page elements, and their selectors for br
 3. Get full details: getActionById("https://example.com/page")
 4. Use returned selectors with Playwright/browser automation
 
-Returns URL-based action IDs with content previews and relevance scores.`;
+Returns URL-based action IDs with content previews and relevance scores.`
 
-export const searchActionsParams = createParams(searchActionsSchema);
+export const searchActionsLegacyParams = createParams(searchActionsLegacySchema)
 
 // ============================================
-// getActionById tool definition
+// getActionByAreaId tool definition (new text API)
+// ============================================
+
+export const getActionByAreaIdSchema = z.object({
+  area_id: z
+    .string()
+    .min(1, 'Area ID cannot be empty')
+    .describe(
+      "Semantic area ID from search_actions results (format: 'site:path:area', e.g., 'airbnb.com:/:default')"
+    ),
+})
+
+export type GetActionByAreaIdInput = z.infer<typeof getActionByAreaIdSchema>
+
+export const getActionByAreaIdDescription = `Get complete action details by area_id, including DOM selectors and element information.
+
+**Area ID Format:**
+Area IDs use semantic format: \`site:path:area\`
+- site: Domain name (e.g., 'airbnb.com')
+- path: URL pathname (e.g., '/', '/s/homes')
+- area: Area identifier within the page (e.g., 'search_form', 'default')
+
+Example: \`airbnb.com:/:default\`
+
+**What you get:**
+- Full page/area content with description and functions
+- Interactive elements with selectors (CSS, XPath)
+- Element types and allowed methods (click, type, etc.)
+- Health score indicating selector reliability
+
+**Use returned selectors with browser automation:**
+\`\`\`javascript
+// Example using CSS selector from response
+await page.locator('[data-testid="search-button"]').click();
+\`\`\`
+
+**Typical workflow:**
+1. Search for actions: search_actions({ query: "airbnb search" })
+2. Get area_id from results (e.g., "airbnb.com:/:default")
+3. Get full details: get_action_by_area_id({ area_id: "airbnb.com:/:default" })
+4. Extract selectors and use in browser automation`
+
+export const getActionByAreaIdParams = createParams(getActionByAreaIdSchema)
+
+// ============================================
+// getActionById tool definition (legacy JSON API)
 // ============================================
 
 export const getActionByIdSchema = z.object({
   id: z
     .string()
-    .min(1, "Action ID cannot be empty")
-    .describe("Action ID - full URL (e.g., 'https://example.com/page') or partial domain (e.g., 'example.com/page', 'releases.rs')"),
-});
+    .min(1, 'Action ID cannot be empty')
+    .describe(
+      "Action ID - full URL (e.g., 'https://example.com/page') or partial domain (e.g., 'example.com/page', 'releases.rs')"
+    ),
+})
 
-export type GetActionByIdInput = z.infer<typeof getActionByIdSchema>;
+export type GetActionByIdInput = z.infer<typeof getActionByIdSchema>
 
-export const getActionByIdDescription = `Get complete action details by action ID, including DOM selectors and step-by-step instructions.
+export const getActionByIdDescription = `[LEGACY] Get complete action details by action ID, including DOM selectors and step-by-step instructions.
 
 **Action ID Format:**
 Action IDs support both full URLs and fuzzy matching:
@@ -149,7 +272,7 @@ await page.locator(selector).click();
 1. Search for actions: searchActions("airbnb search")
 2. Get action_id from results (e.g., "https://docs.airbnb.com/search")
 3. Get full details: getActionById("docs.airbnb.com/search") // fuzzy match works!
-4. Extract selectors and use in automation`;
+4. Extract selectors and use in automation`
 
 export const getActionByIdParams = createParams(getActionByIdSchema)
 

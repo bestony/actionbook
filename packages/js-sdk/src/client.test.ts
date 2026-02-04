@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Actionbook } from './client.js'
-import { ChunkSearchResult, ChunkActionDetail } from './types.js'
 
 // Create mock function
 const fetchMock = vi.fn()
@@ -30,51 +29,46 @@ describe('Actionbook', () => {
   })
 
   describe('searchActions', () => {
-    const mockResult: ChunkSearchResult = {
-      success: true,
-      query: 'airbnb',
-      results: [
-        {
-          action_id: 123,
-          content: 'Airbnb search action',
-          score: 0.95,
-          createdAt: '2025-12-05T00:00:00.000Z',
-        },
-      ],
-      count: 1,
-      total: 1,
-      hasMore: false,
-    }
+    const mockTextResult = `# Search Results for "airbnb"
+
+## 1. airbnb.com:/:default
+**Title:** Airbnb Search
+**Description:** Search for accommodations on Airbnb
+
+---
+
+Page: 1/1 | Total: 1 results`
 
     it('searches with string query', async () => {
       const client = new Actionbook({ apiKey: 'test-key' })
-      fetchMock.mockResolvedValue(
-        new Response(JSON.stringify(mockResult), { status: 200 })
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(new Response(mockTextResult, { status: 200 }))
       )
 
       const result = await client.searchActions('airbnb')
-      expect(result.success).toBe(true)
-      expect(result.results).toHaveLength(1)
-      expect(result.results[0].action_id).toBe(123)
+      expect(typeof result).toBe('string')
+      expect(result).toContain('airbnb')
     })
 
     it('searches with options object', async () => {
       const client = new Actionbook({ apiKey: 'test-key' })
-      fetchMock.mockResolvedValue(
-        new Response(JSON.stringify(mockResult), { status: 200 })
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(new Response(mockTextResult, { status: 200 }))
       )
 
       const result = await client.searchActions({
         query: 'airbnb',
-        type: 'vector',
-        limit: 10,
+        domain: 'airbnb.com',
+        page: 1,
+        page_size: 10,
       })
-      expect(result.success).toBe(true)
+      expect(typeof result).toBe('string')
 
       const url = new URL(fetchMock.mock.calls[0][0] as string)
-      expect(url.searchParams.get('q')).toBe('airbnb')
-      expect(url.searchParams.get('type')).toBe('vector')
-      expect(url.searchParams.get('limit')).toBe('10')
+      expect(url.searchParams.get('query')).toBe('airbnb')
+      expect(url.searchParams.get('domain')).toBe('airbnb.com')
+      expect(url.searchParams.get('page')).toBe('1')
+      expect(url.searchParams.get('page_size')).toBe('10')
     })
 
     it('has description property', () => {
@@ -100,66 +94,60 @@ describe('Actionbook', () => {
     })
   })
 
-  describe('getActionById', () => {
-    const mockDetail: ChunkActionDetail = {
-      action_id: 123,
-      content: '# Airbnb Search\n\nSearch for accommodations.',
-      elements: JSON.stringify({
-        search_button: {
-          css_selector: '.search-btn',
-          description: 'Search button',
-        },
-      }),
-      createdAt: '2025-12-05T00:00:00.000Z',
-      documentId: 1,
-      documentTitle: 'Airbnb Actions',
-      documentUrl: 'https://airbnb.com',
-      chunkIndex: 0,
-      heading: 'Airbnb Search',
-      tokenCount: 100,
-    }
+  describe('getActionByAreaId', () => {
+    const mockTextDetail = `# Airbnb Search
 
-    it('gets action by numeric id', async () => {
+**Area ID:** airbnb.com:/:default
+**URL:** https://airbnb.com
+
+## Description
+Search for accommodations on Airbnb.
+
+## Elements
+- search_button: .search-btn (Search button)`
+
+    it('gets action by area_id string', async () => {
       const client = new Actionbook({ apiKey: 'test-key' })
-      fetchMock.mockResolvedValue(
-        new Response(JSON.stringify(mockDetail), { status: 200 })
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(new Response(mockTextDetail, { status: 200 }))
       )
 
-      const result = await client.getActionById(123)
-      expect(result.action_id).toBe(123)
-      expect(result.content).toContain('Airbnb Search')
+      const result = await client.getActionByAreaId('airbnb.com:/:default')
+      expect(typeof result).toBe('string')
+      expect(result).toContain('Airbnb Search')
     })
 
     it('gets action with options object', async () => {
       const client = new Actionbook({ apiKey: 'test-key' })
-      fetchMock.mockResolvedValue(
-        new Response(JSON.stringify(mockDetail), { status: 200 })
+      fetchMock.mockImplementation(() =>
+        Promise.resolve(new Response(mockTextDetail, { status: 200 }))
       )
 
-      const result = await client.getActionById({ id: 123 })
-      expect(result.action_id).toBe(123)
+      const result = await client.getActionByAreaId({ area_id: 'airbnb.com:/:default' })
+      expect(typeof result).toBe('string')
+      expect(result).toContain('Airbnb')
     })
 
     it('has description property', () => {
       const client = new Actionbook({ apiKey: 'test-key' })
-      expect(client.getActionById.description).toBeDefined()
-      expect(typeof client.getActionById.description).toBe('string')
-      expect(client.getActionById.description).toContain('action')
+      expect(client.getActionByAreaId.description).toBeDefined()
+      expect(typeof client.getActionByAreaId.description).toBe('string')
+      expect(client.getActionByAreaId.description).toContain('action')
     })
 
     it('has params property with json and zod', () => {
       const client = new Actionbook({ apiKey: 'test-key' })
-      expect(client.getActionById.params).toBeDefined()
-      expect(client.getActionById.params.json).toBeDefined()
-      expect(client.getActionById.params.zod).toBeDefined()
+      expect(client.getActionByAreaId.params).toBeDefined()
+      expect(client.getActionByAreaId.params.json).toBeDefined()
+      expect(client.getActionByAreaId.params.zod).toBeDefined()
     })
 
     it('params.json has correct schema structure', () => {
       const client = new Actionbook({ apiKey: 'test-key' })
-      const jsonSchema = client.getActionById.params.json as any
+      const jsonSchema = client.getActionByAreaId.params.json as any
       expect(jsonSchema.type).toBe('object')
-      expect(jsonSchema.properties).toHaveProperty('id')
-      expect(jsonSchema.required).toContain('id')
+      expect(jsonSchema.properties).toHaveProperty('area_id')
+      expect(jsonSchema.required).toContain('area_id')
     })
   })
 
@@ -187,12 +175,12 @@ describe('Actionbook', () => {
 
       // Anthropic tool format
       const tool = {
-        name: 'getActionById',
-        description: client.getActionById.description,
-        input_schema: client.getActionById.params.json,
+        name: 'getActionByAreaId',
+        description: client.getActionByAreaId.description,
+        input_schema: client.getActionByAreaId.params.json,
       }
 
-      expect(tool.name).toBe('getActionById')
+      expect(tool.name).toBe('getActionByAreaId')
       expect(tool.description).toBeDefined()
       expect(tool.input_schema).toBeDefined()
     })
