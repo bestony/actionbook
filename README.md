@@ -1,10 +1,10 @@
-![Actionbook Cover](https://github.com/user-attachments/assets/85767111-a3ae-451f-a3e4-d625cf2b5710)
+![Actionbook Cover](https://github.com/user-attachments/assets/18f55ca3-2c25-4f6a-a518-1b07baf8b4dd)
 
 <div align="center">
 
 ### Actionbook
 
-**The Action Playbook for Agents**
+**Browser Action Engine for AI Agents**
 <br />
 Actionbook provides up-to-date action manuals and DOM structure,
 <br />
