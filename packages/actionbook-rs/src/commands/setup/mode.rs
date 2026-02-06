@@ -133,7 +133,7 @@ pub fn select_modes(
     let defaults: Vec<bool> = vec![env.claude_code, env.cursor, env.codex, false];
 
     let selections = MultiSelect::with_theme(&setup_theme())
-        .with_prompt("How will you use Actionbook? (Space to toggle, Enter to confirm)")
+        .with_prompt(" How will you use Actionbook? (Space to toggle, Enter to confirm)")
         .items(&items)
         .defaults(&defaults)
         .report(false)
@@ -308,7 +308,7 @@ fn write_file_idempotent(
         // Interactive: ask the user
         let choices = vec!["Keep existing file", "Overwrite (backup saved)"];
         let selection = Select::with_theme(&setup_theme())
-            .with_prompt(format!("{} already exists. What to do?", path.display()))
+            .with_prompt(format!(" {} already exists. What to do?", path.display()))
             .items(&choices)
             .default(0)
             .report(false)

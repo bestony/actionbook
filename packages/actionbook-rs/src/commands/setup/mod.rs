@@ -133,7 +133,7 @@ pub async fn run(cli: &Cli, args: SetupArgs<'_>) -> Result<()> {
                 "Discard and exit",
             ];
             let selection = Select::with_theme(&setup_theme())
-                .with_prompt("What would you like to do?")
+                .with_prompt(" What would you like to do?")
                 .items(&choices)
                 .default(0)
                 .report(false)
@@ -307,7 +307,7 @@ fn handle_existing_config(cli: &Cli, non_interactive: bool, reset: bool) -> Resu
     ];
 
     let selection = Select::with_theme(&setup_theme())
-        .with_prompt("What would you like to do?")
+        .with_prompt(" What would you like to do?")
         .items(&choices)
         .default(0)
         .report(false)

@@ -93,7 +93,7 @@ pub fn configure_browser(
     options.push("Built-in (recommended for agents)".to_string());
 
     let selection = Select::with_theme(&setup_theme())
-        .with_prompt("Select browser")
+        .with_prompt(" Select browser")
         .items(&options)
         .default(0)
         .report(false)
@@ -118,7 +118,7 @@ pub fn configure_browser(
         "Visible — opens a browser window you can see",
     ];
     let headless_selection = Select::with_theme(&setup_theme())
-        .with_prompt("Display mode")
+        .with_prompt(" Display mode")
         .items(&headless_options)
         .default(0)
         .report(false)

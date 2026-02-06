@@ -14,6 +14,7 @@ use crate::error::{ActionbookError, Result};
 
 /// Stealth profile configuration
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct StealthProfile {
     /// Operating system to emulate
     pub os: StealthOs,
@@ -212,11 +213,6 @@ pub async fn apply_stealth_to_page(
 
     tracing::debug!("Applied stealth profile to page: {:?}", profile.os);
     Ok(())
-}
-
-/// Check if stealth mode is enabled
-pub fn is_stealth_enabled() -> bool {
-    cfg!(feature = "stealth")
 }
 
 /// Get stealth mode status string

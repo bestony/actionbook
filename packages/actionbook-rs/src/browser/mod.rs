@@ -3,10 +3,10 @@ mod launcher;
 mod session;
 pub mod stealth;
 
+#[allow(unused_imports)]
 pub use discovery::{discover_all_browsers, BrowserInfo, BrowserType};
-pub use session::{PageInfo, SessionManager, SessionStatus, StealthConfig};
-pub use stealth::{stealth_status, build_stealth_profile, parse_stealth_os, parse_stealth_gpu};
-pub use stealth::{StealthGpu, StealthOs, StealthProfile};
+pub use session::{SessionManager, SessionStatus, StealthConfig};
+pub use stealth::{stealth_status, build_stealth_profile};
 
 // Re-export stealth page application for external use
 #[cfg(feature = "stealth")]

@@ -55,6 +55,9 @@ which = "7"
 shellexpand = "3"
 base64 = "0.22"
 
+[features]
+stealth = []
+
 [dev-dependencies]
 tokio-test = "0.4"
 assert_cmd = "2"

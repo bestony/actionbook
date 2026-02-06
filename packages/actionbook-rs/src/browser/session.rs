@@ -34,6 +34,7 @@ struct SessionState {
 
 /// Stealth configuration for session manager
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct StealthConfig {
     /// Whether stealth mode is enabled
     pub enabled: bool,

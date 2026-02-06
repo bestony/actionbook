@@ -52,7 +52,7 @@ pub async fn configure_api_key(
 
         // Interactive: ask if they want to change
         let keep = Confirm::with_theme(&setup_theme())
-            .with_prompt("Keep this API key?")
+            .with_prompt(" Keep this API key?")
             .default(true)
             .report(false)
             .interact()
@@ -97,7 +97,7 @@ pub async fn configure_api_key(
 
     // Interactive input — leave blank to skip
     let key: String = Password::with_theme(&setup_theme())
-        .with_prompt("Enter your API key (leave blank to skip)")
+        .with_prompt(" Enter your API key (leave blank to skip)")
         .allow_empty_password(true)
         .report(false)
         .interact()
