@@ -40,8 +40,8 @@ pub fn configure_browser(
                 );
             } else {
                 println!(
-                    "  {} Using system browser: {}",
-                    "✓".green(),
+                    "  {}  Using system browser: {}",
+                    "◇".green(),
                     browser.browser_type.name()
                 );
             }
@@ -59,8 +59,8 @@ pub fn configure_browser(
                 );
             } else {
                 println!(
-                    "  {} No system browser detected, using built-in",
-                    "✓".green()
+                    "  {}  No system browser detected, using built-in",
+                    "◇".green()
                 );
             }
         }
@@ -70,8 +70,11 @@ pub fn configure_browser(
     // Interactive mode
     if env.browsers.is_empty() {
         if !cli.json {
-            println!("  {} No Chromium-based browsers detected.", "!".yellow());
-            println!("  Consider installing Chrome, Brave, or Edge.\n");
+            println!("  {}  No Chromium-based browsers detected.", "■".yellow());
+            println!(
+                "  {}  Consider installing Chrome, Brave, or Edge.",
+                "│".dimmed()
+            );
         }
         config.browser.executable = None;
         return Ok(());
@@ -104,12 +107,16 @@ pub fn configure_browser(
         let browser = &env.browsers[selection];
         config.browser.executable = Some(browser.path.display().to_string());
         if !cli.json {
-            println!("  {} Browser   {}", "✓".green(), browser.browser_type.name());
+            println!(
+                "  {}  Browser: {}",
+                "◇".green(),
+                browser.browser_type.name()
+            );
         }
     } else {
         config.browser.executable = None;
         if !cli.json {
-            println!("  {} Browser   Built-in", "✓".green());
+            println!("  {}  Browser: Built-in", "◇".green());
         }
     }
 
@@ -133,7 +140,7 @@ pub fn configure_browser(
         } else {
             "Visible"
         };
-        println!("  {} Display   {}", "✓".green(), mode_label);
+        println!("  {}  Display: {}", "◇".green(), mode_label);
     }
 
     if cli.json {
@@ -163,8 +170,8 @@ fn apply_browser_mode(
                 config.browser.executable = Some(browser.path.display().to_string());
                 if !cli.json {
                     println!(
-                        "  {} Using system browser: {}",
-                        "✓".green(),
+                        "  {}  Using system browser: {}",
+                        "◇".green(),
                         browser.browser_type.name()
                     );
                 }
@@ -177,7 +184,7 @@ fn apply_browser_mode(
         BrowserMode::Builtin => {
             config.browser.executable = None;
             if !cli.json {
-                println!("  {} Using built-in browser", "✓".green());
+                println!("  {}  Using built-in browser", "◇".green());
             }
         }
     }
@@ -212,9 +219,7 @@ mod tests {
             arch: "aarch64".to_string(),
             shell: None,
             browsers,
-            claude_code: false,
-            cursor: false,
-            codex: false,
+            npx_available: false,
             node_version: None,
             existing_config: false,
             existing_api_key: None,

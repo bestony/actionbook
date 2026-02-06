@@ -144,9 +144,9 @@ pub async fn apply_stealth_to_page(
         &profile.locale,
     );
 
-    page.evaluate(navigator_override)
-        .await
-        .map_err(|e| ActionbookError::Other(format!("Failed to apply navigator override: {}", e)))?;
+    page.evaluate(navigator_override).await.map_err(|e| {
+        ActionbookError::Other(format!("Failed to apply navigator override: {}", e))
+    })?;
 
     // 2. Override WebGL renderer
     let webgl_override = format!(
@@ -159,10 +159,12 @@ pub async fn apply_stealth_to_page(
         }};
         "#,
         match profile.gpu {
-            StealthGpu::NvidiaRtx4080 | StealthGpu::NvidiaRtx3080 | StealthGpu::NvidiaGtx1660 => "NVIDIA Corporation",
+            StealthGpu::NvidiaRtx4080 | StealthGpu::NvidiaRtx3080 | StealthGpu::NvidiaGtx1660 =>
+                "NVIDIA Corporation",
             StealthGpu::AmdRadeonRx6800 => "AMD",
             StealthGpu::IntelUhd630 | StealthGpu::IntelIrisXe => "Intel Inc.",
-            StealthGpu::AppleM1Pro | StealthGpu::AppleM2Max | StealthGpu::AppleM4Max => "Apple Inc.",
+            StealthGpu::AppleM1Pro | StealthGpu::AppleM2Max | StealthGpu::AppleM4Max =>
+                "Apple Inc.",
         },
         match profile.gpu {
             StealthGpu::NvidiaRtx4080 => "NVIDIA GeForce RTX 4080",

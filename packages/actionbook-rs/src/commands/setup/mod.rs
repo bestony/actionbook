@@ -2,7 +2,6 @@ pub mod api_key;
 pub mod browser_cfg;
 pub mod detect;
 pub mod mode;
-pub mod templates;
 pub mod theme;
 
 use std::time::{Duration, Instant};
@@ -23,20 +22,18 @@ pub struct SetupArgs<'a> {
     pub target: Option<SetupTarget>,
     pub api_key: Option<&'a str>,
     pub browser: Option<BrowserMode>,
-    pub mode: Option<&'a [SetupTarget]>,
     pub non_interactive: bool,
-    pub force: bool,
     pub reset: bool,
 }
 
 /// Run the setup wizard. Orchestrates all steps in order.
 ///
-/// Quick mode: if `--target` is provided without other flags, only generate
-/// integration files for the specified target(s), skipping the full wizard.
+/// Quick mode: if `--target` is provided without other flags, only run
+/// `npx skills add` for the specified target, skipping the full wizard.
 pub async fn run(cli: &Cli, args: SetupArgs<'_>) -> Result<()> {
-    // Quick mode: --target only → generate integration files and exit
+    // Quick mode: --target only → run npx skills add and exit
     if let Some(t) = args.target {
-        return run_target_only(cli, t, args.force, args.non_interactive).await;
+        return run_target_only(cli, t).await;
     }
 
     // Handle existing config (re-run protection)
@@ -51,12 +48,14 @@ pub async fn run(cli: &Cli, args: SetupArgs<'_>) -> Result<()> {
     let env = detect::detect_environment();
     finish_spinner(spinner, "Environment detected");
     detect::print_environment_report(&env, cli.json);
+    if !cli.json {
+        print_step_connector();
+    }
 
-    // Steps 2–5: configure → recap → save (with restart loop)
-    let (config, targets) = loop {
+    // Steps 2–4: configure → recap → save (with restart loop)
+    let config = loop {
         // Step 2: API Key
         if !cli.json {
-            print_divider();
             print_step_header(2, "API Key");
         }
         api_key::configure_api_key(cli, &env, args.api_key, args.non_interactive, &mut config)
@@ -64,72 +63,47 @@ pub async fn run(cli: &Cli, args: SetupArgs<'_>) -> Result<()> {
 
         // Step 3: Browser
         if !cli.json {
-            print_divider();
+            print_step_connector();
             print_step_header(3, "Browser");
         }
-        browser_cfg::configure_browser(
-            cli,
-            &env,
-            args.browser,
-            args.non_interactive,
-            &mut config,
-        )?;
+        browser_cfg::configure_browser(cli, &env, args.browser, args.non_interactive, &mut config)?;
 
-        // Step 4: Integration + file generation
+        // Step 4: Save configuration
         if !cli.json {
-            print_divider();
-            print_step_header(4, "Integration");
-        }
-        let targets = mode::select_modes(cli, &env, args.mode, args.non_interactive)?;
-
-        // Step 5: Save configuration
-        if !cli.json {
-            print_divider();
-            print_step_header(5, "Save");
+            print_step_connector();
+            print_step_header(4, "Save");
         }
 
         // Show recap and confirm before saving (interactive only)
         if !cli.json && !args.non_interactive {
+            let bar = "│".dimmed();
             let api_display = config
                 .api
                 .api_key
                 .as_deref()
                 .map(api_key::mask_key)
                 .unwrap_or_else(|| "not configured".to_string());
-            let browser_display = config
-                .browser
-                .executable
-                .as_deref()
-                .unwrap_or("built-in");
+            let browser_display = config.browser.executable.as_deref().unwrap_or("built-in");
             let headless_display = if config.browser.headless {
                 "headless"
             } else {
                 "visible"
             };
-            let mode_names: Vec<&str> = targets
-                .iter()
-                .map(|t| mode::target_display_name(t))
-                .collect();
-            let modes_display = if mode_names.is_empty() {
-                "Standalone".to_string()
-            } else {
-                mode_names.join(", ")
-            };
 
-            println!("  {}", "Configuration summary:".dimmed());
-            println!("    API Key   {}", api_display);
-            println!("    Browser   {} ({})", browser_display, headless_display);
-            println!("    Modes     {}", modes_display);
+            println!("  {}  {}", bar, "Configuration summary:".dimmed());
+            println!("  {}    API Key   {}", bar, api_display);
             println!(
-                "    Path      {}\n",
+                "  {}    Browser   {} ({})",
+                bar, browser_display, headless_display
+            );
+            println!(
+                "  {}    Path      {}",
+                bar,
                 Config::config_path().display().to_string().dimmed()
             );
+            println!("  {}", bar);
 
-            let choices = vec![
-                "Save and continue",
-                "Restart setup",
-                "Discard and exit",
-            ];
+            let choices = vec!["Save and continue", "Restart setup", "Discard and exit"];
             let selection = Select::with_theme(&setup_theme())
                 .with_prompt(" What would you like to do?")
                 .items(&choices)
@@ -139,18 +113,18 @@ pub async fn run(cli: &Cli, args: SetupArgs<'_>) -> Result<()> {
                 .map_err(|e| ActionbookError::SetupError(format!("Prompt failed: {}", e)))?;
 
             match selection {
-                0 => break (config, targets), // Save
+                0 => break config, // Save
                 1 => {
                     // Restart: reset config and loop
                     config = Config::default();
-                    println!("\n  {} Restarting setup...\n", "↻".cyan());
+                    println!("\n  {}  Restarting setup...\n", "◇".cyan());
                     continue;
                 }
                 _ => {
                     // Discard: clean exit
                     println!(
-                        "\n  {} Setup discarded. Run {} to start again.\n",
-                        "−".dimmed(),
+                        "\n  {}  Setup discarded. Run {} to start again.\n",
+                        "■".dimmed(),
                         "actionbook setup".cyan()
                     );
                     return Ok(());
@@ -159,52 +133,60 @@ pub async fn run(cli: &Cli, args: SetupArgs<'_>) -> Result<()> {
         }
 
         // Non-interactive / JSON: save directly
-        break (config, targets);
+        break config;
     };
 
     config.save()?;
     if !cli.json {
         println!(
-            "  {} Configuration saved to {}",
-            "✓".green(),
+            "  {}  Configuration saved to {}",
+            "◇".green(),
             Config::config_path().display()
         );
     }
 
-    // Generate integration files (after save so "Discard" leaves no orphans)
-    let results =
-        mode::generate_integration_files(cli, &targets, args.force, args.non_interactive)?;
-
-    // Step 6: Health check (API connectivity)
+    // Step 5: Health check (API connectivity)
     if !cli.json {
-        print_divider();
-        print_step_header(6, "Health Check");
+        print_step_connector();
+        print_step_header(5, "Health Check");
     }
     run_health_check(cli, &config, args.non_interactive).await;
 
-    // Completion summary
+    // Step 6: Install Skills
     if !cli.json {
-        print_divider();
+        print_step_connector();
+        print_step_header(6, "Skills");
     }
-    print_completion(cli, &config, &targets, &results);
+    let skills_result = mode::install_skills(cli, &env, args.non_interactive)?;
+
+    // Completion summary
+    print_completion(cli, &config, &skills_result);
+
+    if skills_result.action == mode::SkillsAction::Failed {
+        return Err(ActionbookError::SetupError(
+            "Skills installation failed.".to_string(),
+        ));
+    }
 
     Ok(())
 }
 
 const TOTAL_STEPS: u8 = 6;
 
-/// Print a step header with progress counter, e.g. `[1/6] Environment`
+/// Print a step header, e.g. `◆  Environment`
 fn print_step_header(step: u8, title: &str) {
     println!(
-        "\n  {} {}\n",
-        format!("[{}/{}]", step, TOTAL_STEPS).dimmed(),
-        title.cyan().bold()
+        "  {}  {} {}",
+        "◆".cyan(),
+        title.cyan().bold(),
+        format!("({}/{})", step, TOTAL_STEPS).dimmed()
     );
+    println!("  {}", "│".dimmed());
 }
 
-/// Print a visual divider between steps.
-fn print_divider() {
-    println!("  {}", "─".repeat(40).dimmed());
+/// Print a vertical connector between steps.
+fn print_step_connector() {
+    println!("  {}", "│".dimmed());
 }
 
 /// Create a spinner with the given message. Returns `None` if in json or non-interactive mode.
@@ -216,7 +198,7 @@ fn create_spinner(json: bool, non_interactive: bool, message: &str) -> Option<Pr
     pb.set_style(
         ProgressStyle::default_spinner()
             .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
-            .template("  {spinner} {msg}")
+            .template("  │  {spinner} {msg}")
             .expect("valid spinner template"),
     );
     pb.set_message(message.to_string());
@@ -227,49 +209,71 @@ fn create_spinner(json: bool, non_interactive: bool, message: &str) -> Option<Pr
 /// Finish a spinner with a success message.
 fn finish_spinner(pb: Option<ProgressBar>, message: &str) {
     if let Some(pb) = pb {
-        pb.finish_with_message(format!("{} {}", "✓".green(), message));
+        pb.finish_with_message(format!("{} {}", "◇".green(), message));
     }
 }
 
-/// Quick mode: only generate integration files for the specified target.
-async fn run_target_only(
-    cli: &Cli,
-    target: SetupTarget,
-    force: bool,
-    non_interactive: bool,
-) -> Result<()> {
-    let targets = match target {
-        SetupTarget::All => vec![SetupTarget::Claude, SetupTarget::Cursor, SetupTarget::Codex],
-        other => vec![other],
-    };
-
-    if !cli.json {
-        println!("\n  {} Generating integration files...\n", "→".bold());
+/// Quick mode: only run `npx skills add` for the specified target.
+async fn run_target_only(cli: &Cli, target: SetupTarget) -> Result<()> {
+    // Standalone means "CLI only, no AI tool integration"
+    if target == SetupTarget::Standalone {
+        if cli.json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "command": "setup",
+                    "mode": "target_only",
+                    "target": "Standalone CLI",
+                    "action": "skipped",
+                    "reason": "no_agent_integration_needed",
+                })
+            );
+        } else {
+            println!(
+                "\n  {}  Standalone CLI requires no skills integration.",
+                "◇".green()
+            );
+            println!(
+                "     Run {} to configure the CLI.\n",
+                "actionbook setup".cyan()
+            );
+        }
+        return Ok(());
     }
 
-    let results = mode::generate_integration_files(cli, &targets, force, non_interactive)?;
+    if !cli.json {
+        println!();
+        println!(
+            "  {}  Installing skills for {}",
+            "┌".cyan(),
+            mode::target_display_name(&target).bold()
+        );
+        println!("  {}", "│".dimmed());
+    }
+
+    let result = mode::install_skills_for_target(cli, &target)?;
 
     if cli.json {
-        let summary: Vec<serde_json::Value> = results
-            .iter()
-            .map(|r| {
-                serde_json::json!({
-                    "target": mode::target_display_name(&r.target),
-                    "path": r.path.display().to_string(),
-                    "status": format!("{}", r.status),
-                })
-            })
-            .collect();
         println!(
             "{}",
             serde_json::json!({
                 "command": "setup",
                 "mode": "target_only",
-                "results": summary,
+                "target": mode::target_display_name(&target),
+                "npx_available": result.npx_available,
+                "action": format!("{}", result.action),
+                "skills_command": result.command,
             })
         );
-    } else {
-        println!("\n  {}", "Done!".green().bold());
+    } else if result.action == mode::SkillsAction::Installed {
+        println!("  {}  {}", "└".green(), "Done!".green().bold());
+        println!();
+    }
+
+    if result.action == mode::SkillsAction::Failed {
+        return Err(ActionbookError::SetupError(
+            "Skills installation failed.".to_string(),
+        ));
     }
 
     Ok(())
@@ -279,7 +283,7 @@ async fn run_target_only(
 fn handle_existing_config(cli: &Cli, non_interactive: bool, reset: bool) -> Result<Config> {
     if reset {
         if !cli.json {
-            println!("  {} Resetting configuration...", "→".bold());
+            println!("  {}  Resetting configuration...", "◇".cyan());
         }
         return Ok(Config::default());
     }
@@ -299,7 +303,7 @@ fn handle_existing_config(cli: &Cli, non_interactive: bool, reset: bool) -> Resu
     }
 
     if !cli.json {
-        println!("\n  {} Existing configuration found\n", "ℹ".blue());
+        println!("\n  {}  Existing configuration found\n", "◇".blue());
     }
 
     let choices = vec![
@@ -320,7 +324,7 @@ fn handle_existing_config(cli: &Cli, non_interactive: bool, reset: bool) -> Resu
         0 => Ok(existing),
         1 => {
             if !cli.json {
-                println!("  {} Starting fresh...", "→".bold());
+                println!("  {}  Starting fresh...", "◇".cyan());
             }
             Ok(Config::default())
         }
@@ -346,10 +350,12 @@ fn print_welcome() {
     println!("  {}", lines[4].blue());
     println!();
     println!(
-        "  {}  {}\n",
-        format!("v{}", env!("CARGO_PKG_VERSION")).dimmed(),
-        "Setup Wizard".bold()
+        "  {}  {}  {}",
+        "┌".cyan(),
+        "Setup Wizard".bold(),
+        format!("v{}", env!("CARGO_PKG_VERSION")).dimmed()
     );
+    println!("  {}", "│".dimmed());
 }
 
 /// Run a health check by testing API connectivity.
@@ -367,8 +373,8 @@ async fn run_health_check(cli: &Cli, config: &Config, non_interactive: bool) {
             );
         } else {
             println!(
-                "  {} API key not configured — run {} to add it later",
-                "−".yellow(),
+                "  {}  API key not configured — run {} to add it later",
+                "◇".dimmed(),
                 "actionbook config set api.api_key <your-key>".cyan()
             );
         }
@@ -390,8 +396,8 @@ async fn run_health_check(cli: &Cli, config: &Config, non_interactive: bool) {
                     );
                 } else {
                     println!(
-                        "  {} API client creation failed: {}",
-                        "✗".red(),
+                        "  {}  API client creation failed: {}",
+                        "■".red(),
                         err_msg.dimmed()
                     );
                 }
@@ -405,10 +411,7 @@ async fn run_health_check(cli: &Cli, config: &Config, non_interactive: bool) {
             match client.list_sources(Some(1)).await {
                 Ok(_) => {
                     let elapsed = start.elapsed().as_millis();
-                    finish_spinner(
-                        spinner,
-                        &format!("API connection ({}ms)", elapsed),
-                    );
+                    finish_spinner(spinner, &format!("API connection ({}ms)", elapsed));
                     if cli.json {
                         println!(
                             "{}",
@@ -424,10 +427,7 @@ async fn run_health_check(cli: &Cli, config: &Config, non_interactive: bool) {
                 Err(e) => {
                     let err_msg = e.to_string();
                     if let Some(pb) = spinner {
-                        pb.finish_with_message(format!(
-                            "{} API connection failed",
-                            "✗".red()
-                        ));
+                        pb.finish_with_message(format!("{} API connection failed", "■".red()));
                     }
                     if cli.json {
                         println!(
@@ -441,11 +441,13 @@ async fn run_health_check(cli: &Cli, config: &Config, non_interactive: bool) {
                         );
                     } else {
                         println!(
-                            "    {}",
+                            "  {}  {}",
+                            "│".dimmed(),
                             format!("Error: {}", err_msg).dimmed()
                         );
                         println!(
-                            "    {}",
+                            "  {}  {}",
+                            "│".dimmed(),
                             "Check your API key and network connection.".dimmed()
                         );
                     }
@@ -467,30 +469,14 @@ async fn run_health_check(cli: &Cli, config: &Config, non_interactive: bool) {
                 })
             );
         } else {
-            println!("  {} Config saved", "✓".green());
+            println!("  {}  Config saved", "◇".green());
         }
     }
 }
 
 /// Print the completion summary with next steps.
-fn print_completion(cli: &Cli, config: &Config, targets: &[SetupTarget], results: &[mode::TargetResult]) {
+fn print_completion(cli: &Cli, config: &Config, skills_result: &mode::SkillsResult) {
     if cli.json {
-        let file_results: Vec<serde_json::Value> = results
-            .iter()
-            .map(|r| {
-                serde_json::json!({
-                    "target": mode::target_display_name(&r.target),
-                    "path": r.path.display().to_string(),
-                    "status": format!("{}", r.status),
-                })
-            })
-            .collect();
-
-        let mode_names: Vec<&str> = targets
-            .iter()
-            .map(|t| mode::target_display_name(t))
-            .collect();
-
         println!(
             "{}",
             serde_json::json!({
@@ -499,20 +485,38 @@ fn print_completion(cli: &Cli, config: &Config, targets: &[SetupTarget], results
                 "config_path": Config::config_path().display().to_string(),
                 "browser": config.browser.executable.as_deref().unwrap_or("built-in"),
                 "headless": config.browser.headless,
-                "modes": mode_names,
-                "files": file_results,
+                "skills": {
+                    "npx_available": skills_result.npx_available,
+                    "action": format!("{}", skills_result.action),
+                    "command": skills_result.command,
+                },
             })
         );
         return;
     }
 
-    // --- Success header ---
-    println!();
-    println!(
-        "  {}  {}",
-        "✓".green().bold(),
-        "Actionbook is ready!".green().bold()
-    );
+    // --- Status header (varies by skills outcome) ---
+    println!("  {}", "│".dimmed());
+    match skills_result.action {
+        mode::SkillsAction::Installed => {
+            println!(
+                "  {}  {}",
+                "└".green(),
+                "Actionbook is ready!".green().bold()
+            );
+        }
+        mode::SkillsAction::Failed => {
+            println!(
+                "  {}  {}",
+                "└".red(),
+                "Setup completed with errors.".red().bold()
+            );
+        }
+        _ => {
+            // Skipped / Prompted
+            println!("  {}  {}", "└".cyan(), "Setup completed.".bold());
+        }
+    }
 
     // --- Configuration recap ---
     let api_display = config
@@ -534,60 +538,30 @@ fn print_completion(cli: &Cli, config: &Config, targets: &[SetupTarget], results
         "visible"
     };
 
-    let mode_names: Vec<&str> = targets
-        .iter()
-        .map(|t| mode::target_display_name(t))
-        .collect();
-    let modes_str = if mode_names.is_empty() {
-        "Standalone".to_string()
-    } else {
-        mode_names.join(", ")
-    };
-
     println!();
     println!(
-        "  {}  {}",
+        "     {}  {}",
         "Config".dimmed(),
         shorten_home_path(&Config::config_path().display().to_string())
     );
-    println!("  {}  {}", "Key".dimmed(), api_display);
+    println!("     {}  {}", "Key".dimmed(), api_display);
     println!(
-        "  {}  {} ({})",
+        "     {}  {} ({})",
         "Browser".dimmed(),
         browser_name,
         headless_str
     );
-    println!("  {}  {}", "Modes".dimmed(), modes_str);
-
-    // --- Generated files ---
-    let active_results: Vec<&mode::TargetResult> = results
-        .iter()
-        .filter(|r| r.status != mode::FileStatus::Skipped)
-        .collect();
-
-    if !active_results.is_empty() {
-        println!();
-        for r in &active_results {
-            let status_icon = match r.status {
-                mode::FileStatus::Created => "✓".green(),
-                mode::FileStatus::Updated => "✓".green(),
-                mode::FileStatus::AlreadyUpToDate => "·".dimmed(),
-                mode::FileStatus::Skipped => "○".dimmed(),
-            };
-            println!("  {}  {}", status_icon, r.path.display().to_string().dimmed());
-        }
-    }
 
     // --- Next steps ---
     println!();
-    println!("  {}", "Next steps".bold());
+    println!("     {}", "Next steps".bold());
     println!(
-        "    {} {}",
+        "       {} {}",
         "$".dimmed(),
         "actionbook search \"<goal>\" --json".cyan()
     );
     println!(
-        "    {} {}",
+        "       {} {}",
         "$".dimmed(),
         "actionbook get \"<area_id>\" --json".cyan()
     );
@@ -598,8 +572,8 @@ fn print_completion(cli: &Cli, config: &Config, targets: &[SetupTarget], results
 fn shorten_home_path(path: &str) -> String {
     if let Some(home) = dirs::home_dir() {
         let home_str = home.display().to_string();
-        if path.starts_with(&home_str) {
-            return format!("~{}", &path[home_str.len()..]);
+        if let Some(rest) = path.strip_prefix(&home_str) {
+            return format!("~{}", rest);
         }
     }
     path.to_string()

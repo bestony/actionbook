@@ -37,8 +37,8 @@ pub async fn configure_api_key(
             );
         } else {
             println!(
-                "  {} API key detected (from {}): {}",
-                "✓".green(),
+                "  {}  API key detected (from {}): {}",
+                "◇".green(),
                 source,
                 masked.dimmed()
             );
@@ -77,8 +77,8 @@ pub async fn configure_api_key(
             );
         } else {
             println!(
-                "  {} No API key configured. Use {} or set {} later.",
-                "−".yellow(),
+                "  {}  No API key configured. Use {} or set {} later.",
+                "◇".dimmed(),
                 "--api-key".cyan(),
                 "ACTIONBOOK_API_KEY".cyan()
             );
@@ -87,14 +87,18 @@ pub async fn configure_api_key(
     } else {
         // No key — show helpful context before prompting
         if !cli.json {
+            let bar = "│".dimmed();
             println!(
-                "  {}",
+                "  {}  {}",
+                bar,
                 "Actionbook uses an API key to look up selectors and actions for you.".dimmed()
             );
             println!(
-                "  Don't have one yet? Grab it here: {}\n",
+                "  {}  Don't have one yet? Grab it here: {}",
+                bar,
                 "https://actionbook.dev/dashboard".cyan().underline()
             );
+            println!("  {}", bar);
         }
     }
 
@@ -119,11 +123,12 @@ pub async fn configure_api_key(
             );
         } else {
             println!(
-                "  {} Skipped. You can configure it later with:",
-                "−".dimmed()
+                "  {}  Skipped. You can configure it later with:",
+                "◇".dimmed()
             );
             println!(
-                "    {}",
+                "  {}  {}",
+                "│".dimmed(),
                 "actionbook config set api.api_key <your-key>".cyan()
             );
         }
@@ -141,8 +146,8 @@ pub async fn configure_api_key(
         );
     } else {
         println!(
-            "  {} API key configured: {}",
-            "✓".green(),
+            "  {}  API key configured: {}",
+            "◇".green(),
             mask_key(&key).dimmed()
         );
     }
@@ -206,9 +211,7 @@ mod tests {
             arch: String::new(),
             shell: None,
             browsers: vec![],
-            claude_code: false,
-            cursor: false,
-            codex: false,
+            npx_available: false,
             node_version: None,
             existing_config: false,
             existing_api_key: Some("env_key".to_string()),
@@ -226,9 +229,7 @@ mod tests {
             arch: String::new(),
             shell: None,
             browsers: vec![],
-            claude_code: false,
-            cursor: false,
-            codex: false,
+            npx_available: false,
             node_version: None,
             existing_config: false,
             existing_api_key: Some("env_key".to_string()),
@@ -247,9 +248,7 @@ mod tests {
             arch: String::new(),
             shell: None,
             browsers: vec![],
-            claude_code: false,
-            cursor: false,
-            codex: false,
+            npx_available: false,
             node_version: None,
             existing_config: false,
             existing_api_key: None,
@@ -268,9 +267,7 @@ mod tests {
             arch: String::new(),
             shell: None,
             browsers: vec![],
-            claude_code: false,
-            cursor: false,
-            codex: false,
+            npx_available: false,
             node_version: None,
             existing_config: false,
             existing_api_key: None,

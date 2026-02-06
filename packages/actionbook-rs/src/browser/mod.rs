@@ -6,7 +6,7 @@ pub mod stealth;
 #[allow(unused_imports)]
 pub use discovery::{discover_all_browsers, BrowserInfo, BrowserType};
 pub use session::{SessionManager, SessionStatus, StealthConfig};
-pub use stealth::{stealth_status, build_stealth_profile};
+pub use stealth::{build_stealth_profile, stealth_status};
 
 // Re-export stealth page application for external use
 #[cfg(feature = "stealth")]

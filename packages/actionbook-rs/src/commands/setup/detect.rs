@@ -12,9 +12,7 @@ pub struct EnvironmentInfo {
     pub arch: String,
     pub shell: Option<String>,
     pub browsers: Vec<BrowserInfo>,
-    pub claude_code: bool,
-    pub cursor: bool,
-    pub codex: bool,
+    pub npx_available: bool,
     pub node_version: Option<String>,
     pub existing_config: bool,
     pub existing_api_key: Option<String>,
@@ -26,9 +24,7 @@ pub fn detect_environment() -> EnvironmentInfo {
     let arch = std::env::consts::ARCH.to_string();
     let shell = std::env::var("SHELL").ok();
     let browsers = discover_all_browsers();
-    let claude_code = detect_claude_code();
-    let cursor = detect_cursor();
-    let codex = detect_codex();
+    let npx_available = which::which("npx").is_ok();
     let node_version = detect_node_version();
     let existing_config = Config::config_path().exists();
     let existing_api_key = std::env::var("ACTIONBOOK_API_KEY").ok();
@@ -38,9 +34,7 @@ pub fn detect_environment() -> EnvironmentInfo {
         arch,
         shell,
         browsers,
-        claude_code,
-        cursor,
-        codex,
+        npx_available,
         node_version,
         existing_config,
         existing_api_key,
@@ -67,9 +61,7 @@ pub fn print_environment_report(env: &EnvironmentInfo, json: bool) {
             "arch": env.arch,
             "shell": env.shell,
             "browsers": browsers_json,
-            "claude_code": env.claude_code,
-            "cursor": env.cursor,
-            "codex": env.codex,
+            "npx_available": env.npx_available,
             "node": env.node_version,
             "existing_config": env.existing_config,
             "existing_api_key": env.existing_api_key.is_some(),
@@ -81,24 +73,34 @@ pub fn print_environment_report(env: &EnvironmentInfo, json: bool) {
         return;
     }
 
+    let bar = "│".dimmed();
+
     // System
-    println!("    {}", "System".bold());
-    println!("      {} OS: {} ({})", check_mark(), env.os, env.arch);
+    println!("  {}  {}", bar, "System".bold());
+    println!(
+        "  {}    {} OS: {} ({})",
+        bar,
+        check_mark(),
+        env.os,
+        env.arch
+    );
     if let Some(ref shell) = env.shell {
         let shell_name = shell.rsplit('/').next().unwrap_or(shell);
-        println!("      {} Shell: {}", check_mark(), shell_name);
+        println!("  {}    {} Shell: {}", bar, check_mark(), shell_name);
     } else {
-        println!("      {} Shell: {}", empty_mark(), "not detected".dimmed());
+        println!(
+            "  {}    {} Shell: {}",
+            bar,
+            empty_mark(),
+            "not detected".dimmed()
+        );
     }
 
     // Browsers
-    println!("\n    {}", "Browsers".bold());
+    println!("  {}", bar);
+    println!("  {}  {}", bar, "Browsers".bold());
     if env.browsers.is_empty() {
-        println!(
-            "      {} {}",
-            empty_mark(),
-            "none detected".dimmed()
-        );
+        println!("  {}    {} {}", bar, empty_mark(), "none detected".dimmed());
     } else {
         for browser in &env.browsers {
             let version_str = browser
@@ -107,7 +109,8 @@ pub fn print_environment_report(env: &EnvironmentInfo, json: bool) {
                 .map(|v| format!(" v{}", v))
                 .unwrap_or_default();
             println!(
-                "      {} {}{}",
+                "  {}    {} {}{}",
+                bar,
                 check_mark(),
                 browser.browser_type.name(),
                 version_str
@@ -115,33 +118,31 @@ pub fn print_environment_report(env: &EnvironmentInfo, json: bool) {
         }
     }
 
-    // AI Tools
-    println!("\n    {}", "AI Tools".bold());
-    if env.claude_code {
-        println!("      {} Claude Code", check_mark());
-    } else {
-        println!("      {} Claude Code", empty_mark());
-    }
-    if env.cursor {
-        println!("      {} Cursor", check_mark());
-    } else {
-        println!("      {} Cursor", empty_mark());
-    }
-    if env.codex {
-        println!("      {} Codex", check_mark());
-    } else {
-        println!("      {} Codex", empty_mark());
-    }
-
     // Runtime
-    println!("\n    {}", "Runtime".bold());
+    println!("  {}", bar);
+    println!("  {}  {}", bar, "Runtime".bold());
     if let Some(ref ver) = env.node_version {
-        println!("      {} Node.js: {}", check_mark(), ver);
+        println!("  {}    {} Node.js: {}", bar, check_mark(), ver);
     } else {
-        println!("      {} Node.js: {}", empty_mark(), "not detected".dimmed());
+        println!(
+            "  {}    {} Node.js: {}",
+            bar,
+            empty_mark(),
+            "not detected".dimmed()
+        );
+    }
+    if env.npx_available {
+        println!("  {}    {} npx", bar, check_mark());
+    } else {
+        println!(
+            "  {}    {} npx: {}",
+            bar,
+            empty_mark(),
+            "not available".dimmed()
+        );
     }
 
-    println!();
+    println!("  {}", bar);
 }
 
 fn check_mark() -> colored::ColoredString {
@@ -150,31 +151,6 @@ fn check_mark() -> colored::ColoredString {
 
 fn empty_mark() -> colored::ColoredString {
     "○".dimmed()
-}
-
-fn detect_claude_code() -> bool {
-    // Check if `claude` binary is in PATH
-    if which::which("claude").is_ok() {
-        return true;
-    }
-    // Check if ~/.claude/ directory exists
-    if let Some(home) = dirs::home_dir() {
-        if home.join(".claude").is_dir() {
-            return true;
-        }
-    }
-    false
-}
-
-fn detect_cursor() -> bool {
-    if let Some(home) = dirs::home_dir() {
-        return home.join(".cursor").is_dir();
-    }
-    false
-}
-
-fn detect_codex() -> bool {
-    which::which("codex").is_ok()
 }
 
 fn detect_node_version() -> Option<String> {

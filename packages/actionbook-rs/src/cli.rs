@@ -8,6 +8,9 @@ pub enum SetupTarget {
     Claude,
     Codex,
     Cursor,
+    Windsurf,
+    Antigravity,
+    Opencode,
     Standalone,
     All,
 }
@@ -52,7 +55,12 @@ pub struct Cli {
     pub stealth_gpu: Option<String>,
 
     /// API key for authenticated access
-    #[arg(long, env = "ACTIONBOOK_API_KEY", global = true)]
+    #[arg(
+        long,
+        env = "ACTIONBOOK_API_KEY",
+        global = true,
+        hide_env_values = true
+    )]
     pub api_key: Option<String>,
 
     /// Output in JSON format
@@ -123,7 +131,7 @@ pub enum Commands {
 
     /// Initial setup wizard
     Setup {
-        /// Target platform (skip wizard, only generate integration files)
+        /// Target platform (skip wizard, run `npx skills add` for specific agent)
         #[arg(short, long, value_enum)]
         target: Option<SetupTarget>,
 
@@ -135,17 +143,9 @@ pub enum Commands {
         #[arg(long, value_enum)]
         browser: Option<BrowserMode>,
 
-        /// Usage modes (comma-separated)
-        #[arg(long, value_delimiter = ',')]
-        mode: Option<Vec<SetupTarget>>,
-
         /// Skip interactive prompts
         #[arg(long)]
         non_interactive: bool,
-
-        /// Overwrite existing files without prompting
-        #[arg(long)]
-        force: bool,
 
         /// Reset existing configuration and start fresh
         #[arg(long)]
@@ -460,9 +460,7 @@ impl Cli {
                 target,
                 api_key,
                 browser,
-                mode,
                 non_interactive,
-                force,
                 reset,
             } => {
                 commands::setup::run(
@@ -471,9 +469,7 @@ impl Cli {
                         target: *target,
                         api_key: api_key.as_deref(),
                         browser: *browser,
-                        mode: mode.as_deref(),
                         non_interactive: *non_interactive,
-                        force: *force,
                         reset: *reset,
                     },
                 )

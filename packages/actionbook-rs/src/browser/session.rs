@@ -122,7 +122,12 @@ impl SessionManager {
     }
 
     /// Save session state for an externally connected browser (via `connect` command)
-    pub fn save_external_session(&self, profile_name: &str, cdp_port: u16, cdp_url: &str) -> Result<()> {
+    pub fn save_external_session(
+        &self,
+        profile_name: &str,
+        cdp_port: u16,
+        cdp_url: &str,
+    ) -> Result<()> {
         let state = SessionState {
             profile_name: profile_name.to_string(),
             cdp_port,
@@ -180,7 +185,10 @@ impl SessionManager {
         }
 
         // No existing browser found, create new session
-        tracing::debug!("No existing browser found, creating new session for profile: {}", profile_name);
+        tracing::debug!(
+            "No existing browser found, creating new session for profile: {}",
+            profile_name
+        );
         self.create_session(profile_name, &profile).await
     }
 
@@ -232,8 +240,7 @@ impl SessionManager {
     ) -> Result<(Browser, Handler)> {
         let stealth_enabled = self.is_stealth_enabled();
 
-        let launcher = BrowserLauncher::from_profile(profile)?
-            .with_stealth(stealth_enabled);
+        let launcher = BrowserLauncher::from_profile(profile)?.with_stealth(stealth_enabled);
 
         let (_child, cdp_url) = launcher.launch_and_wait().await?;
 
@@ -331,9 +338,11 @@ impl SessionManager {
             "params": { "expression": js }
         });
 
-        ws.send(tokio_tungstenite::tungstenite::Message::Text(cmd.to_string().into()))
-            .await
-            .map_err(|e| ActionbookError::Other(format!("Send failed: {}", e)))?;
+        ws.send(tokio_tungstenite::tungstenite::Message::Text(
+            cmd.to_string().into(),
+        ))
+        .await
+        .map_err(|e| ActionbookError::Other(format!("Send failed: {}", e)))?;
 
         Ok(())
     }
@@ -354,9 +363,11 @@ impl SessionManager {
             "params": { "source": js }
         });
 
-        ws.send(tokio_tungstenite::tungstenite::Message::Text(cmd.to_string().into()))
-            .await
-            .map_err(|e| ActionbookError::Other(format!("Send failed: {}", e)))?;
+        ws.send(tokio_tungstenite::tungstenite::Message::Text(
+            cmd.to_string().into(),
+        ))
+        .await
+        .map_err(|e| ActionbookError::Other(format!("Send failed: {}", e)))?;
 
         Ok(())
     }
@@ -387,9 +398,7 @@ impl SessionManager {
             // Try to close the browser gracefully
             if let Ok((mut browser, mut handler)) = self.connect_to_session(&state).await {
                 // Spawn handler to process events
-                tokio::spawn(async move {
-                    while handler.next().await.is_some() {}
-                });
+                tokio::spawn(async move { while handler.next().await.is_some() {} });
 
                 // Close browser
                 let _ = browser.close().await;
@@ -433,11 +442,18 @@ impl SessionManager {
     /// Get the active page info (first page in the list)
     pub async fn get_active_page_info(&self, profile_name: Option<&str>) -> Result<PageInfo> {
         let pages = self.get_pages(profile_name).await?;
-        pages.into_iter().next().ok_or(ActionbookError::BrowserNotRunning)
+        pages
+            .into_iter()
+            .next()
+            .ok_or(ActionbookError::BrowserNotRunning)
     }
 
     /// Execute JavaScript on the active page using direct CDP via WebSocket
-    pub async fn eval_on_page(&self, profile_name: Option<&str>, expression: &str) -> Result<serde_json::Value> {
+    pub async fn eval_on_page(
+        &self,
+        profile_name: Option<&str>,
+        expression: &str,
+    ) -> Result<serde_json::Value> {
         use futures::SinkExt;
         use tokio_tungstenite::connect_async;
 
@@ -461,9 +477,11 @@ impl SessionManager {
             }
         });
 
-        ws.send(tokio_tungstenite::tungstenite::Message::Text(cmd.to_string().into()))
-            .await
-            .map_err(|e| ActionbookError::Other(format!("Failed to send command: {}", e)))?;
+        ws.send(tokio_tungstenite::tungstenite::Message::Text(
+            cmd.to_string().into(),
+        ))
+        .await
+        .map_err(|e| ActionbookError::Other(format!("Failed to send command: {}", e)))?;
 
         // Read response
         use futures::stream::StreamExt;
@@ -518,9 +536,11 @@ impl SessionManager {
             "params": params
         });
 
-        ws.send(tokio_tungstenite::tungstenite::Message::Text(cmd.to_string().into()))
-            .await
-            .map_err(|e| ActionbookError::Other(format!("Failed to send command: {}", e)))?;
+        ws.send(tokio_tungstenite::tungstenite::Message::Text(
+            cmd.to_string().into(),
+        ))
+        .await
+        .map_err(|e| ActionbookError::Other(format!("Failed to send command: {}", e)))?;
 
         use futures::stream::StreamExt;
         while let Some(msg) = ws.next().await {
@@ -531,7 +551,10 @@ impl SessionManager {
                         if let Some(error) = response.get("error") {
                             return Err(ActionbookError::Other(format!("CDP error: {}", error)));
                         }
-                        return Ok(response.get("result").cloned().unwrap_or(serde_json::Value::Null));
+                        return Ok(response
+                            .get("result")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null));
                     }
                 }
                 Ok(_) => continue,
@@ -581,12 +604,14 @@ impl SessionManager {
             return Err(ActionbookError::ElementNotFound(selector.to_string()));
         }
 
-        let x = coords.get("x").and_then(|v| v.as_f64()).ok_or_else(|| {
-            ActionbookError::Other("Invalid coordinates".to_string())
-        })?;
-        let y = coords.get("y").and_then(|v| v.as_f64()).ok_or_else(|| {
-            ActionbookError::Other("Invalid coordinates".to_string())
-        })?;
+        let x = coords
+            .get("x")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| ActionbookError::Other("Invalid coordinates".to_string()))?;
+        let y = coords
+            .get("y")
+            .and_then(|v| v.as_f64())
+            .ok_or_else(|| ActionbookError::Other("Invalid coordinates".to_string()))?;
 
         // Send mouse click events
         self.send_cdp_command(
@@ -619,7 +644,12 @@ impl SessionManager {
     }
 
     /// Type text into an element on the active page
-    pub async fn type_on_page(&self, profile_name: Option<&str>, selector: &str, text: &str) -> Result<()> {
+    pub async fn type_on_page(
+        &self,
+        profile_name: Option<&str>,
+        selector: &str,
+        text: &str,
+    ) -> Result<()> {
         // Focus the element first (supports both CSS and XPath)
         let js = format!(
             r#"
@@ -672,7 +702,12 @@ impl SessionManager {
     }
 
     /// Fill an input element (clear and type)
-    pub async fn fill_on_page(&self, profile_name: Option<&str>, selector: &str, text: &str) -> Result<()> {
+    pub async fn fill_on_page(
+        &self,
+        profile_name: Option<&str>,
+        selector: &str,
+        text: &str,
+    ) -> Result<()> {
         // Clear and set value directly via JS, then dispatch input event (supports both CSS and XPath)
         let js = format!(
             r#"
@@ -731,11 +766,7 @@ impl SessionManager {
     /// Export the active page as PDF
     pub async fn pdf_page(&self, profile_name: Option<&str>) -> Result<Vec<u8>> {
         let result = self
-            .send_cdp_command(
-                profile_name,
-                "Page.printToPDF",
-                serde_json::json!({}),
-            )
+            .send_cdp_command(profile_name, "Page.printToPDF", serde_json::json!({}))
             .await?;
 
         let data = result
@@ -760,8 +791,14 @@ impl SessionManager {
             .get("contentSize")
             .ok_or_else(|| ActionbookError::Other("No content size".to_string()))?;
 
-        let width = content_size.get("width").and_then(|v| v.as_f64()).unwrap_or(1920.0);
-        let height = content_size.get("height").and_then(|v| v.as_f64()).unwrap_or(1080.0);
+        let width = content_size
+            .get("width")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1920.0);
+        let height = content_size
+            .get("height")
+            .and_then(|v| v.as_f64())
+            .unwrap_or(1080.0);
 
         let result = self
             .send_cdp_command(
@@ -806,10 +843,17 @@ impl SessionManager {
     /// Go back in history
     pub async fn go_back(&self, profile_name: Option<&str>) -> Result<()> {
         let history = self
-            .send_cdp_command(profile_name, "Page.getNavigationHistory", serde_json::json!({}))
+            .send_cdp_command(
+                profile_name,
+                "Page.getNavigationHistory",
+                serde_json::json!({}),
+            )
             .await?;
 
-        let current_index = history.get("currentIndex").and_then(|v| v.as_i64()).unwrap_or(0);
+        let current_index = history
+            .get("currentIndex")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
         if current_index > 0 {
             let entries = history.get("entries").and_then(|v| v.as_array());
             if let Some(entries) = entries {
@@ -831,10 +875,17 @@ impl SessionManager {
     /// Go forward in history
     pub async fn go_forward(&self, profile_name: Option<&str>) -> Result<()> {
         let history = self
-            .send_cdp_command(profile_name, "Page.getNavigationHistory", serde_json::json!({}))
+            .send_cdp_command(
+                profile_name,
+                "Page.getNavigationHistory",
+                serde_json::json!({}),
+            )
             .await?;
 
-        let current_index = history.get("currentIndex").and_then(|v| v.as_i64()).unwrap_or(0);
+        let current_index = history
+            .get("currentIndex")
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
         let entries = history.get("entries").and_then(|v| v.as_array());
         if let Some(entries) = entries {
             if let Some(entry) = entries.get((current_index + 1) as usize) {
@@ -859,7 +910,12 @@ impl SessionManager {
     }
 
     /// Wait for element to appear
-    pub async fn wait_for_element(&self, profile_name: Option<&str>, selector: &str, timeout_ms: u64) -> Result<()> {
+    pub async fn wait_for_element(
+        &self,
+        profile_name: Option<&str>,
+        selector: &str,
+        timeout_ms: u64,
+    ) -> Result<()> {
         let start = std::time::Instant::now();
         let timeout = std::time::Duration::from_millis(timeout_ms);
 
@@ -886,7 +942,11 @@ impl SessionManager {
     }
 
     /// Wait for navigation to complete
-    pub async fn wait_for_navigation(&self, profile_name: Option<&str>, timeout_ms: u64) -> Result<String> {
+    pub async fn wait_for_navigation(
+        &self,
+        profile_name: Option<&str>,
+        timeout_ms: u64,
+    ) -> Result<String> {
         let start = std::time::Instant::now();
         let timeout = std::time::Duration::from_millis(timeout_ms);
 
@@ -924,7 +984,12 @@ impl SessionManager {
     }
 
     /// Select an option from dropdown
-    pub async fn select_on_page(&self, profile_name: Option<&str>, selector: &str, value: &str) -> Result<()> {
+    pub async fn select_on_page(
+        &self,
+        profile_name: Option<&str>,
+        selector: &str,
+        value: &str,
+    ) -> Result<()> {
         let js = format!(
             r#"
             (function() {{
@@ -1053,7 +1118,11 @@ impl SessionManager {
     }
 
     /// Get page HTML
-    pub async fn get_html(&self, profile_name: Option<&str>, selector: Option<&str>) -> Result<String> {
+    pub async fn get_html(
+        &self,
+        profile_name: Option<&str>,
+        selector: Option<&str>,
+    ) -> Result<String> {
         let js = match selector {
             Some(sel) => format!(
                 r#"
@@ -1078,7 +1147,11 @@ impl SessionManager {
     }
 
     /// Get page text content
-    pub async fn get_text(&self, profile_name: Option<&str>, selector: Option<&str>) -> Result<String> {
+    pub async fn get_text(
+        &self,
+        profile_name: Option<&str>,
+        selector: Option<&str>,
+    ) -> Result<String> {
         let js = match selector {
             Some(sel) => format!(
                 r#"
@@ -1134,7 +1207,9 @@ impl SessionManager {
             params["domain"] = serde_json::json!(d);
         } else {
             // Get current domain
-            let url = self.eval_on_page(profile_name, "document.location.href").await?;
+            let url = self
+                .eval_on_page(profile_name, "document.location.href")
+                .await?;
             if let Some(url_str) = url.as_str() {
                 params["url"] = serde_json::json!(url_str);
             }
@@ -1148,7 +1223,9 @@ impl SessionManager {
     /// Delete a cookie
     pub async fn delete_cookie(&self, profile_name: Option<&str>, name: &str) -> Result<()> {
         // Get current URL for domain
-        let url = self.eval_on_page(profile_name, "document.location.href").await?;
+        let url = self
+            .eval_on_page(profile_name, "document.location.href")
+            .await?;
         let url_str = url.as_str().unwrap_or("");
 
         self.send_cdp_command(
@@ -1165,8 +1242,12 @@ impl SessionManager {
 
     /// Clear all cookies
     pub async fn clear_cookies(&self, profile_name: Option<&str>) -> Result<()> {
-        self.send_cdp_command(profile_name, "Network.clearBrowserCookies", serde_json::json!({}))
-            .await?;
+        self.send_cdp_command(
+            profile_name,
+            "Network.clearBrowserCookies",
+            serde_json::json!({}),
+        )
+        .await?;
         Ok(())
     }
 
@@ -1189,7 +1270,12 @@ impl SessionManager {
     }
 
     /// Inspect DOM element at coordinates
-    pub async fn inspect_at(&self, profile_name: Option<&str>, x: f64, y: f64) -> Result<serde_json::Value> {
+    pub async fn inspect_at(
+        &self,
+        profile_name: Option<&str>,
+        x: f64,
+        y: f64,
+    ) -> Result<serde_json::Value> {
         // First, move mouse to the coordinates
         self.send_cdp_command(
             profile_name,
@@ -1340,18 +1426,19 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let sm = test_session_manager(dir.path());
 
-        sm.save_external_session("test-profile", 9222, "ws://127.0.0.1:9222/devtools/browser/abc")
-            .unwrap();
+        sm.save_external_session(
+            "test-profile",
+            9222,
+            "ws://127.0.0.1:9222/devtools/browser/abc",
+        )
+        .unwrap();
 
         let state = sm.load_session_state("test-profile");
         assert!(state.is_some());
         let state = state.unwrap();
         assert_eq!(state.profile_name, "test-profile");
         assert_eq!(state.cdp_port, 9222);
-        assert_eq!(
-            state.cdp_url,
-            "ws://127.0.0.1:9222/devtools/browser/abc"
-        );
+        assert_eq!(state.cdp_url, "ws://127.0.0.1:9222/devtools/browser/abc");
         assert!(state.pid.is_none()); // External sessions have no PID
     }
 
