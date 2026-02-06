@@ -22,22 +22,37 @@ pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
         BrowserCommands::Reload => reload(cli, &config).await,
         BrowserCommands::Pages => pages(cli, &config).await,
         BrowserCommands::Switch { page_id } => switch(cli, &config, page_id).await,
-        BrowserCommands::Wait { selector, timeout: t } => wait(cli, &config, selector, *t).await,
+        BrowserCommands::Wait {
+            selector,
+            timeout: t,
+        } => wait(cli, &config, selector, *t).await,
         BrowserCommands::WaitNav { timeout: t } => wait_nav(cli, &config, *t).await,
         BrowserCommands::Click { selector, wait: w } => click(cli, &config, selector, *w).await,
-        BrowserCommands::Type { selector, text, wait: w } => type_text(cli, &config, selector, text, *w).await,
-        BrowserCommands::Fill { selector, text, wait: w } => fill(cli, &config, selector, text, *w).await,
+        BrowserCommands::Type {
+            selector,
+            text,
+            wait: w,
+        } => type_text(cli, &config, selector, text, *w).await,
+        BrowserCommands::Fill {
+            selector,
+            text,
+            wait: w,
+        } => fill(cli, &config, selector, text, *w).await,
         BrowserCommands::Select { selector, value } => select(cli, &config, selector, value).await,
         BrowserCommands::Hover { selector } => hover(cli, &config, selector).await,
         BrowserCommands::Focus { selector } => focus(cli, &config, selector).await,
         BrowserCommands::Press { key } => press(cli, &config, key).await,
-        BrowserCommands::Screenshot { path, full_page } => screenshot(cli, &config, path, *full_page).await,
+        BrowserCommands::Screenshot { path, full_page } => {
+            screenshot(cli, &config, path, *full_page).await
+        }
         BrowserCommands::Pdf { path } => pdf(cli, &config, path).await,
         BrowserCommands::Eval { code } => eval(cli, &config, code).await,
         BrowserCommands::Html { selector } => html(cli, &config, selector.as_deref()).await,
         BrowserCommands::Text { selector } => text(cli, &config, selector.as_deref()).await,
         BrowserCommands::Snapshot => snapshot(cli, &config).await,
-        BrowserCommands::Inspect { x, y, desc } => inspect(cli, &config, *x, *y, desc.as_deref()).await,
+        BrowserCommands::Inspect { x, y, desc } => {
+            inspect(cli, &config, *x, *y, desc.as_deref()).await
+        }
         BrowserCommands::Viewport => viewport(cli, &config).await,
         BrowserCommands::Cookies { command } => cookies(cli, &config, command).await,
         BrowserCommands::Close => close(cli, &config).await,
@@ -47,6 +62,19 @@ pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
 }
 
 async fn status(cli: &Cli, config: &Config) -> Result<()> {
+    // Show active configuration
+    println!("{}", "Configuration:".bold());
+    let browser_display = config.browser.executable.as_deref().unwrap_or("built-in");
+    let mode_display = if config.browser.headless {
+        "headless"
+    } else {
+        "visible"
+    };
+    println!("  {} Browser: {}", "✓".green(), browser_display.cyan());
+    println!("  {} Display: {}", "✓".green(), mode_display.cyan());
+
+    println!();
+
     // Show detected browsers
     println!("{}", "Detected Browsers:".bold());
     let browsers = discover_all_browsers();
@@ -127,14 +155,13 @@ async fn open(cli: &Cli, config: &Config, url: &str) -> Result<()> {
         .await?;
 
     // Spawn handler in background
-    tokio::spawn(async move {
-        while handler.next().await.is_some() {}
-    });
+    tokio::spawn(async move { while handler.next().await.is_some() {} });
 
     // Navigate to URL
-    let page = browser.new_page(url).await.map_err(|e| {
-        ActionbookError::Other(format!("Failed to open page: {}", e))
-    })?;
+    let page = browser
+        .new_page(url)
+        .await
+        .map_err(|e| ActionbookError::Other(format!("Failed to open page: {}", e)))?;
 
     // Wait for page to load
     let _ = timeout(Duration::from_secs(30), page.wait_for_navigation()).await;
@@ -233,20 +260,18 @@ async fn pages(cli: &Cli, config: &Config) -> Result<()> {
             })
             .collect();
         println!("{}", serde_json::to_string_pretty(&pages_json)?);
+    } else if pages.is_empty() {
+        println!("{} No pages open", "!".yellow());
     } else {
-        if pages.is_empty() {
-            println!("{} No pages open", "!".yellow());
-        } else {
-            println!("{} {} pages open\n", "✓".green(), pages.len());
-            for (i, page) in pages.iter().enumerate() {
-                println!(
-                    "{}. {} {}",
-                    (i + 1).to_string().cyan(),
-                    page.title.bold(),
-                    format!("({})", &page.id[..8.min(page.id.len())]).dimmed()
-                );
-                println!("   {}", page.url.dimmed());
-            }
+        println!("{} {} pages open\n", "✓".green(), pages.len());
+        for (i, page) in pages.iter().enumerate() {
+            println!(
+                "{}. {} {}",
+                (i + 1).to_string().cyan(),
+                page.title.bold(),
+                format!("({})", &page.id[..8.min(page.id.len())]).dimmed()
+            );
+            println!("   {}", page.url.dimmed());
         }
     }
 
@@ -334,7 +359,13 @@ async fn click(cli: &Cli, config: &Config, selector: &str, wait_ms: u64) -> Resu
     Ok(())
 }
 
-async fn type_text(cli: &Cli, config: &Config, selector: &str, text: &str, wait_ms: u64) -> Result<()> {
+async fn type_text(
+    cli: &Cli,
+    config: &Config,
+    selector: &str,
+    text: &str,
+    wait_ms: u64,
+) -> Result<()> {
     let session_manager = SessionManager::new(config.clone());
 
     if wait_ms > 0 {
@@ -511,9 +542,7 @@ async fn screenshot(cli: &Cli, config: &Config, path: &str, full_page: bool) -> 
 
 async fn pdf(cli: &Cli, config: &Config, path: &str) -> Result<()> {
     let session_manager = SessionManager::new(config.clone());
-    let pdf_data = session_manager
-        .pdf_page(cli.profile.as_deref())
-        .await?;
+    let pdf_data = session_manager.pdf_page(cli.profile.as_deref()).await?;
 
     fs::write(path, pdf_data)?;
 
@@ -538,11 +567,7 @@ async fn eval(cli: &Cli, config: &Config, code: &str) -> Result<()> {
         .eval_on_page(cli.profile.as_deref(), code)
         .await?;
 
-    if cli.json {
-        println!("{}", serde_json::to_string_pretty(&value)?);
-    } else {
-        println!("{}", serde_json::to_string_pretty(&value)?);
-    }
+    println!("{}", serde_json::to_string_pretty(&value)?);
 
     Ok(())
 }
@@ -680,7 +705,10 @@ async fn inspect(cli: &Cli, config: &Config, x: f64, y: f64, desc: Option<&str>)
         }
         println!("{}", serde_json::to_string_pretty(&output)?);
     } else {
-        let found = result.get("found").and_then(|v| v.as_bool()).unwrap_or(false);
+        let found = result
+            .get("found")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
 
         if !found {
             println!("{} No element found at ({}, {})", "!".yellow(), x, y);
@@ -691,12 +719,28 @@ async fn inspect(cli: &Cli, config: &Config, x: f64, y: f64, desc: Option<&str>)
             println!("{} Inspecting: {}\n", "🔍".cyan(), d.bold());
         }
 
-        println!("{} ({}, {}) in {}x{} viewport\n", "📍".cyan(), x, y, vp_width, vp_height);
+        println!(
+            "{} ({}, {}) in {}x{} viewport\n",
+            "📍".cyan(),
+            x,
+            y,
+            vp_width,
+            vp_height
+        );
 
         // Tag and basic info
-        let tag = result.get("tagName").and_then(|v| v.as_str()).unwrap_or("unknown");
-        let id = result.get("id").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
-        let class = result.get("className").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
+        let tag = result
+            .get("tagName")
+            .and_then(|v| v.as_str())
+            .unwrap_or("unknown");
+        let id = result
+            .get("id")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty());
+        let class = result
+            .get("className")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty());
 
         print!("{}", "Element: ".bold());
         print!("<{}", tag.cyan());
@@ -709,7 +753,10 @@ async fn inspect(cli: &Cli, config: &Config, x: f64, y: f64, desc: Option<&str>)
         println!(">");
 
         // Interactive status
-        let interactive = result.get("isInteractive").and_then(|v| v.as_bool()).unwrap_or(false);
+        let interactive = result
+            .get("isInteractive")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         if interactive {
             println!("{} Interactive element", "✓".green());
         }
@@ -731,7 +778,11 @@ async fn inspect(cli: &Cli, config: &Config, x: f64, y: f64, desc: Option<&str>)
         }
 
         // Text content
-        if let Some(text) = result.get("textContent").and_then(|v| v.as_str()).filter(|s| !s.is_empty()) {
+        if let Some(text) = result
+            .get("textContent")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+        {
             println!("\n{}", "Text:".bold());
             println!("  {}", text.dimmed());
         }
@@ -771,9 +822,18 @@ async fn inspect(cli: &Cli, config: &Config, x: f64, y: f64, desc: Option<&str>)
             if !parents.is_empty() {
                 println!("\n{}", "Parent Hierarchy:".bold());
                 for (i, parent) in parents.iter().enumerate() {
-                    let ptag = parent.get("tagName").and_then(|v| v.as_str()).unwrap_or("?");
-                    let pid = parent.get("id").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
-                    let pclass = parent.get("className").and_then(|v| v.as_str()).filter(|s| !s.is_empty());
+                    let ptag = parent
+                        .get("tagName")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("?");
+                    let pid = parent
+                        .get("id")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty());
+                    let pclass = parent
+                        .get("className")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty());
 
                     let indent = "  ".repeat(i + 1);
                     print!("{}↑ <{}", indent, ptag);
@@ -825,25 +885,28 @@ async fn cookies(cli: &Cli, config: &Config, command: &Option<CookiesCommands>) 
 
             if cli.json {
                 println!("{}", serde_json::to_string_pretty(&cookies)?);
+            } else if cookies.is_empty() {
+                println!("{} No cookies", "!".yellow());
             } else {
-                if cookies.is_empty() {
-                    println!("{} No cookies", "!".yellow());
-                } else {
-                    println!("{} {} cookies\n", "✓".green(), cookies.len());
-                    for cookie in &cookies {
-                        let name = cookie.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                        let value = cookie.get("value").and_then(|v| v.as_str()).unwrap_or("");
-                        let domain = cookie.get("domain").and_then(|v| v.as_str()).unwrap_or("");
-                        println!("  {} = {} {}", name.bold(), value, format!("({})", domain).dimmed());
-                    }
+                println!("{} {} cookies\n", "✓".green(), cookies.len());
+                for cookie in &cookies {
+                    let name = cookie.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                    let value = cookie.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                    let domain = cookie.get("domain").and_then(|v| v.as_str()).unwrap_or("");
+                    println!(
+                        "  {} = {} {}",
+                        name.bold(),
+                        value,
+                        format!("({})", domain).dimmed()
+                    );
                 }
             }
         }
         Some(CookiesCommands::Get { name }) => {
             let cookies = session_manager.get_cookies(cli.profile.as_deref()).await?;
-            let cookie = cookies.iter().find(|c| {
-                c.get("name").and_then(|v| v.as_str()) == Some(name)
-            });
+            let cookie = cookies
+                .iter()
+                .find(|c| c.get("name").and_then(|v| v.as_str()) == Some(name));
 
             if cli.json {
                 println!("{}", serde_json::to_string_pretty(&cookie)?);
@@ -857,7 +920,11 @@ async fn cookies(cli: &Cli, config: &Config, command: &Option<CookiesCommands>) 
                 }
             }
         }
-        Some(CookiesCommands::Set { name, value, domain }) => {
+        Some(CookiesCommands::Set {
+            name,
+            value,
+            domain,
+        }) => {
             session_manager
                 .set_cookie(cli.profile.as_deref(), name, value, domain.as_deref())
                 .await?;
@@ -910,7 +977,9 @@ async fn cookies(cli: &Cli, config: &Config, command: &Option<CookiesCommands>) 
 
 async fn close(cli: &Cli, config: &Config) -> Result<()> {
     let session_manager = SessionManager::new(config.clone());
-    session_manager.close_session(cli.profile.as_deref()).await?;
+    session_manager
+        .close_session(cli.profile.as_deref())
+        .await?;
 
     if cli.json {
         println!(
@@ -936,9 +1005,7 @@ async fn restart(cli: &Cli, config: &Config) -> Result<()> {
         .get_or_create_session(cli.profile.as_deref())
         .await?;
 
-    tokio::spawn(async move {
-        while handler.next().await.is_some() {}
-    });
+    tokio::spawn(async move { while handler.next().await.is_some() {} });
 
     if cli.json {
         println!(

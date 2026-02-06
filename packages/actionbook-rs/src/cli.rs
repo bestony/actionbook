@@ -1,7 +1,22 @@
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::commands;
 use crate::error::Result;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum SetupTarget {
+    Claude,
+    Codex,
+    Cursor,
+    Standalone,
+    All,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum BrowserMode {
+    Builtin,
+    System,
+}
 
 /// Actionbook CLI - Browser automation with zero installation
 #[derive(Parser)]
@@ -88,6 +103,37 @@ pub enum Commands {
     Profile {
         #[command(subcommand)]
         command: ProfileCommands,
+    },
+
+    /// Initial setup wizard
+    Setup {
+        /// Target platform (skip wizard, only generate integration files)
+        #[arg(short, long, value_enum)]
+        target: Option<SetupTarget>,
+
+        /// API key (non-interactive)
+        #[arg(long, env = "ACTIONBOOK_API_KEY", hide_env_values = true)]
+        api_key: Option<String>,
+
+        /// Browser mode
+        #[arg(long, value_enum)]
+        browser: Option<BrowserMode>,
+
+        /// Usage modes (comma-separated)
+        #[arg(long, value_delimiter = ',')]
+        mode: Option<Vec<SetupTarget>>,
+
+        /// Skip interactive prompts
+        #[arg(long)]
+        non_interactive: bool,
+
+        /// Overwrite existing files without prompting
+        #[arg(long)]
+        force: bool,
+
+        /// Reset existing configuration and start fresh
+        #[arg(long)]
+        reset: bool,
     },
 }
 
@@ -336,6 +382,9 @@ pub enum ConfigCommands {
 
     /// Show configuration file path
     Path,
+
+    /// Reset configuration (delete config file)
+    Reset,
 }
 
 #[derive(Subcommand)]
@@ -391,6 +440,29 @@ impl Cli {
             Commands::Sources { command } => commands::sources::run(self, command).await,
             Commands::Config { command } => commands::config::run(self, command).await,
             Commands::Profile { command } => commands::profile::run(self, command).await,
+            Commands::Setup {
+                target,
+                api_key,
+                browser,
+                mode,
+                non_interactive,
+                force,
+                reset,
+            } => {
+                commands::setup::run(
+                    self,
+                    commands::setup::SetupArgs {
+                        target: *target,
+                        api_key: api_key.as_deref(),
+                        browser: *browser,
+                        mode: mode.as_deref(),
+                        non_interactive: *non_interactive,
+                        force: *force,
+                        reset: *reset,
+                    },
+                )
+                .await
+            }
         }
     }
 }

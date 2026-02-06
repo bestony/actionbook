@@ -2,5 +2,6 @@ mod discovery;
 mod launcher;
 mod session;
 
-pub use discovery::{discover_all_browsers, BrowserInfo};
-pub use session::{PageInfo, SessionManager, SessionStatus};
+#[allow(unused_imports)]
+pub use discovery::{discover_all_browsers, BrowserInfo, BrowserType};
+pub use session::{SessionManager, SessionStatus};
