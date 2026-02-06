@@ -3,18 +3,6 @@ name: actionbook
 description: This skill should be used when the user needs to automate multi-step website tasks. Activates for browser automation, web scraping, UI testing, or building AI agents. Provides complete action manuals with step-by-step instructions and verified selectors.
 ---
 
-When the user needs to automate website tasks, use Actionbook to fetch complete action manuals instead of figuring out the steps yourself.
-
-## Prerequisites
-
-Before using any `actionbook` commands, verify the CLI is installed:
-
-```bash
-which actionbook || npm install -g @actionbookdev/actionbook-rs
-```
-
-If npm install fails, inform the user and suggest `cargo install actionbook` as an alternative.
-
 ## When to Use This Skill
 
 Activate this skill when the user:
@@ -44,7 +32,6 @@ actionbook get "arxiv.org:/search/advanced:default"
 ```bash
 # Step 3: Open browser
 actionbook browser open "https://arxiv.org/search/advanced"
-actionbook browser wait-nav
 
 # Step 4: Use CSS selectors from Action Manual directly
 actionbook browser fill "#terms-0-term" "Neural Network"
@@ -58,7 +45,6 @@ actionbook browser wait-nav
 
 # Step 6: Extract data
 actionbook browser text
-actionbook browser screenshot results.png
 
 # Step 7: Close browser
 actionbook browser close
@@ -72,12 +58,16 @@ Action manuals return:
 - **UI Elements** - CSS/XPath selectors with element metadata
 
 ```yaml
-UI Elements:
-  input_terms_0_term:
-    CSS: #terms-0-term
-    XPath: //input[@id='terms-0-term']
-    Type: input
-    Methods: click, type, clear
+  ### button_advanced_search
+
+  - ID: button_advanced_search
+  - Description: Advanced search navigation button
+  - Type: link
+  - Allow Methods: click
+  - Selectors:
+    - role: getByRole('link', { name: 'Advanced Search' }) (confidence: 0.9)
+    - css: button.button.is-small.is-cul-darker (confidence: 0.65)
+    - xpath: //button[contains(@class, 'button')] (confidence: 0.55)
 ```
 
 ## Action Search Commands
@@ -148,6 +138,7 @@ actionbook browser wait-nav                            # Wait for navigation
 ### Screenshots & Export
 
 ```bash
+# Ensure target directory exists before saving screenshots
 actionbook browser screenshot                  # Save screenshot.png
 actionbook browser screenshot output.png       # Custom path
 actionbook browser screenshot --full-page      # Full page
@@ -210,6 +201,10 @@ When Action Manual selectors don't work:
 3. **Inspect by coordinates** - `actionbook browser inspect <x> <y>` to find elements
 4. **Execute JS** - `actionbook browser eval "document.querySelector(...)"` for dynamic queries
 
+### When to Exit
+
+If actionbook search returns no results or action fails unexpectedly, use other available tools to continue the task.
+
 ## Examples
 
 ### End-to-end with Action Manual
@@ -226,38 +221,15 @@ actionbook browser open "https://www.airbnb.com"
 actionbook browser fill "input[data-testid='structured-search-input-field-query']" "Tokyo"
 actionbook browser click "button[data-testid='structured-search-input-search-button']"
 actionbook browser wait-nav
-actionbook browser screenshot results.png
+actionbook browser text
 actionbook browser close
 ```
 
-### Unknown site automation
+### Deep-Dive Documentation
 
-```bash
-# 1. Open and inspect
-actionbook browser open "https://example.com/login"
-actionbook browser snapshot
+For detailed patterns and best practices:
 
-# 2. Fill form using discovered selectors
-actionbook browser fill "#email" "user@example.com"
-actionbook browser fill "#password" "secret"
-actionbook browser click "button[type=submit]"
-actionbook browser wait-nav
-
-# 3. Verify result
-actionbook browser text "h1"
-actionbook browser screenshot result.png
-actionbook browser close
-```
-
-### Authentication flow
-
-```bash
-actionbook browser open "https://app.example.com/login"
-actionbook browser snapshot
-actionbook browser fill "#username" "user"
-actionbook browser fill "#password" "pass"
-actionbook browser click "button[type=submit]"
-actionbook browser wait-nav
-# Now authenticated - continue with protected pages
-actionbook browser goto "https://app.example.com/dashboard"
-```
+| Reference | Description |
+|-----------|-------------|
+| [references/command-reference.md](references/command-reference.md) | Complete command reference with all features |
+| [references/authentication.md](references/authentication.md) | Login flows, OAuth, 2FA handling, state reuse |
