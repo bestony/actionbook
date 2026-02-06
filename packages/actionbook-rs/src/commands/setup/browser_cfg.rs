@@ -17,10 +17,6 @@ pub fn configure_browser(
     non_interactive: bool,
     config: &mut Config,
 ) -> Result<()> {
-    if !cli.json {
-        println!("\n  {}\n", "Browser".cyan().bold());
-    }
-
     // If flag provided, apply directly
     if let Some(mode) = browser_flag {
         return apply_browser_mode(cli, env, mode, config);

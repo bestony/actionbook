@@ -81,22 +81,24 @@ pub fn print_environment_report(env: &EnvironmentInfo, json: bool) {
         return;
     }
 
-    println!("\n  {} environment...\n", "Detecting".bold());
-
-    // OS
-    println!("  {} OS: {} ({})", check_mark(), env.os, env.arch);
-
-    // Shell
+    // System
+    println!("    {}", "System".bold());
+    println!("      {} OS: {} ({})", check_mark(), env.os, env.arch);
     if let Some(ref shell) = env.shell {
         let shell_name = shell.rsplit('/').next().unwrap_or(shell);
-        println!("  {} Shell: {}", check_mark(), shell_name);
+        println!("      {} Shell: {}", check_mark(), shell_name);
     } else {
-        println!("  {} Shell: {}", empty_mark(), "not detected".dimmed());
+        println!("      {} Shell: {}", empty_mark(), "not detected".dimmed());
     }
 
     // Browsers
+    println!("\n    {}", "Browsers".bold());
     if env.browsers.is_empty() {
-        println!("  {} Browsers: {}", empty_mark(), "none detected".dimmed());
+        println!(
+            "      {} {}",
+            empty_mark(),
+            "none detected".dimmed()
+        );
     } else {
         for browser in &env.browsers {
             let version_str = browser
@@ -105,7 +107,7 @@ pub fn print_environment_report(env: &EnvironmentInfo, json: bool) {
                 .map(|v| format!(" v{}", v))
                 .unwrap_or_default();
             println!(
-                "  {} {}{}",
+                "      {} {}{}",
                 check_mark(),
                 browser.browser_type.name(),
                 version_str
@@ -114,33 +116,29 @@ pub fn print_environment_report(env: &EnvironmentInfo, json: bool) {
     }
 
     // AI Tools
+    println!("\n    {}", "AI Tools".bold());
     if env.claude_code {
-        println!("  {} Claude Code: {}", check_mark(), "detected".green());
+        println!("      {} Claude Code", check_mark());
     } else {
-        println!(
-            "  {} Claude Code: {}",
-            empty_mark(),
-            "not detected".dimmed()
-        );
+        println!("      {} Claude Code", empty_mark());
     }
-
     if env.cursor {
-        println!("  {} Cursor: {}", check_mark(), "detected".green());
+        println!("      {} Cursor", check_mark());
     } else {
-        println!("  {} Cursor: {}", empty_mark(), "not detected".dimmed());
+        println!("      {} Cursor", empty_mark());
     }
-
     if env.codex {
-        println!("  {} Codex: {}", check_mark(), "detected".green());
+        println!("      {} Codex", check_mark());
     } else {
-        println!("  {} Codex: {}", empty_mark(), "not detected".dimmed());
+        println!("      {} Codex", empty_mark());
     }
 
-    // Node.js
+    // Runtime
+    println!("\n    {}", "Runtime".bold());
     if let Some(ref ver) = env.node_version {
-        println!("  {} Node.js: {}", check_mark(), ver);
+        println!("      {} Node.js: {}", check_mark(), ver);
     } else {
-        println!("  {} Node.js: {}", empty_mark(), "not detected".dimmed());
+        println!("      {} Node.js: {}", empty_mark(), "not detected".dimmed());
     }
 
     println!();

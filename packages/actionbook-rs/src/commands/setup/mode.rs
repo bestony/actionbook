@@ -44,10 +44,6 @@ pub fn select_modes(
     mode_flag: Option<&[SetupTarget]>,
     non_interactive: bool,
 ) -> Result<Vec<SetupTarget>> {
-    if !cli.json {
-        println!("\n  {}\n", "Integration".cyan().bold());
-    }
-
     // If modes provided via flag, use them directly
     if let Some(modes) = mode_flag {
         let targets = expand_targets(modes);

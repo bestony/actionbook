@@ -1,5 +1,5 @@
 use colored::Colorize;
-use dialoguer::{Confirm, Input};
+use dialoguer::{Confirm, Password};
 
 use super::detect::EnvironmentInfo;
 use crate::cli::Cli;
@@ -18,10 +18,6 @@ pub async fn configure_api_key(
     non_interactive: bool,
     config: &mut Config,
 ) -> Result<()> {
-    if !cli.json {
-        println!("\n  {}\n", "API Key".cyan().bold());
-    }
-
     // Priority: flag > env > existing config
     let (existing_key, source) = resolve_existing_key(api_key_flag, env, config);
 
@@ -98,10 +94,10 @@ pub async fn configure_api_key(
     }
 
     // Interactive input — leave blank to skip
-    let key: String = Input::new()
+    let key: String = Password::new()
         .with_prompt("  Enter your API key (leave blank to skip)")
-        .allow_empty(true)
-        .interact_text()
+        .allow_empty_password(true)
+        .interact()
         .map_err(|e| ActionbookError::SetupError(format!("Prompt failed: {}", e)))?;
 
     let key = key.trim().to_string();
@@ -168,7 +164,7 @@ fn resolve_existing_key(
 }
 
 /// Mask an API key for display, showing only first 4 and last 4 chars.
-fn mask_key(key: &str) -> String {
+pub(super) fn mask_key(key: &str) -> String {
     let chars: Vec<char> = key.chars().collect();
     if chars.len() <= 8 {
         return "*".repeat(chars.len());
