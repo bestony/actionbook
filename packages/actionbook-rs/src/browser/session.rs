@@ -566,10 +566,13 @@ impl SessionManager {
     }
 
     /// Returns JavaScript that defines `__findElement(selector)` function.
-    /// Supports CSS selectors, XPath (starts with //), and @eN snapshot references.
+    /// Supports CSS selectors, XPath (starts with //), @eN and [ref=eN] snapshot references.
     fn find_element_js() -> &'static str {
         r#"
         function __findElement(selector) {
+            // Normalize [ref=eN] format (from snapshot output) to @eN
+            const refMatch = selector.match(/^\[ref=(e\d+)\]$/);
+            if (refMatch) selector = '@' + refMatch[1];
             if (/^@e\d+$/.test(selector)) {
                 const targetNum = parseInt(selector.slice(2));
                 const SKIP_TAGS = new Set(['script','style','noscript','template','svg','path','defs','clippath','lineargradient','stop','meta','link','br','wbr']);
@@ -662,7 +665,7 @@ impl SessionManager {
     /// Click an element on the active page
     pub async fn click_on_page(&self, profile_name: Option<&str>, selector: &str) -> Result<()> {
         // Find the element, scroll it into view, and get its center coordinates
-        // Supports CSS selectors, XPath (starts with //), and @eN snapshot references
+        // Supports CSS selectors, XPath (starts with //), @eN and [ref=eN] snapshot references
         let selector_json = serde_json::to_string(selector)?;
         let js = [
             "(function() {",
@@ -691,7 +694,20 @@ impl SessionManager {
             .and_then(|v| v.as_f64())
             .ok_or_else(|| ActionbookError::Other("Invalid coordinates".to_string()))?;
 
-        // Send mouse click events
+        // Move mouse to target first so the browser updates its hit-test target,
+        // then press and release. Without mouseMoved, CDP may not dispatch the
+        // click to the correct DOM element.
+        self.send_cdp_command(
+            profile_name,
+            "Input.dispatchMouseEvent",
+            serde_json::json!({
+                "type": "mouseMoved",
+                "x": x,
+                "y": y
+            }),
+        )
+        .await?;
+
         self.send_cdp_command(
             profile_name,
             "Input.dispatchMouseEvent",
