@@ -19,14 +19,24 @@ pub struct BrowserLauncher {
 }
 
 impl BrowserLauncher {
-    /// Create a new launcher with default settings
-    pub fn new() -> Result<Self> {
-        let browser_info = discover_browser()?;
-        let data_dir = dirs::data_dir()
+    fn default_user_data_dir(profile_name: &str) -> PathBuf {
+        dirs::data_dir()
             .unwrap_or_else(|| PathBuf::from("."))
             .join("actionbook")
             .join("profiles")
-            .join("default");
+            .join(profile_name)
+    }
+
+    fn resolve_user_data_dir(profile_name: &str, configured_dir: Option<&str>) -> PathBuf {
+        configured_dir
+            .map(|dir| PathBuf::from(shellexpand::tilde(dir).to_string()))
+            .unwrap_or_else(|| Self::default_user_data_dir(profile_name))
+    }
+
+    /// Create a new launcher with default settings
+    pub fn new() -> Result<Self> {
+        let browser_info = discover_browser()?;
+        let data_dir = Self::default_user_data_dir("actionbook");
 
         Ok(Self {
             browser_info,
@@ -52,11 +62,7 @@ impl BrowserLauncher {
             path,
         );
 
-        let data_dir = dirs::data_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join("actionbook")
-            .join("profiles")
-            .join("default");
+        let data_dir = Self::default_user_data_dir("actionbook");
 
         Ok(Self {
             browser_info,
@@ -69,7 +75,7 @@ impl BrowserLauncher {
     }
 
     /// Create a launcher from profile configuration
-    pub fn from_profile(profile: &ProfileConfig) -> Result<Self> {
+    pub fn from_profile(profile_name: &str, profile: &ProfileConfig) -> Result<Self> {
         let mut launcher = if let Some(ref path) = profile.browser_path {
             Self::with_browser_path(PathBuf::from(path))?
         } else {
@@ -78,10 +84,8 @@ impl BrowserLauncher {
 
         launcher.cdp_port = profile.cdp_port;
         launcher.headless = profile.headless;
-
-        if let Some(ref dir) = profile.user_data_dir {
-            launcher.user_data_dir = PathBuf::from(shellexpand::tilde(dir).to_string());
-        }
+        launcher.user_data_dir =
+            Self::resolve_user_data_dir(profile_name, profile.user_data_dir.as_deref());
 
         Ok(launcher)
     }
@@ -274,5 +278,44 @@ impl BrowserLauncher {
 impl Default for BrowserLauncher {
     fn default() -> Self {
         Self::new().expect("Failed to create default browser launcher")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::browser::BrowserType;
+    use std::path::PathBuf;
+
+    fn test_launcher_with_user_data_dir(dir: PathBuf) -> BrowserLauncher {
+        BrowserLauncher {
+            browser_info: BrowserInfo::new(BrowserType::Chrome, PathBuf::new()),
+            cdp_port: 9222,
+            headless: false,
+            stealth: false,
+            user_data_dir: dir,
+            extra_args: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn default_profile_user_data_dir_uses_profile_name() {
+        let dir = BrowserLauncher::resolve_user_data_dir("work", None);
+        let components: Vec<String> = dir
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().to_string())
+            .collect();
+        let tail = &components[components.len() - 3..];
+        assert_eq!(tail, ["actionbook", "profiles", "work"]);
+    }
+
+    #[test]
+    fn configured_user_data_dir_takes_precedence() {
+        let dir = BrowserLauncher::resolve_user_data_dir("work", Some(".custom-profile"));
+        let launcher = test_launcher_with_user_data_dir(dir.clone());
+        let args = launcher.build_args();
+
+        assert_eq!(dir, PathBuf::from(".custom-profile"));
+        assert!(args.contains(&format!("--user-data-dir={}", dir.display())));
     }
 }
