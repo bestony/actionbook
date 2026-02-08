@@ -90,14 +90,7 @@ impl SessionManager {
     fn resolve_profile_name(&self, profile_name: Option<&str>) -> String {
         match profile_name.map(str::trim).filter(|s| !s.is_empty()) {
             Some(name) => name.to_string(),
-            None => {
-                let configured_default = self.config.browser.default_profile.trim();
-                if configured_default.is_empty() {
-                    "actionbook".to_string()
-                } else {
-                    configured_default.to_string()
-                }
-            }
+            None => self.config.effective_default_profile_name(),
         }
     }
 
