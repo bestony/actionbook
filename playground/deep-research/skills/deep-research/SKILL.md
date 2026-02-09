@@ -97,37 +97,16 @@ Based on the topic, generate 5-8 search queries from different angles:
 - Expert opinions / analysis
 - Use cases / applications
 
-**Decide your search method:**
+**Search order — ALWAYS start with arXiv Advanced Search:**
 
-| Topic type | Primary search | Secondary search |
-|------------|---------------|-----------------|
-| Academic paper / ML model / algorithm | **arXiv Advanced Search** (Step 2b) | Google for blogs, code, discussions |
-| Specific author's recent work | **arXiv Advanced Search** by author field | Google Scholar |
-| Papers in a subject + time range | **arXiv Advanced Search** with filters | — |
-| Technology / product / general topic | Google Search (Step 2) | arXiv Advanced Search if research papers exist |
-| News / trends / opinions | Google Search (Step 2) | — |
+| Step | Action | Why |
+|------|--------|-----|
+| **Step 2 (FIRST)** | **arXiv Advanced Search** | Actionbook's core advantage: 40+ indexed selectors for multi-field, filtered academic search. Even non-academic topics often have relevant papers. |
+| **Step 3 (SECOND)** | Google / Bing search | Supplement with blogs, news, code, discussions, non-academic sources. |
 
-**IMPORTANT:** For any topic related to research, papers, models, or algorithms, you MUST use arXiv Advanced Search (Step 2b). This is Actionbook's key advantage — it can operate the arXiv search form with 40+ indexed selectors (field selection, category filters, date ranges) that no other tool can do.
+**IMPORTANT:** arXiv Advanced Search is the **default first search** for ALL topics. This is what makes Actionbook-powered research fundamentally different from WebFetch/WebSearch. Even for topics like "WebAssembly ecosystem" or "Rust async runtime", there are arXiv papers with deeper technical insights than any blog post.
 
-### Step 2: Search the Web
-
-**For general topics**, use Google/Bing:
-
-```bash
-# Search via Google
-actionbook browser open "https://www.google.com/search?q=<encoded_query>"
-actionbook browser text "#search"
-
-# Or search via Bing
-actionbook browser open "https://www.bing.com/search?q=<encoded_query>"
-actionbook browser text "#b_results"
-```
-
-Parse the search results to extract URLs and snippets. Collect the top 5-10 most relevant URLs.
-
-**For academic papers**, prefer arXiv Advanced Search (see Step 2b below).
-
-### Step 2b: arXiv Advanced Search (Actionbook Advantage)
+### Step 2: arXiv Advanced Search (ALWAYS DO THIS FIRST)
 
 > **Key differentiator:** WebFetch/WebSearch can only do simple keyword searches. Actionbook has indexed the **entire arXiv Advanced Search form** with 40+ verified selectors, enabling multi-field, multi-criteria academic searches — just like a human researcher would use the form.
 
@@ -190,17 +169,23 @@ actionbook browser click "button:has-text('Search'):nth(2)"
 actionbook browser text "#main-container"
 ```
 
-**When to use arXiv Advanced Search vs. Google:**
+### Step 3: Supplement with Google / Bing Search
 
-| Scenario | Use |
-|----------|-----|
-| Know author name, need their recent papers | arXiv Advanced Search |
-| Need papers in a specific subject + date range | arXiv Advanced Search |
-| General topic exploration, multiple source types | Google Search |
-| Looking for blog posts, news, non-academic sources | Google Search |
-| Need both academic and non-academic sources | Google first, then arXiv Advanced Search |
+After arXiv, use Google/Bing to find non-academic sources (blogs, news, docs, code, discussions):
 
-### Step 3: Query Actionbook API for Known Site Selectors
+```bash
+# Search via Google
+actionbook browser open "https://www.google.com/search?q=<encoded_query>"
+actionbook browser text "#search"
+
+# Or search via Bing
+actionbook browser open "https://www.bing.com/search?q=<encoded_query>"
+actionbook browser text "#b_results"
+```
+
+Parse the search results to extract URLs and snippets. Collect the top 5-10 most relevant URLs.
+
+### Step 4: Query Actionbook API for Known Site Selectors
 
 **BEFORE browsing any URL, check if Actionbook has indexed the site's structure.** This gives you verified CSS/XPath selectors instead of guessing.
 
@@ -223,7 +208,7 @@ actionbook get "<domain>:/<path>:<area>"
 
 **For any other URL**, run `actionbook search "<keywords>" -d "<domain>"` to check if it's indexed. Use indexed selectors when available; fall back to `actionbook browser snapshot` for unindexed sites.
 
-### Step 4: Deep Read Sources
+### Step 5: Deep Read Sources
 
 For each relevant URL, use Actionbook-verified selectors when available:
 
@@ -271,7 +256,7 @@ actionbook browser snapshot            # Get accessibility tree to find selector
 actionbook browser text "<discovered_selector>"
 ```
 
-### Step 5: Synthesize Findings
+### Step 6: Synthesize Findings
 
 Organize collected information into a coherent report:
 1. Overview / Executive Summary
@@ -281,13 +266,13 @@ Organize collected information into a coherent report:
 5. Implications / Significance
 6. Sources
 
-### Step 6: Generate json-ui JSON Report
+### Step 7: Generate json-ui JSON Report
 
 Write a JSON file following the `@actionbookdev/json-ui` schema. Use the Write tool.
 
 **Output path:** `./output/<topic-slug>.json` (or user-specified `--output` path)
 
-### Step 7: Render HTML
+### Step 8: Render HTML
 
 Try these in order until one works:
 
@@ -304,7 +289,7 @@ npx @actionbookdev/json-ui@latest render <report.json> -o <report.html>
 
 If all fail, save the JSON file and inform the user of its path.
 
-### Step 8: Open in Browser
+### Step 9: Open in Browser
 
 ```bash
 # macOS
@@ -314,7 +299,7 @@ open <report.html>
 xdg-open <report.html>
 ```
 
-### Step 9: Close Browser
+### Step 10: Close Browser
 
 **Always close the browser when done:**
 
