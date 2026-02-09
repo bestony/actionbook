@@ -8,7 +8,7 @@ All you need is **Claude Code** + **Actionbook CLI**. Everything runs locally on
 
 ### Demo 1: Elon Musk's X.com Posting Activity
 
-> `/deep-research:analyze "Research how many tweets Elon Musk posted today on X.com"`
+> `/deep-research "Research how many tweets Elon Musk posted today on X.com"`
 
 The agent logged into X.com via Actionbook browser, queried `from:elonmusk since:2026-02-09`, scrolled through all results, and produced a comprehensive activity report:
 
@@ -36,7 +36,7 @@ Output: [`output/musk-tweets-2026-02-09.json`](output/musk-tweets-2026-02-09.jso
 
 ### Demo 2: WebAssembly 2026 Ecosystem Deep Dive
 
-> `/deep-research:analyze "WebAssembly 2026 ecosystem"`
+> `/deep-research "WebAssembly 2026 ecosystem"`
 
 The agent combined **arXiv Advanced Search** (academic papers) with **Google** (industry sources) to produce a comprehensive ecosystem report:
 
@@ -155,7 +155,7 @@ claude
 Then type:
 
 ```
-/deep-research:analyze "WebAssembly 2026 ecosystem"
+/deep-research "WebAssembly 2026 ecosystem"
 ```
 
 Or in natural language (supports English and Chinese):
@@ -169,7 +169,7 @@ That's it! The agent will search the web, read sources, generate a report, and o
 ## Command Reference
 
 ```
-/deep-research:analyze <topic> [options]
+/deep-research <topic> [options]
 ```
 
 | Parameter | Required | Default | Description |
@@ -191,22 +191,22 @@ That's it! The agent will search the web, read sources, generate a report, and o
 
 ```bash
 # Research a specific website's data (like X.com, Reddit, HackerNews)
-/deep-research:analyze "Research how many tweets Elon Musk posted today on X.com"
+/deep-research "Research how many tweets Elon Musk posted today on X.com"
 
 # Deep dive a technology ecosystem
-/deep-research:analyze "WebAssembly 2026 ecosystem"
+/deep-research "WebAssembly 2026 ecosystem"
 
 # Analyze an arXiv paper
-/deep-research:analyze "arxiv:2501.12599"
+/deep-research "arxiv:2501.12599"
 
 # Search by research topic (uses arXiv Advanced Search)
-/deep-research:analyze "large language model agent papers 2025"
+/deep-research "large language model agent papers 2025"
 
 # Report in Chinese only
-/deep-research:analyze "LLM inference optimization" --lang zh
+/deep-research "LLM inference optimization" --lang zh
 
 # Custom output path
-/deep-research:analyze "RISC-V ecosystem" --output ./reports/riscv.json
+/deep-research "RISC-V ecosystem" --output ./reports/riscv.json
 ```
 
 ## How It Works
@@ -311,7 +311,7 @@ playground/deep-research/
 │   └── deep-research/
 │       └── SKILL.md             # Main skill definition (core logic)
 ├── commands/
-│   └── analyze.md               # /deep-research:analyze command
+│   └── analyze.md               # /deep-research command
 ├── agents/
 │   └── researcher.md            # Research agent (sonnet, Bash+Read+Write)
 ├── examples/
