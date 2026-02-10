@@ -23,6 +23,7 @@ so your agent operates any website instantly without guessing.
 - [Installation](#installation)
 - [Examples](#examples)
 - [Available Tools](#available-tools)
+- [Documentation](#documentation)
 - [Development](#development)
 - [Contributing](#contributing)
 
@@ -103,9 +104,15 @@ Actionbook provides tools for searching and retrieving action manuals.
 Check out the [CLI Reference](https://actionbook.dev/docs/api-reference/cli) and [MCP Tools Reference](https://actionbook.dev/docs/api-reference/mcp-tools).
 
 
+## Documentation
+
+For comprehensive guides, API references, and tutorials, visit our documentation site:
+
+**[actionbook.dev/docs](https://actionbook.dev/docs)**
+
 ## Stay tuned
 
-Star Actionbook on Github to support and get latest information.
+We move fast. Star Actionbook on Github to support and get latest information.
 
 ![Star Actionbook](https://github.com/user-attachments/assets/2d6571cb-4e12-438b-b7bf-9a4b68ef2be3)
 
