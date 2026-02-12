@@ -1819,6 +1819,21 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
       color: var(--color-text-muted);
     }
 
+    .fallback-lang-row {
+      margin: 0;
+      padding: 0.9rem clamp(1rem, 10vw, 180px);
+      border-top: 1px solid var(--color-border);
+      border-bottom: 1px solid var(--color-border);
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      background: transparent;
+    }
+
+    .fallback-lang-row .lang-switcher {
+      margin-left: 0;
+    }
+
     .report-hero {
       margin: 0;
       padding: clamp(1.2rem, 3.8vw, 3rem) clamp(1rem, 10vw, 180px);
@@ -2098,6 +2113,7 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
 
     @media (max-width: 860px) {
       .brand-header,
+      .fallback-lang-row,
       .section,
       .paper-header,
       .brand-footer {
@@ -2154,6 +2170,10 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
       }
 
       .corner-powered {
+        display: none;
+      }
+
+      .fallback-lang-row {
         display: none;
       }
     }
@@ -2245,7 +2265,7 @@ interface ReportJSON {
 // ============================================
 
 const iconMap: Record<string, string> = {
-  paper: '::', user: 'o', calendar: '[]', tag: '#', link: '->', code: '</>',
+  paper: '::', user: 'o', calendar: '[]', tag: '#', link: '->', code: '&lt;/&gt;',
   chart: '||', bulb: '*', check: 'v', star: '*', warning: '!', info: 'i',
   github: 'gh', arxiv: 'arx', pdf: 'pdf', copy: 'cp', expand: '+', collapse: '-',
 };
@@ -2447,6 +2467,14 @@ function renderHero(report: ReportJSON, title: I18nValue): string {
   </section>`;
 }
 
+function renderLanguageSwitcher(extraClass = ''): string {
+  const cls = extraClass ? `lang-switcher ${extraClass}` : 'lang-switcher';
+  return `<div class="${cls}">
+    <button data-lang="en" class="active">EN</button>
+    <button data-lang="zh">中文</button>
+  </div>`;
+}
+
 function renderNode(node: ReportJSON): string {
   const { type, props = {}, children = [] } = node;
   const childrenHtml = children.map(renderNode).join('\n');
@@ -2454,18 +2482,24 @@ function renderNode(node: ReportJSON): string {
   switch (type) {
     case 'Report': {
       const hasPaperHeader = children.some((child) => child.type === 'PaperHeader');
+      const hasBrandHeader = children.some((child) => child.type === 'BrandHeader');
       const renderedChildren = children.map(renderNode);
+
+      if (!hasBrandHeader) {
+        renderedChildren.unshift(`<div class="fallback-lang-row">${renderLanguageSwitcher('lang-switcher-fallback')}</div>`);
+      }
+
       if (hasPaperHeader) return renderedChildren.join('\n');
 
       const heroTitle = extractHeroTitle(node);
       if (!heroTitle) return renderedChildren.join('\n');
 
       const heroHtml = renderHero(node, heroTitle);
-      const brandHeaderIndex = children.findIndex((child) => child.type === 'BrandHeader');
-      if (brandHeaderIndex >= 0) {
+      if (hasBrandHeader) {
+        const brandHeaderIndex = children.findIndex((child) => child.type === 'BrandHeader');
         renderedChildren.splice(brandHeaderIndex + 1, 0, heroHtml);
       } else {
-        renderedChildren.unshift(heroHtml);
+        renderedChildren.splice(1, 0, heroHtml);
       }
       return renderedChildren.join('\n');
     }
@@ -2474,10 +2508,7 @@ function renderNode(node: ReportJSON): string {
       const badge = resolveBrandBadge(props.badge);
       return `<div class="brand-header">
         <span>${renderI18n(badge)}</span>
-        <div class="lang-switcher">
-          <button data-lang="en" class="active">EN</button>
-          <button data-lang="zh">中文</button>
-        </div>
+        ${renderLanguageSwitcher()}
       </div>`;
     }
 
