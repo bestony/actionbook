@@ -2048,8 +2048,11 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
       }
 
       .lang-switcher {
+        position: fixed;
         top: 0.85rem;
         right: 1rem;
+        margin: 0;
+        width: auto;
       }
 
       .corner-powered {
@@ -2202,13 +2205,10 @@ function renderNode(node: ReportJSON): string {
     case 'Report':
       return childrenHtml;
 
-    case 'BrandHeader': {
-      const brandName = 'Actionbook';
+    case 'BrandHeader':
       return `<div class="brand-header">
         <span>${renderI18n(props.badge || 'Research Report')}</span>
-        <span class="powered-by"><a href="https://actionbook.dev" target="_blank" rel="noopener noreferrer">${brandName}</a></span>
       </div>`;
-    }
 
     case 'PaperHeader': {
       const categories = (props.categories as string[]) || [];
