@@ -58,6 +58,9 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root {
       --color-primary: #3b82f6;
@@ -1299,6 +1302,399 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
       }
     }
 
+    /* 2026 v2 editorial refresh */
+    :root {
+      --color-primary: #0b57d0;
+      --color-primary-strong: #003eaa;
+      --color-success: #1b8f5c;
+      --color-warning: #b16a1b;
+      --color-danger: #c23a3a;
+      --color-text: #10131a;
+      --color-text-muted: #565f6f;
+      --color-bg: #f3f3ef;
+      --color-bg-muted: #e9e9e2;
+      --color-surface: #fcfcf8;
+      --color-surface-alt: #f7f7f2;
+      --color-border: #d4d6cf;
+      --color-highlight: #f2dc72;
+      --color-shadow: rgba(16, 19, 26, 0.12);
+      --color-shadow-soft: rgba(16, 19, 26, 0.06);
+      --color-code-bg: #0c1220;
+      --color-code-surface: #121a2e;
+      --color-code-text: #dbe4ff;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-primary: #8ab4ff;
+        --color-primary-strong: #aac7ff;
+        --color-success: #4ecb92;
+        --color-warning: #f2be6d;
+        --color-danger: #ff8b8b;
+        --color-text: #ebf0fb;
+        --color-text-muted: #9ea9be;
+        --color-bg: #0b0e13;
+        --color-bg-muted: #151a22;
+        --color-surface: #0f141d;
+        --color-surface-alt: #141b26;
+        --color-border: #2a313d;
+        --color-highlight: #6b5316;
+        --color-shadow: rgba(0, 0, 0, 0.55);
+        --color-shadow-soft: rgba(0, 0, 0, 0.35);
+        --color-code-bg: #040913;
+        --color-code-surface: #0c1424;
+        --color-code-text: #dbe4ff;
+      }
+    }
+
+    body {
+      font-family: 'Space Grotesk', 'Avenir Next', 'Segoe UI', sans-serif;
+      line-height: 1.72;
+      letter-spacing: 0.005em;
+      background: var(--color-bg);
+      padding: clamp(1rem, 2.3vw, 2.8rem);
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(16, 19, 26, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(16, 19, 26, 0.03) 1px, transparent 1px);
+      background-size: 36px 36px;
+      opacity: 0.35;
+      z-index: 0;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body::before {
+        background-image:
+          linear-gradient(rgba(235, 240, 251, 0.04) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(235, 240, 251, 0.04) 1px, transparent 1px);
+        opacity: 0.22;
+      }
+    }
+
+    .report {
+      position: relative;
+      z-index: 1;
+      max-width: 960px;
+      padding: clamp(1.3rem, 2.5vw, 2.9rem);
+      border-radius: 14px;
+      border: 1px solid var(--color-border);
+      background: var(--color-surface);
+      box-shadow: 0 22px 50px var(--color-shadow);
+    }
+
+    .brand-header {
+      border: 1px solid var(--color-border);
+      border-radius: 10px;
+      background: var(--color-surface-alt);
+      padding: 0.75rem 0.85rem;
+    }
+
+    .brand-header > span:first-child {
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 0.73rem;
+      letter-spacing: 0.06em;
+      text-transform: none;
+      border-radius: 6px;
+      padding: 0.2rem 0.46rem;
+      background: transparent;
+    }
+
+    .brand-header .powered-by {
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+    }
+
+    .paper-header h1 {
+      font-size: clamp(1.75rem, 3vw, 2.55rem);
+      line-height: 1.16;
+      letter-spacing: -0.03em;
+      max-width: 20ch;
+    }
+
+    .paper-header .meta span {
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 0.72rem;
+      border-radius: 6px;
+    }
+
+    .paper-header .categories,
+    .categories {
+      gap: 0.4rem;
+    }
+
+    .paper-header .category,
+    .categories .category {
+      border-radius: 6px;
+      padding: 0.19rem 0.45rem;
+      font-size: 0.7rem;
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      letter-spacing: 0.02em;
+    }
+
+    .authors {
+      border-radius: 10px;
+      font-size: 0.92rem;
+    }
+
+    .section h2 {
+      border-bottom: none;
+      font-size: 0.76rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      gap: 0.55rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .section h2::after {
+      content: '';
+      flex: 1 1 auto;
+      height: 1px;
+      background: var(--color-border);
+    }
+
+    .section h2 > span:first-child {
+      width: auto;
+      height: auto;
+      min-width: 1.7rem;
+      border-radius: 6px;
+      padding: 0.16rem 0.36rem;
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 0.66rem;
+      line-height: 1.2;
+      text-transform: uppercase;
+      background: transparent;
+      border: 1px solid var(--color-border);
+    }
+
+    .contribution-list {
+      list-style: none;
+      padding-left: 0;
+      counter-reset: contribution;
+      gap: 0;
+    }
+
+    .contribution-list li {
+      position: relative;
+      counter-increment: contribution;
+      border: none;
+      border-bottom: 1px dashed var(--color-border);
+      border-radius: 0;
+      background: transparent;
+      padding: 0.86rem 0.1rem 0.9rem 2.5rem;
+    }
+
+    .contribution-list li::before {
+      content: counter(contribution, decimal-leading-zero);
+      position: absolute;
+      left: 0;
+      top: 0.88rem;
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 0.75rem;
+      color: var(--color-primary);
+      letter-spacing: 0.04em;
+    }
+
+    .contribution-list li::marker {
+      content: '';
+    }
+
+    .contribution-list .badge {
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      border-radius: 5px;
+      padding: 0.1rem 0.38rem;
+      font-size: 0.66rem;
+      box-shadow: none;
+    }
+
+    .method-step {
+      border: none;
+      border-left: 2px solid var(--color-border);
+      border-radius: 0;
+      background: transparent;
+      padding: 0.28rem 0 0.4rem 0.85rem;
+      gap: 0.7rem;
+    }
+
+    .method-step .number {
+      width: 1.6rem;
+      height: 1.6rem;
+      border-radius: 6px;
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 0.72rem;
+      box-shadow: none;
+    }
+
+    .highlight,
+    .callout,
+    .theorem,
+    .authors {
+      border-radius: 10px;
+    }
+
+    .highlight,
+    .callout {
+      border-left: 1px solid var(--color-border);
+    }
+
+    .highlight.code,
+    .prose code,
+    .formula code,
+    .algorithm .algorithm-body,
+    .algorithm .line-number,
+    .algorithm .line-code,
+    .code-block pre,
+    .code-block .line-numbers,
+    .definition-list dt,
+    .definition-list dd {
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+    }
+
+    .metrics-grid {
+      gap: 0.55rem;
+    }
+
+    .metric {
+      border-radius: 8px;
+      box-shadow: none;
+      padding: 0.82rem 0.64rem;
+    }
+
+    .metric .value {
+      font-size: 1.55rem;
+    }
+
+    .metric .label {
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 0.7rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .link-button {
+      border-radius: 8px;
+      border: 1px solid var(--color-border);
+      background: transparent;
+      color: var(--color-text);
+      box-shadow: none;
+      font-size: 0.8rem;
+      padding: 0.5rem 0.72rem;
+      font-weight: 600;
+    }
+
+    .link-button:hover {
+      transform: translateY(-1px);
+      background: var(--color-primary);
+      color: #ffffff;
+      border-color: var(--color-primary);
+      box-shadow: none;
+    }
+
+    .brand-footer {
+      border-top: 1px dashed var(--color-border);
+      gap: 0.35rem;
+    }
+
+    .brand-footer p:first-child {
+      border-style: dashed;
+      background: transparent;
+    }
+
+    .card,
+    .results-table,
+    .table-wrapper,
+    .figure img,
+    .image img,
+    .formula.block,
+    .algorithm,
+    .code-block,
+    .img-fallback {
+      border-radius: 10px;
+    }
+
+    .code-block {
+      box-shadow: none;
+    }
+
+    .code-block .code-title {
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      font-size: 0.76rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .lang-switcher {
+      border-radius: 9px;
+      padding: 1px;
+      gap: 1px;
+      box-shadow: none;
+      backdrop-filter: none;
+    }
+
+    .lang-switcher button {
+      border-radius: 7px;
+      min-width: 2.45rem;
+      font-size: 0.72rem;
+      font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
+      letter-spacing: 0.03em;
+      transform: none;
+    }
+
+    .lang-switcher button:hover {
+      transform: none;
+    }
+
+    .lang-switcher button.active {
+      background: var(--color-text);
+      color: var(--color-surface);
+    }
+
+    .callout .callout-title::before {
+      content: '';
+      display: none;
+    }
+
+    @media (max-width: 860px) {
+      body {
+        padding: 0.85rem;
+      }
+
+      .report {
+        border-radius: 10px;
+        padding: 1.05rem;
+      }
+
+      .lang-switcher {
+        position: sticky;
+        top: 0.52rem;
+        margin-bottom: 0.7rem;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .paper-header h1 {
+        max-width: none;
+      }
+
+      .section h2 {
+        letter-spacing: 0.12em;
+      }
+
+      .results-table table,
+      .table-wrapper table {
+        min-width: 500px;
+      }
+    }
+
     @media print {
       body {
         padding: 0;
@@ -1367,7 +1763,7 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
           img.setAttribute('data-failed', 'true');
           var fallback = document.createElement('div');
           fallback.className = 'img-fallback';
-          fallback.textContent = '📷 ' + (img.alt || 'Image unavailable');
+          fallback.textContent = 'Image: ' + (img.alt || 'unavailable');
           img.parentNode.insertBefore(fallback, img.nextSibling);
         });
       });
@@ -1401,9 +1797,9 @@ interface ReportJSON {
 // ============================================
 
 const iconMap: Record<string, string> = {
-  paper: '📄', user: '👤', calendar: '📅', tag: '🏷️', link: '🔗', code: '💻',
-  chart: '📊', bulb: '💡', check: '✅', star: '⭐', warning: '⚠️', info: 'ℹ️',
-  github: '🐙', arxiv: '📚', pdf: '📕', copy: '📋', expand: '➕', collapse: '➖',
+  paper: '::', user: 'o', calendar: '[]', tag: '#', link: '->', code: '</>',
+  chart: '||', bulb: '*', check: 'v', star: '*', warning: '!', info: 'i',
+  github: 'gh', arxiv: 'arx', pdf: 'pdf', copy: 'cp', expand: '+', collapse: '-',
 };
 
 function escapeHtml(text: string): string {
@@ -1424,8 +1820,8 @@ function renderNode(node: ReportJSON): string {
 
     case 'BrandHeader':
       return `<div class="brand-header">
-        <span>${renderI18n(props.badge || '🤖 AI Generated Content')}</span>
-        <span class="powered-by">Powered by <strong>${renderI18n(props.poweredBy || 'ActionBook')}</strong></span>
+        <span>${renderI18n(props.badge || 'Research Report')}</span>
+        <span class="powered-by">Powered by <strong>${renderI18n(props.poweredBy || 'Actionbook')}</strong></span>
       </div>`;
 
     case 'PaperHeader': {
@@ -1540,8 +1936,8 @@ function renderNode(node: ReportJSON): string {
 
     case 'BrandFooter':
       return `<footer class="brand-footer">
-        ${props.disclaimer ? `<p>📝 ${renderI18n(props.disclaimer)}</p>` : ''}
-        <p><strong>${renderI18n(props.attribution || 'Powered by ActionBook')}</strong> | Generated: ${escapeHtml(String(props.timestamp))}</p>
+        ${props.disclaimer ? `<p>${renderI18n(props.disclaimer)}</p>` : ''}
+        <p><strong>${renderI18n(props.attribution || 'Powered by Actionbook')}</strong> | Generated: ${escapeHtml(String(props.timestamp))}</p>
       </footer>`;
 
     case 'Grid': {
