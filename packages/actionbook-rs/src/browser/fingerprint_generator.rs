@@ -3,6 +3,8 @@
 //! This module generates realistic browser fingerprints based on real-world distribution
 //! of devices, ensuring internal consistency between OS, GPU, screen resolution, etc.
 //!
+
+#![allow(dead_code)]
 //! Inspired by BrowserForge (https://github.com/daijro/browserforge)
 
 use crate::browser::stealth_enhanced::EnhancedStealthProfile;
@@ -13,6 +15,7 @@ use rand::SeedableRng;
 
 /// Operating system with distribution weights
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum OperatingSystem {
     Windows,
     MacOsIntel,
@@ -86,6 +89,7 @@ impl OperatingSystem {
 
 /// Screen resolution configuration
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub struct ScreenResolution {
     pub width: u32,
     pub height: u32,
@@ -157,6 +161,7 @@ impl ScreenResolution {
 
 /// GPU vendor and model
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct GPU {
     pub vendor: String,
     pub renderer: String,
@@ -324,6 +329,7 @@ impl GPU {
 
 /// Hardware configuration (CPU, memory)
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub struct HardwareConfig {
     pub cpu_cores: u32,
     pub device_memory: u32,
@@ -387,6 +393,7 @@ impl HardwareConfig {
 }
 
 /// Fingerprint generator that creates statistically accurate configurations
+#[allow(dead_code)]
 pub enum FingerprintGenerator {
     /// Random generator using thread RNG
     Random(ThreadRng),

@@ -14,8 +14,10 @@ pub struct CamofoxDriver {
     /// Camoufox browser process
     process: Option<Child>,
     /// Path to Camoufox executable
+    #[allow(dead_code)]
     executable_path: PathBuf,
     /// Marionette port
+    #[allow(dead_code)]
     port: u16,
 }
 
@@ -257,6 +259,7 @@ impl CamofoxDriver {
     }
 
     /// Get current page title
+    #[allow(dead_code)]
     pub async fn get_title(&self) -> Result<String> {
         let title = self
             .webdriver
@@ -268,6 +271,7 @@ impl CamofoxDriver {
     }
 
     /// Get current page URL
+    #[allow(dead_code)]
     pub async fn get_url(&self) -> Result<String> {
         let url = self
             .webdriver
@@ -279,6 +283,7 @@ impl CamofoxDriver {
     }
 
     /// Wait for an element to appear
+    #[allow(dead_code)]
     pub async fn wait_for_element(&self, selector: &str, timeout_secs: u64) -> Result<WebElement> {
         use tokio::time::timeout;
 
@@ -340,6 +345,7 @@ impl CamofoxDriver {
     }
 
     /// Quit the browser and clean up
+    #[allow(dead_code)]
     pub async fn quit(self) -> Result<()> {
         // Note: We use ManuallyDrop to prevent Drop from running since we're
         // doing cleanup manually here

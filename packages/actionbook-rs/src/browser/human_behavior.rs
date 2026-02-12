@@ -3,6 +3,8 @@
 //! This module implements realistic human interaction patterns to avoid
 //! behavioral detection by anti-bot systems. Inspired by Camoufox's
 //! MouseTrajectories.hpp and timing analysis.
+
+#![allow(dead_code)]
 //!
 //! Key features:
 //! - Bezier curve mouse movements
@@ -16,6 +18,7 @@ use tokio::time::sleep;
 
 /// Configuration for human behavior simulation
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct HumanBehaviorConfig {
     /// Mouse movement speed multiplier (1.0 = normal, 0.5 = slower, 2.0 = faster)
     pub mouse_speed: f64,
@@ -82,6 +85,7 @@ impl HumanBehaviorConfig {
 
 /// A 2D point for mouse trajectory
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub struct Point {
     pub x: f64,
     pub y: f64,

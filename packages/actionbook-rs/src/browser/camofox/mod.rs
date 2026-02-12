@@ -12,9 +12,13 @@ mod session;
 mod snapshot;
 pub mod types;
 
+#[allow(unused_imports)]
 pub use client::CamofoxClient;
+#[allow(unused_imports)]
 pub use session::CamofoxSession;
+#[allow(unused_imports)]
 pub use snapshot::AccessibilityTreeExt;
+#[allow(unused_imports)]
 pub use types::{
     AccessibilityNode, ClickRequest, CreateTabRequest, CreateTabResponse, NavigateRequest,
     SnapshotResponse, TypeTextRequest,

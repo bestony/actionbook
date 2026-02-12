@@ -168,6 +168,7 @@ impl BrowserDriver {
     /// Execute JavaScript (CDP only)
     ///
     /// For Camoufox, returns an error as it doesn't support arbitrary JS execution
+    #[allow(dead_code)]
     pub async fn execute_js(&mut self, script: &str) -> Result<String> {
         match self {
             Self::Cdp(mgr) => {
@@ -201,11 +202,13 @@ impl BrowserDriver {
     }
 
     /// Check if using WebDriver mode (direct Rust control)
+    #[allow(dead_code)]
     pub fn is_webdriver(&self) -> bool {
         matches!(self, Self::CamofoxWebDriver(_))
     }
 
     /// Get CDP session manager (if using CDP backend)
+    #[allow(dead_code)]
     pub fn as_cdp(&self) -> Option<&SessionManager> {
         match self {
             Self::Cdp(mgr) => Some(mgr),
@@ -222,6 +225,7 @@ impl BrowserDriver {
     }
 
     /// Get Camoufox session (if using Camoufox REST backend)
+    #[allow(dead_code)]
     pub fn as_camofox(&self) -> Option<&CamofoxSession> {
         match self {
             Self::Cdp(_) | Self::CamofoxWebDriver(_) => None,
@@ -230,6 +234,7 @@ impl BrowserDriver {
     }
 
     /// Get Camoufox session mutably (if using Camoufox REST backend)
+    #[allow(dead_code)]
     pub fn as_camofox_mut(&mut self) -> Option<&mut CamofoxSession> {
         match self {
             Self::Cdp(_) | Self::CamofoxWebDriver(_) => None,
@@ -238,6 +243,7 @@ impl BrowserDriver {
     }
 
     /// Get Camoufox WebDriver (if using WebDriver backend)
+    #[allow(dead_code)]
     pub fn as_webdriver(&self) -> Option<&CamofoxDriver> {
         match self {
             Self::CamofoxWebDriver(driver) => Some(driver),
@@ -246,6 +252,7 @@ impl BrowserDriver {
     }
 
     /// Get Camoufox WebDriver mutably (if using WebDriver backend)
+    #[allow(dead_code)]
     pub fn as_webdriver_mut(&mut self) -> Option<&mut CamofoxDriver> {
         match self {
             Self::CamofoxWebDriver(driver) => Some(driver),

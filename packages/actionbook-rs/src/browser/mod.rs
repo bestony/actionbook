@@ -25,17 +25,20 @@ pub use stealth::{build_stealth_profile, stealth_status};
 pub use stealth::apply_stealth_to_page;
 
 // Re-export enhanced stealth (Phase 1)
+#[allow(unused_imports)]
 pub use stealth_enhanced::{
     apply_enhanced_stealth, get_enhanced_stealth_args, EnhancedStealthProfile,
 };
 
 // Re-export fingerprint generator (Phase 2)
+#[allow(unused_imports)]
 pub use fingerprint_generator::{
     generate_with_os, FingerprintGenerator, GPU, HardwareConfig, OperatingSystem,
     ScreenResolution,
 };
 
 // Re-export human behavior simulation (Phase 3)
+#[allow(unused_imports)]
 pub use human_behavior::{
     calculate_movement_delays, generate_mouse_trajectory, generate_scroll_delays,
     generate_typing_delays, humanized_pause, reading_time, simulate_reading,

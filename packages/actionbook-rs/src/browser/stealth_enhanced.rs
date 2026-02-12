@@ -3,6 +3,8 @@
 //! This module implements anti-detection techniques learned from Camoufox:
 //! - Navigator properties spoofing
 //! - WebGL fingerprint protection
+
+#![allow(dead_code)]
 //! - Canvas noise injection
 //! - WebRTC IP leak prevention
 //! - Automation trace removal
