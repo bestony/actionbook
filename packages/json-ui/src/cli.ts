@@ -1830,20 +1830,20 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
     .hero-meta {
       display: flex;
       align-items: center;
-      gap: 0.6rem;
+      gap: 0.5rem;
       flex-wrap: wrap;
-      margin-bottom: 1.1rem;
+      margin-bottom: 0.9rem;
     }
 
     .hero-chip {
       display: inline-flex;
       align-items: center;
-      min-height: 40px;
+      min-height: 34px;
       border: 1px solid var(--color-border);
       border-radius: 0;
-      padding: 0.46rem 0.9rem;
+      padding: 0.32rem 0.74rem;
       font-family: 'IBM Plex Mono', 'SF Mono', 'Consolas', monospace;
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       letter-spacing: 0.03em;
       text-transform: uppercase;
       color: var(--color-text);
@@ -2123,9 +2123,9 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
       }
 
       .hero-chip {
-        min-height: 34px;
-        padding: 0.35rem 0.62rem;
-        font-size: 0.7rem;
+        min-height: 30px;
+        padding: 0.26rem 0.56rem;
+        font-size: 0.66rem;
       }
 
       .hero-title {
