@@ -1413,6 +1413,18 @@ function generateHTML(json: ReportJSON, options: { title?: string } = {}): strin
       letter-spacing: 0.02em;
     }
 
+    .brand-header .powered-by a,
+    .brand-header .powered-by a:visited {
+      color: inherit;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .brand-header .powered-by a:hover {
+      text-decoration: underline;
+      text-underline-offset: 0.14em;
+    }
+
     .paper-header h1 {
       font-size: clamp(1.75rem, 3vw, 2.55rem);
       line-height: 1.16;
@@ -1818,11 +1830,13 @@ function renderNode(node: ReportJSON): string {
     case 'Report':
       return childrenHtml;
 
-    case 'BrandHeader':
+    case 'BrandHeader': {
+      const brandName = 'Actionbook';
       return `<div class="brand-header">
         <span>${renderI18n(props.badge || 'Research Report')}</span>
-        <span class="powered-by">Powered by <strong>${renderI18n(props.poweredBy || 'Actionbook')}</strong></span>
+        <span class="powered-by"><a href="https://actionbook.dev" target="_blank" rel="noopener noreferrer">${brandName}</a></span>
       </div>`;
+    }
 
     case 'PaperHeader': {
       const categories = (props.categories as string[]) || [];
