@@ -11,9 +11,7 @@
 
 **Browser Action Engine for AI Agents**
 <br />
-Actionbook provides up-to-date action manuals and DOM structure,
-<br />
-so your agent operates any website instantly without guessing.
+Make agents browse 10× faster with unbreakable resilience.
 
 [Website](https://actionbook.dev) · [GitHub](https://github.com/actionbook/actionbook) · [X](https://x.com/ActionbookHQ) · [Discord](https://discord.gg/7sKKp7XQ2d)
 
@@ -47,12 +45,12 @@ Building reliable browser agents is difficult and expensive:
 
 Actionbook places up-to-date action manuals with the relevant DOM selectors directly into your LLM's context.
 
-- **10x Faster:** Agents access pre-computed "Action manuals" to know exactly what to do without exploring.
-- **100x Token Savings:** Instead of whole HTML page, agents receive only related DOM elements in concise, semantic JSON definitions.
-- **Resilient Automation:** Action manuals are maintained and versioned. If a site changes, the manual is updated, not your agent.
+- **Unbreakable Resilience:** Action manuals are maintained and versioned. If a site changes, the manual is updated — not your agent.
+- **10× Faster:** Agents access pre-computed action manuals to know exactly what to do without exploring.
+- **Token-Efficient:** Instead of whole HTML pages, agents receive only relevant DOM elements in concise, semantic JSON.
 - **Universal Compatibility:** Works with any LLM (OpenAI, Anthropic, Gemini) and any AI operator framework.
 
-See how Actionbook enables an agent to complete an Airbnb search task 10x faster.
+See how Actionbook enables an agent to complete an Airbnb search task 10× faster.
 
 https://github.com/user-attachments/assets/9f896fe7-296a-44b3-8592-931a099612de
 
