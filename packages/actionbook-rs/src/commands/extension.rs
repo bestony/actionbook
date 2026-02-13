@@ -1,8 +1,7 @@
 use colored::Colorize;
 
-use crate::browser::extension_installer;
 use crate::browser::extension_bridge;
-use crate::browser::native_messaging;
+use crate::browser::extension_installer;
 use crate::cli::{Cli, ExtensionCommands};
 use crate::error::{ActionbookError, Result};
 
@@ -486,23 +485,12 @@ async fn install(cli: &Cli, force: bool) -> Result<()> {
 
     let version = result?;
 
-    // Register native messaging host for automatic bridge connection
-    let native_host_result = native_messaging::install_manifest();
-
     if cli.json {
-        let mut result = serde_json::json!({
+        let result = serde_json::json!({
             "status": "installed",
             "version": version,
             "path": dir.display().to_string()
         });
-        match &native_host_result {
-            Ok(p) => {
-                result["native_messaging_host"] = serde_json::json!(p.display().to_string());
-            }
-            Err(e) => {
-                result["native_messaging_host_error"] = serde_json::json!(e.to_string());
-            }
-        }
         println!("{}", result);
     } else {
         println!();
@@ -512,27 +500,6 @@ async fn install(cli: &Cli, force: bool) -> Result<()> {
             version
         );
         println!("  {}  Path: {}", "◆".cyan(), dir.display());
-
-        match &native_host_result {
-            Ok(p) => {
-                println!(
-                    "  {} Native messaging host registered",
-                    "✓".green()
-                );
-                println!("  {}  Manifest: {}", "◆".cyan(), p.display().to_string().dimmed());
-            }
-            Err(e) => {
-                println!(
-                    "  {} Failed to register native messaging host: {}",
-                    "!".yellow(),
-                    e
-                );
-                println!(
-                    "  {}  Auto-connect via native messaging will not work",
-                    "ℹ".dimmed()
-                );
-            }
-        }
 
         println!();
         println!("  {}", "Next steps:".bold());
@@ -594,9 +561,6 @@ async fn uninstall(cli: &Cli) -> Result<()> {
     let dir = extension_installer::extension_dir()?;
     extension_installer::uninstall()?;
 
-    // Also remove native messaging host manifest
-    let _ = native_messaging::uninstall_manifest();
-
     if cli.json {
         println!(
             "{}",
@@ -610,10 +574,6 @@ async fn uninstall(cli: &Cli) -> Result<()> {
             "  {} Extension removed from {}",
             "✓".green(),
             dir.display()
-        );
-        println!(
-            "  {} Native messaging host unregistered",
-            "✓".green()
         );
     }
 

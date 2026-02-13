@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::Read;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -15,18 +15,117 @@ const MAX_UNCOMPRESSED_SIZE: u64 = 50 * 1024 * 1024;
 /// Allowed download hosts (GitHub asset CDN)
 const ALLOWED_DOWNLOAD_HOSTS: &[&str] = &["github.com", "githubusercontent.com"];
 
-/// Returns the extension install directory: ~/.config/actionbook/extension/
-pub fn extension_dir() -> Result<PathBuf> {
-    let config_dir = dirs::config_dir().ok_or_else(|| {
+/// Returns Actionbook home directory: ~/.actionbook
+fn actionbook_home_dir() -> Result<PathBuf> {
+    let home_dir = dirs::home_dir().ok_or_else(|| {
         ActionbookError::ExtensionError(
-            "Could not determine config directory".to_string(),
+            "Could not determine home directory".to_string(),
         )
     })?;
-    Ok(config_dir.join("actionbook").join("extension"))
+    Ok(home_dir.join(".actionbook"))
+}
+
+/// Legacy extension install directory from pre-0.7.1:
+/// macOS/Linux: ~/.config/actionbook/extension
+fn legacy_extension_dir() -> Option<PathBuf> {
+    let config_dir = dirs::config_dir()?;
+    Some(config_dir.join("actionbook").join("extension"))
+}
+
+/// Returns true when an io::Error likely represents a cross-filesystem rename.
+fn is_cross_device_error(err: &io::Error) -> bool {
+    // EXDEV (18) on Unix, ERROR_NOT_SAME_DEVICE (17) on Windows.
+    matches!(err.raw_os_error(), Some(18) | Some(17))
+}
+
+/// Recursively copy a directory tree.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> io::Result<()> {
+    fs::create_dir_all(dst)?;
+    for entry in fs::read_dir(src)? {
+        let entry = entry?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        let file_type = entry.file_type()?;
+
+        if file_type.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else if file_type.is_file() {
+            fs::copy(&src_path, &dst_path)?;
+        } else {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Unsupported file type in extension dir: {}", src_path.display()),
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Migrate extension files from legacy config dir to ~/.actionbook/extension.
+/// Safe no-op if legacy dir does not exist or target already exists.
+fn migrate_legacy_extension_if_needed() -> Result<()> {
+    let target_dir = extension_dir()?;
+    let Some(legacy_dir) = legacy_extension_dir() else {
+        return Ok(());
+    };
+
+    if !legacy_dir.exists() || target_dir.exists() {
+        return Ok(());
+    }
+
+    if let Some(parent) = target_dir.parent() {
+        fs::create_dir_all(parent).map_err(|e| {
+            ActionbookError::ExtensionError(format!(
+                "Failed to create {}: {}",
+                parent.display(),
+                e
+            ))
+        })?;
+    }
+
+    match fs::rename(&legacy_dir, &target_dir) {
+        Ok(_) => {}
+        Err(rename_err) => {
+            if !is_cross_device_error(&rename_err) {
+                return Err(ActionbookError::ExtensionError(format!(
+                    "Failed to migrate extension from {} to {}: {}",
+                    legacy_dir.display(),
+                    target_dir.display(),
+                    rename_err
+                )));
+            }
+
+            copy_dir_recursive(&legacy_dir, &target_dir).map_err(|e| {
+                ActionbookError::ExtensionError(format!(
+                    "Failed to migrate extension from {} to {} via copy fallback: {}",
+                    legacy_dir.display(),
+                    target_dir.display(),
+                    e
+                ))
+            })?;
+
+            fs::remove_dir_all(&legacy_dir).map_err(|e| {
+                ActionbookError::ExtensionError(format!(
+                    "Failed to remove legacy extension directory {} after migration: {}",
+                    legacy_dir.display(),
+                    e
+                ))
+            })?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Returns the extension install directory: ~/.actionbook/extension/
+pub fn extension_dir() -> Result<PathBuf> {
+    Ok(actionbook_home_dir()?.join("extension"))
 }
 
 /// Check if the extension is installed (manifest.json exists on disk)
 pub fn is_installed() -> bool {
+    // Best-effort migration for users with older install paths.
+    let _ = migrate_legacy_extension_if_needed();
     extension_dir()
         .map(|dir| dir.join("manifest.json").exists())
         .unwrap_or(false)
@@ -34,6 +133,8 @@ pub fn is_installed() -> bool {
 
 /// Read the installed extension version from the on-disk manifest.json
 pub fn installed_version() -> Option<String> {
+    // Best-effort migration for users with older install paths.
+    let _ = migrate_legacy_extension_if_needed();
     let dir = extension_dir().ok()?;
     let manifest_path = dir.join("manifest.json");
     let content = fs::read_to_string(manifest_path).ok()?;
@@ -46,6 +147,7 @@ pub fn installed_version() -> Option<String> {
 
 /// Remove the installed extension directory
 pub fn uninstall() -> Result<()> {
+    // Keep operations idempotent and remove both current and legacy paths.
     let dir = extension_dir()?;
     if dir.exists() {
         fs::remove_dir_all(&dir).map_err(|e| {
@@ -56,6 +158,19 @@ pub fn uninstall() -> Result<()> {
             ))
         })?;
     }
+
+    if let Some(legacy_dir) = legacy_extension_dir() {
+        if legacy_dir.exists() && legacy_dir != dir {
+            fs::remove_dir_all(&legacy_dir).map_err(|e| {
+                ActionbookError::ExtensionError(format!(
+                    "Failed to remove legacy path {}: {}",
+                    legacy_dir.display(),
+                    e
+                ))
+            })?;
+        }
+    }
+
     Ok(())
 }
 
@@ -80,6 +195,8 @@ fn build_http_client() -> Result<reqwest::Client> {
 /// If `force` is false and the extension is already installed at the same or newer
 /// version, returns an error.
 pub async fn download_and_install(force: bool) -> Result<String> {
+    migrate_legacy_extension_if_needed()?;
+
     let dir = extension_dir()?;
 
     // Fetch latest extension release info from GitHub
@@ -460,9 +577,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_extension_dir_is_under_config() {
+    fn test_extension_dir_is_under_actionbook_home() {
         let dir = extension_dir().expect("should resolve config dir");
-        assert!(dir.ends_with("actionbook/extension"));
+        assert!(dir.ends_with(".actionbook/extension"));
+    }
+
+    #[test]
+    fn test_is_cross_device_error_detects_known_errno() {
+        assert!(is_cross_device_error(&std::io::Error::from_raw_os_error(18)));
+        assert!(is_cross_device_error(&std::io::Error::from_raw_os_error(17)));
+        assert!(!is_cross_device_error(&std::io::Error::from_raw_os_error(2)));
     }
 
     #[test]
