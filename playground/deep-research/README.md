@@ -4,7 +4,10 @@
 
 All you need is **Claude Code** + **Actionbook CLI** + **json-ui**. Everything runs locally on your machine.
 
+https://github.com/user-attachments/assets/03a42852-3194-4304-b710-23958f561252
+
 ## Demo Gallery
+
 
 ### Demo 1: Elon Musk's X.com Posting Activity
 
