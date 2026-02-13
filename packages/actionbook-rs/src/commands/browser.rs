@@ -11,7 +11,8 @@ use tokio::time::timeout;
 use crate::browser::apply_stealth_to_page;
 use crate::browser::{
     bridge_lifecycle, build_stealth_profile, discover_all_browsers, extension_bridge,
-    stealth_status, BrowserDriver, SessionManager, SessionStatus, StealthConfig,
+    extension_installer, stealth_status, BrowserDriver, SessionManager, SessionStatus,
+    StealthConfig,
 };
 use crate::cli::{BrowserCommands, BrowserMode, Cli, CookiesCommands};
 use crate::config::Config;
@@ -82,7 +83,9 @@ async fn extension_send(
                                 "Waiting for Chrome extension to connect to bridge on port {}...",
                                 port
                             );
-                            eprintln!("Open Chrome and ensure the Actionbook extension is enabled.");
+                            eprintln!(
+                                "Open Chrome and ensure the Actionbook extension is enabled."
+                            );
                             user_notified = true;
                         }
                         continue;
@@ -528,6 +531,59 @@ fn resolve_extension_port(cli: &Cli, config: &Config) -> u16 {
     }
 }
 
+fn should_prepare_extension_runtime(command: &BrowserCommands) -> bool {
+    !matches!(
+        command,
+        BrowserCommands::Status | BrowserCommands::Connect { .. } | BrowserCommands::Close
+    )
+}
+
+async fn ensure_extension_ready(cli: &Cli, config: &Config) -> Result<()> {
+    if extension_installer::is_installed() {
+        return Ok(());
+    }
+
+    if !config.browser.extension.auto_install {
+        return Err(ActionbookError::ExtensionError(
+            "Extension is not installed and auto-install is disabled.\n\
+             Run 'actionbook extension install' manually, or enable auto-install in ~/.actionbook/config.toml:\n\
+             [browser.extension]\n\
+             auto_install = true"
+                .to_string(),
+        ));
+    }
+
+    if !cli.json {
+        println!(
+            "  {} Extension not found. Auto-installing latest release...",
+            "◆".cyan()
+        );
+    }
+
+    let version = extension_installer::download_and_install(false)
+        .await
+        .map_err(|e| {
+            ActionbookError::ExtensionError(format!(
+                "Failed to auto-install extension: {}.\n\
+             Run 'actionbook extension install' manually and try again.",
+                e
+            ))
+        })?;
+
+    let ext_dir = extension_installer::extension_dir()?;
+
+    if !cli.json {
+        println!(
+            "  {} Extension v{} installed at {}",
+            "✓".green(),
+            version,
+            ext_dir.display()
+        );
+    }
+
+    Ok(())
+}
+
 pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
     let config = Config::load()?;
     let extension_mode = is_extension_mode(cli, &config);
@@ -550,12 +606,8 @@ pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
 
     // In extension mode, ensure bridge daemon is running before executing
     // browser commands that route through the extension.
-    if extension_mode
-        && !matches!(
-            command,
-            BrowserCommands::Status | BrowserCommands::Connect { .. } | BrowserCommands::Close
-        )
-    {
+    if extension_mode && should_prepare_extension_runtime(command) {
+        ensure_extension_ready(cli, &config).await?;
         bridge_lifecycle::ensure_bridge_running(extension_port).await?;
     }
 
@@ -3444,12 +3496,8 @@ async fn close(cli: &Cli, config: &Config) -> Result<()> {
 
         // Best-effort tab detach. If extension is not connected, continue closing bridge.
         if extension_bridge::is_bridge_running(port).await {
-            match extension_bridge::send_command(
-                port,
-                "Extension.detachTab",
-                serde_json::json!({}),
-            )
-            .await
+            match extension_bridge::send_command(port, "Extension.detachTab", serde_json::json!({}))
+                .await
             {
                 Ok(_) => tracing::debug!("Extension tab detached"),
                 Err(e) => tracing::debug!("Extension detach skipped (non-fatal): {}", e),
@@ -3556,6 +3604,7 @@ mod tests {
     use super::{
         effective_profile_name, is_extension_mode, is_reusable_initial_blank_page_url,
         normalize_navigation_url, render_snapshot_tree, resolve_extension_port,
+        should_prepare_extension_runtime,
     };
     use crate::cli::{BrowserCommands, BrowserMode, Cli, Commands};
     use crate::config::Config;
@@ -3632,6 +3681,19 @@ mod tests {
         config.browser.extension.port = 19223;
 
         assert_eq!(resolve_extension_port(&cli, &config), 19333);
+    }
+
+    #[test]
+    fn extension_runtime_prepare_for_open() {
+        assert!(should_prepare_extension_runtime(&BrowserCommands::Open {
+            url: "https://example.com".to_string()
+        }));
+    }
+
+    #[test]
+    fn extension_runtime_skip_prepare_for_status_and_close() {
+        assert!(!should_prepare_extension_runtime(&BrowserCommands::Status));
+        assert!(!should_prepare_extension_runtime(&BrowserCommands::Close));
     }
 
     #[test]

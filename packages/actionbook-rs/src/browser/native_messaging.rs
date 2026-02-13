@@ -12,6 +12,7 @@ use std::io::{self, Read, Write};
 use crate::browser::extension_bridge;
 
 /// Native messaging host name registered with Chrome.
+#[allow(dead_code)]
 pub const NATIVE_HOST_NAME: &str = "com.actionbook.bridge";
 
 /// The stable extension ID derived from the public key in manifest.json.
@@ -109,6 +110,7 @@ pub async fn run() -> crate::error::Result<()> {
 }
 
 /// Platform-specific path for the native messaging host manifest.
+#[allow(dead_code)]
 pub fn native_host_manifest_path() -> crate::error::Result<std::path::PathBuf> {
     #[cfg(target_os = "macos")]
     {
@@ -145,6 +147,7 @@ pub fn native_host_manifest_path() -> crate::error::Result<std::path::PathBuf> {
 
 /// Generate the native messaging host manifest JSON content.
 /// The `binary_path` should be the absolute path to the actionbook binary.
+#[allow(dead_code)]
 pub fn generate_manifest(binary_path: &str) -> serde_json::Value {
     serde_json::json!({
         "name": NATIVE_HOST_NAME,
@@ -158,6 +161,7 @@ pub fn generate_manifest(binary_path: &str) -> serde_json::Value {
 }
 
 /// Install the native messaging host manifest to the platform-specific location.
+#[allow(dead_code)]
 pub fn install_manifest() -> crate::error::Result<std::path::PathBuf> {
     let manifest_path = native_host_manifest_path()?;
 
@@ -206,6 +210,7 @@ pub fn install_manifest() -> crate::error::Result<std::path::PathBuf> {
 }
 
 /// Remove the native messaging host manifest.
+#[allow(dead_code)]
 pub fn uninstall_manifest() -> crate::error::Result<()> {
     let manifest_path = native_host_manifest_path()?;
     if manifest_path.exists() {
