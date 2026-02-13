@@ -4,7 +4,7 @@ use crate::browser::extension_installer;
 use crate::browser::extension_bridge;
 use crate::browser::native_messaging;
 use crate::cli::{Cli, ExtensionCommands};
-use crate::error::Result;
+use crate::error::{ActionbookError, Result};
 
 pub async fn run(cli: &Cli, command: &ExtensionCommands) -> Result<()> {
     match command {
@@ -21,7 +21,6 @@ pub async fn run(cli: &Cli, command: &ExtensionCommands) -> Result<()> {
 async fn serve(_cli: &Cli, port: u16) -> Result<()> {
     // Clean up stale bridge files from previous ungraceful shutdowns.
     extension_bridge::delete_port_file().await;
-    extension_bridge::delete_token_file().await;
 
     let extension_path = if extension_installer::is_installed() {
         let dir = extension_installer::extension_dir()?;
@@ -33,15 +32,18 @@ async fn serve(_cli: &Cli, port: u16) -> Result<()> {
         "(not installed - run 'actionbook extension install')".dimmed().to_string()
     };
 
-    // Generate session token
-    let token = extension_bridge::generate_token();
-
-    // Write token file for CLI auto-read
-    if let Err(e) = extension_bridge::write_token_file(&token).await {
-        eprintln!(
-            "  {} Failed to write token file: {}",
-            "!".yellow(),
-            e
+    // Show deprecation notice (only in non-JSON mode)
+    if !_cli.json {
+        println!();
+        println!(
+            "  {}  {}",
+            "ℹ".dimmed(),
+            "Note: The bridge now auto-starts with browser commands".dimmed()
+        );
+        println!(
+            "  {}  {}",
+            "ℹ".dimmed(),
+            "This manual start is only needed for debugging".dimmed()
         );
     }
 
@@ -60,39 +62,23 @@ async fn serve(_cli: &Cli, port: u16) -> Result<()> {
         extension_path
     );
     println!();
-    println!(
-        "  {}  Session token: {}",
-        "🔑".to_string().as_str(),
-        token.bold()
-    );
-    println!(
-        "  {}  Token file: {}",
-        "◆".cyan(),
-        extension_bridge::token_file_path()
-            .map(|p| p.display().to_string())
-            .unwrap_or_else(|_| "unknown".to_string())
-            .dimmed()
-    );
-    println!();
-    println!("  {}  Configure the extension with this token", "ℹ".dimmed());
-    println!("  {}  Token expires after 30min of inactivity", "ℹ".dimmed());
     println!("  {}  Press Ctrl+C to stop", "ℹ".dimmed());
     println!();
 
     // Write PID file so `extension stop` can find this process
-    if let Err(e) = extension_bridge::write_pid_file(port).await {
-        eprintln!(
-            "  {} Failed to write PID file: {}",
-            "!".yellow(),
-            e
-        );
-    }
+    // Mandatory: fail-fast if PID file cannot be written
+    extension_bridge::write_pid_file(port).await
+        .map_err(|e| {
+            ActionbookError::Other(format!(
+                "Failed to write PID file - check directory permissions: {}",
+                e
+            ))
+        })?;
 
-    // Run the bridge server, cleaning up token file on shutdown
-    let result = extension_bridge::serve(port, token).await;
+    // Run the bridge server
+    let result = extension_bridge::serve(port).await;
 
-    // Cleanup token + PID files on exit
-    extension_bridge::delete_token_file().await;
+    // Cleanup PID file on exit
     extension_bridge::delete_pid_file().await;
 
     result
@@ -114,9 +100,8 @@ async fn status(_cli: &Cli, port: u16) -> Result<()> {
             port
         );
         println!(
-            "  {}  Start with: {}",
-            "ℹ".dimmed(),
-            "actionbook extension serve".dimmed()
+            "  {}  It will auto-start when you run browser commands",
+            "ℹ".dimmed()
         );
     }
 
@@ -501,7 +486,7 @@ async fn install(cli: &Cli, force: bool) -> Result<()> {
 
     let version = result?;
 
-    // Register native messaging host for automatic token exchange
+    // Register native messaging host for automatic bridge connection
     let native_host_result = native_messaging::install_manifest();
 
     if cli.json {
@@ -543,7 +528,7 @@ async fn install(cli: &Cli, force: bool) -> Result<()> {
                     e
                 );
                 println!(
-                    "  {}  Token auto-pairing will not work; manual token entry required",
+                    "  {}  Auto-connect via native messaging will not work",
                     "ℹ".dimmed()
                 );
             }
@@ -559,12 +544,11 @@ async fn install(cli: &Cli, force: bool) -> Result<()> {
         );
         println!("     {}", dir.display().to_string().dimmed());
         println!(
-            "  4. Run {}",
-            "actionbook extension serve".cyan()
+            "  4. Run any browser command (bridge auto-starts):"
         );
         println!(
-            "  5. Extension {} via native messaging",
-            "auto-connects".green().bold()
+            "     {}",
+            "actionbook browser open https://example.com".cyan()
         );
         println!();
     }

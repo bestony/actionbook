@@ -61,7 +61,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # Crypto / random
 rand = "0.8"
-subtle = "2"
 
 # Versioning
 semver = "1"
@@ -69,6 +68,9 @@ semver = "1"
 # Zip extraction
 zip = { version = "2", default-features = false, features = ["deflate"] }
 tempfile = "3"
+
+# Async trait
+async-trait = "0.1"
 
 # Utils
 dirs = "6"
@@ -94,6 +96,19 @@ camoufox-server = ["axum", "tower", "tower-http"]
 tokio-test = "0.4"
 assert_cmd = "2"
 predicates = "3"
+
+# Examples that depend on Camoufox modules (not active in refactor/browser-extension branch)
+[[example]]
+name = "enhanced_stealth_demo"
+required-features = ["camoufox-server"]
+
+[[example]]
+name = "fingerprint_generator_demo"
+required-features = ["camoufox-server"]
+
+[[example]]
+name = "human_behavior_demo"
+required-features = ["camoufox-server"]
 
 [profile.release]
 opt-level = "z"

@@ -72,18 +72,8 @@ function debugError(...args) {
 }
 
 // --- Token Format Validation ---
-
-const TOKEN_PREFIX = "abk_";
-const TOKEN_EXPECTED_LENGTH = 36; // "abk_" (4) + 32 hex chars
-
-function isValidTokenFormat(token) {
-  return (
-    typeof token === "string" &&
-    token.startsWith(TOKEN_PREFIX) &&
-    token.length === TOKEN_EXPECTED_LENGTH &&
-    /^[0-9a-f]+$/.test(token.slice(TOKEN_PREFIX.length))
-  );
-}
+// NOTE: Token validation removed in v0.8.0 - bridge now uses localhost trust model
+// Legacy compatibility: accept any truthy value as valid
 
 // --- Offscreen Document for SW Keep-alive ---
 
@@ -141,13 +131,8 @@ async function connect() {
   if (ws && ws.readyState === WebSocket.OPEN) return;
   if (connectionState === "connecting") return;
 
+  // Note: Token no longer required - bridge uses localhost trust model
   const token = await getStoredToken();
-  if (!token) {
-    connectionState = "pairing_required";
-    logStateTransition("pairing_required", "no token stored");
-    broadcastState();
-    return;
-  }
 
   connectionState = "connecting";
   logStateTransition("connecting");
@@ -169,11 +154,10 @@ async function connect() {
 
   ws.onopen = () => {
     wsOpened = true;
-    // Send hello handshake with token
+    // Send hello handshake (tokenless - server validates via origin + extension ID)
     wsSend({
       type: "hello",
       role: "extension",
-      token: token,
       version: "0.2.0",
     });
 
@@ -884,8 +868,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Only accept token changes from our own popup
     if (!isSenderPopup(sender)) return false;
     const token = (message.token || "").trim();
-    if (!isValidTokenFormat(token)) {
-      debugLog("[actionbook] Rejected invalid token format");
+    if (!token) {
+      debugLog("[actionbook] Rejected empty token");
       return false;
     }
     chrome.storage.local.set({ bridgeToken: token }, () => {
@@ -936,7 +920,7 @@ chrome.debugger.onDetach.addListener((source, reason) => {
 const NATIVE_HOST_NAME = "com.actionbook.bridge";
 
 // How often to poll native messaging when not connected (ms)
-const NATIVE_POLL_INTERVAL_MS = 5000;
+const NATIVE_POLL_INTERVAL_MS = 2000;
 let nativePollTimer = null;
 let nativeMessagingAvailable = true; // assume available until proven otherwise
 let nativeMessagingFailCount = 0;
@@ -987,27 +971,55 @@ async function tryNativeMessagingConnect() {
           return;
         }
 
-        if (response && response.type === "token" && response.token && response.bridge_running) {
-          debugLog("[actionbook] Token received via native messaging");
-          if (!isValidTokenFormat(response.token)) {
-            debugLog("[actionbook] Rejected invalid token from native host");
-            return;
+        // Handle both legacy "token" response and new "bridge_info" response
+        if (response && response.bridge_running) {
+          if (response.type === "token" && response.token) {
+            // Legacy token-based response (backward compatibility)
+            debugLog("[actionbook] Token received via native messaging (legacy)");
+            if (!response.token || typeof response.token !== "string") {
+              debugLog("[actionbook] Rejected invalid token from native host");
+              return;
+            }
+            nativeMessagingFailCount = 0;
+            // Validate port if present
+            const port = response.port && typeof response.port === "number" && response.port > 0 && response.port <= 65535
+              ? response.port
+              : undefined;
+            const storageData = {
+              bridgeToken: response.token,
+              ...(port && { bridgePort: port })
+            };
+            chrome.storage.local.set(storageData, () => {
+              retryCount = 0;
+              reconnectDelay = RECONNECT_BASE_MS;
+              stopNativePolling();
+              connect();
+            });
+          } else if (response.type === "bridge_info") {
+            // Tokenless bridge_info response
+            debugLog("[actionbook] Bridge info received via native messaging");
+            nativeMessagingFailCount = 0;
+            // Validate and store port if present
+            const port = response.port && typeof response.port === "number" && response.port > 0 && response.port <= 65535
+              ? response.port
+              : undefined;
+            const storageData = port ? { bridgePort: port } : {};
+            chrome.storage.local.set(storageData, () => {
+              retryCount = 0;
+              reconnectDelay = RECONNECT_BASE_MS;
+              stopNativePolling();
+              connect();
+            });
+          } else {
+            // Unexpected response format
+            debugLog("[actionbook] Unexpected native messaging response format:", response);
           }
-          // Reset fail count on successful native messaging exchange
-          nativeMessagingFailCount = 0;
-          const storageData = { bridgeToken: response.token };
-          if (response.port) {
-            storageData.bridgePort = response.port;
-          }
-          chrome.storage.local.set(storageData, () => {
-            retryCount = 0;
-            reconnectDelay = RECONNECT_BASE_MS;
-            stopNativePolling();
-            connect();
-          });
-        } else if (response && response.type === "error" && (response.error === "no_token" || response.error === "bridge_not_running")) {
+        } else if (response && response.type === "error" && response.error === "bridge_not_running") {
           // Bridge not running yet — keep polling, don't count as native messaging failure
           debugLog("[actionbook] Bridge not running, will retry...");
+        } else if (response) {
+          // Unknown response format
+          debugLog("[actionbook] Unknown native messaging response:", response);
         }
       }
     );
@@ -1065,7 +1077,7 @@ function stopNativePolling() {
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== "local") return;
   if (!changes.bridgeToken?.newValue) return;
-  if (!isValidTokenFormat(changes.bridgeToken.newValue)) return;
+  // Legacy token validation removed - accept any truthy value
   debugLog("[actionbook] Token injected via storage, connecting...");
   stopNativePolling();
   retryCount = 0;

@@ -1,8 +1,8 @@
-//! Chrome Native Messaging host for automatic token exchange.
+//! Chrome Native Messaging host for bridge connection information exchange.
 //!
 //! When Chrome invokes the actionbook binary as a native messaging host,
-//! this module handles the stdin/stdout protocol to provide the bridge
-//! session token to the extension without manual copy-paste.
+//! this module handles the stdin/stdout protocol to provide bridge
+//! connection information to the extension for auto-connect.
 //!
 //! Protocol: each message is prefixed with a 4-byte little-endian uint32 length,
 //! followed by UTF-8 JSON of that length.
@@ -74,33 +74,24 @@ pub async fn run() -> crate::error::Result<()> {
         .unwrap_or("");
 
     let response = match msg_type {
-        "get_token" => {
-            let token = extension_bridge::read_token_file().await;
+        "get_bridge_info" | "get_token" => {
+            // "get_token" kept for backward compatibility, but no token is used anymore
             let port = extension_bridge::read_port_file().await.unwrap_or(DEFAULT_BRIDGE_PORT);
             let bridge_running = extension_bridge::is_bridge_running(port).await;
 
-            match token {
-                Some(t) if bridge_running => serde_json::json!({
-                    "type": "token",
-                    "token": t,
+            if bridge_running {
+                serde_json::json!({
+                    "type": "bridge_info",
                     "port": port,
                     "bridge_running": true,
-                }),
-                Some(_) => {
-                    // Token file exists but bridge is not running on the recorded port.
-                    // This indicates stale files from a previous ungraceful shutdown.
-                    serde_json::json!({
-                        "type": "error",
-                        "error": "bridge_not_running",
-                        "message": "Bridge token file exists but bridge is not responding. Restart with: actionbook extension serve",
-                        "port": port,
-                    })
-                }
-                None => serde_json::json!({
+                })
+            } else {
+                serde_json::json!({
                     "type": "error",
-                    "error": "no_token",
-                    "message": "Bridge is not running. Start with: actionbook extension serve",
-                }),
+                    "error": "bridge_not_running",
+                    "message": "Bridge is not running. It will auto-start when you run browser commands.",
+                    "port": port,
+                })
             }
         }
         _ => serde_json::json!({
@@ -157,7 +148,7 @@ pub fn native_host_manifest_path() -> crate::error::Result<std::path::PathBuf> {
 pub fn generate_manifest(binary_path: &str) -> serde_json::Value {
     serde_json::json!({
         "name": NATIVE_HOST_NAME,
-        "description": "Actionbook CLI - provides bridge session tokens to the browser extension",
+        "description": "Actionbook CLI - bridge connection host for the browser extension",
         "path": binary_path,
         "type": "stdio",
         "allowed_origins": [

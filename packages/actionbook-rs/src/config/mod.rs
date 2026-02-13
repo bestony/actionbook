@@ -10,6 +10,7 @@ use figment::Figment;
 use serde::{Deserialize, Serialize};
 
 use crate::browser::BrowserBackend;
+use crate::cli::BrowserMode;
 use crate::error::{ActionbookError, Result};
 
 /// Main configuration structure
@@ -53,6 +54,10 @@ fn default_api_url() -> String {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserConfig {
+    /// Browser mode: isolated (dedicated debug browser) or extension (user's Chrome via bridge)
+    #[serde(default = "default_browser_mode")]
+    pub mode: BrowserMode,
+
     /// Browser executable path (overrides auto-discovery)
     pub executable: Option<String>,
 
@@ -64,6 +69,10 @@ pub struct BrowserConfig {
     #[serde(default)]
     pub headless: bool,
 
+    /// Extension bridge configuration
+    #[serde(default)]
+    pub extension: ExtensionConfig,
+
     /// Browser backend (cdp or camofox)
     #[serde(default)]
     pub backend: BrowserBackend,
@@ -71,6 +80,44 @@ pub struct BrowserConfig {
     /// Camoufox-specific configuration
     #[serde(default)]
     pub camofox: CamofoxConfig,
+}
+
+impl Default for BrowserConfig {
+    fn default() -> Self {
+        Self {
+            mode: default_browser_mode(),
+            executable: None,
+            default_profile: default_profile_name(),
+            headless: false,
+            extension: ExtensionConfig::default(),
+            backend: BrowserBackend::default(),
+            camofox: CamofoxConfig::default(),
+        }
+    }
+}
+
+fn default_browser_mode() -> BrowserMode {
+    BrowserMode::Isolated
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExtensionConfig {
+    /// Bridge WebSocket port
+    #[serde(default = "default_extension_port")]
+    pub port: u16,
+
+    /// Auto-install extension on first use
+    #[serde(default = "default_true")]
+    pub auto_install: bool,
+}
+
+impl Default for ExtensionConfig {
+    fn default() -> Self {
+        Self {
+            port: default_extension_port(),
+            auto_install: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,26 +147,22 @@ impl Default for CamofoxConfig {
             port: default_camofox_port(),
             user_id: None,
             session_key: None,
-            use_webdriver: false, // Default to REST API for backward compatibility
+            use_webdriver: false,
             headless: false,
         }
     }
+}
+
+fn default_extension_port() -> u16 {
+    19222
 }
 
 fn default_camofox_port() -> u16 {
     9377
 }
 
-impl Default for BrowserConfig {
-    fn default() -> Self {
-        Self {
-            executable: None,
-            default_profile: default_profile_name(),
-            headless: false,
-            backend: BrowserBackend::default(),
-            camofox: CamofoxConfig::default(),
-        }
-    }
+fn default_true() -> bool {
+    true
 }
 
 fn default_profile_name() -> String {
@@ -281,8 +324,7 @@ mod tests {
                 executable: Some("/Applications/Google Chrome.app".to_string()),
                 default_profile: "team".to_string(),
                 headless: true,
-                backend: BrowserBackend::default(),
-                camofox: CamofoxConfig::default(),
+                ..BrowserConfig::default()
             },
             profiles: HashMap::new(),
         };
@@ -314,8 +356,7 @@ mod tests {
                 executable: None,
                 default_profile: "   ".to_string(),
                 headless: false,
-                backend: BrowserBackend::default(),
-                camofox: CamofoxConfig::default(),
+                ..BrowserConfig::default()
             },
             profiles: HashMap::new(),
         };
