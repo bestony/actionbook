@@ -1,0 +1,85 @@
+---
+title: 'OpenClaw Guide'
+description: 'Integrate Actionbook into OpenClaw from scratch'
+---
+
+Use this guide to connect Actionbook to OpenClaw from a clean setup.
+
+## Step 1: Install Actionbook CLI
+
+```bash
+npm install -g @actionbookdev/cli
+actionbook --version
+```
+
+The CLI is the base integration path and a reliable fallback even when MCP is enabled.
+
+## Step 2: Verify Actionbook Works
+
+```bash
+actionbook search "airbnb search listings tokyo" --domain airbnb.com
+```
+
+You should get at least one result with an `ID`.
+
+## Step 3: Configure Actionbook MCP for OpenClaw
+
+OpenClaw uses `mcporter` to connect MCP servers.
+
+```bash
+npm install -g mcporter
+mcporter config add actionbook npx --args -y --args @actionbookdev/mcp@latest
+```
+
+If your MCP client requires an explicit API key, add it while registering the server:
+
+```bash
+mcporter config add actionbook npx \
+  --args -y \
+  --args @actionbookdev/mcp@latest \
+  --env ACTIONBOOK_API_KEY=YOUR_API_KEY
+```
+
+Validate the server and tools:
+
+```bash
+mcporter list actionbook --schema
+mcporter call actionbook.search_actions query="airbnb search listings tokyo"
+```
+
+## Step 4: Check OpenClaw Skill Readiness
+
+```bash
+openclaw skills check
+```
+
+Make sure both `actionbook` and `mcporter` appear under `Ready to use`. If not, install missing binaries and reload the gateway:
+
+```bash
+openclaw gateway restart
+```
+
+## Step 5: Use Actionbook from OpenClaw
+
+Ask OpenClaw:
+
+```text
+Use Actionbook to find the best action manual for Airbnb search, then explain which selectors to click and fill.
+```
+
+For MCP-first workflows, ask OpenClaw to call `mcporter` with Actionbook MCP tools before continuing with Actionbook CLI/browser commands.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card
+    title="CLI & Skills Guide"
+    icon="terminal"
+    href="/guides/cli-and-skills"
+  >
+    Learn the search -> get -> operate workflow
+  </Card>
+  <Card title="MCP Server Guide" icon="server" href="/guides/mcp-server">
+    Full MCP integration options and client setups
+  </Card>
+</CardGroup>

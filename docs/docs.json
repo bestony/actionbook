@@ -15,7 +15,7 @@
         "groups": [
           {
             "group": "Welcome",
-            "pages": ["index", "quickstart"]
+            "pages": ["index", "quickstart", "openclaw"]
           },
           {
             "group": "Guides",
