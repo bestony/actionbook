@@ -30,6 +30,14 @@ After setup, verify `actionbook` is ready in OpenClaw:
 openclaw skills check
 ```
 
+Also run a quick CLI smoke test before changing OpenClaw browser config:
+
+```bash
+actionbook search "airbnb search listings tokyo" --domain airbnb.com
+```
+
+You should see at least one result with an `ID`.
+
 ## Step 3: Disable OpenClaw default browser + force Actionbook for browser work
 
 Disable OpenClaw browser tool and restart gateway:
@@ -40,7 +48,17 @@ openclaw config set tools.deny '["browser"]' --json
 openclaw gateway restart
 ```
 
-Then add an instruction in your OpenClaw workspace `TOOLS.md` (or your agent system prompt):
+Rollback (if you need to restore built-in browser later):
+
+```bash
+openclaw config set browser.enabled true --json
+openclaw config set tools.deny '[]' --json
+openclaw gateway restart
+```
+
+If you already use other `tools.deny` rules, remove only `"browser"` from that array instead of resetting it to `[]`.
+
+Then add an instruction in the canonical OpenClaw instruction file `~/.openclaw/workspace/TOOLS.md`:
 
 ```markdown
 ## Browser automation preference
