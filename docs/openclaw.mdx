@@ -44,7 +44,16 @@ Disable OpenClaw browser tool and restart gateway:
 
 ```bash
 openclaw config set browser.enabled false --json
-openclaw config set tools.deny '["browser"]' --json
+```
+
+Then update `tools.deny` in `~/.openclaw/openclaw.json`:
+
+- If `tools.deny` is empty/unset, set it to: `"browser"`
+- If `tools.deny` already has rules, **append** `"browser"` (do not replace existing entries)
+
+Apply by restarting gateway:
+
+```bash
 openclaw gateway restart
 ```
 
@@ -52,11 +61,10 @@ Rollback (if you need to restore built-in browser later):
 
 ```bash
 openclaw config set browser.enabled true --json
-openclaw config set tools.deny '[]' --json
 openclaw gateway restart
 ```
 
-If you already use other `tools.deny` rules, remove only `"browser"` from that array instead of resetting it to `[]`.
+When rolling back, remove only `"browser"` from `tools.deny` and keep any other deny rules.
 
 Then add an instruction in the canonical OpenClaw instruction file `~/.openclaw/workspace/TOOLS.md`:
 
@@ -65,6 +73,12 @@ Then add an instruction in the canonical OpenClaw instruction file `~/.openclaw/
 - Use Actionbook CLI for all website/browser operations.
 - Do not use the built-in OpenClaw browser tool unless explicitly asked.
 - Follow: `actionbook search` -> `actionbook get` -> operate.
+```
+
+After updating `TOOLS.md`, restart once so the instruction is applied:
+
+```bash
+openclaw gateway restart
 ```
 
 ## Try it
