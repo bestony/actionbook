@@ -110,9 +110,10 @@ Ask naturally:
 > "Pull all job listings from this page — title, company, location."
 
 The agent will:
-1.  Search Actionbook for verified selectors (or fall back to snapshot/screenshot).
-2.  Detect page mechanisms (lazy loading, virtual scroll, pagination).
-3.  Generate a **standalone Playwright script** that handles those mechanisms.
-4.  Run the script and write the extracted data to disk.
+1.  Search Actionbook for verified selectors.
+2.  If `actionbook get` already covers required fields, go directly to script generation.
+3.  Use snapshot/screenshot/inspect only when selectors are missing or fail in validation.
+4.  Generate a **standalone Playwright script** that handles detected page mechanisms.
+5.  Run the script and write the extracted data to disk.
 
 The default output is an executable `.cjs` script + an `output.json` file. The script is re-runnable without Actionbook installed (as long as Node.js + Playwright are available), and the data file is the reusable extraction result.

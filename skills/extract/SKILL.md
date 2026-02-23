@@ -45,6 +45,8 @@ User request
 | 2 | `actionbook browser snapshot` | Not indexed or selectors outdated |
 | 3 | DOM inspection via screenshot + snapshot | Complex SPA / dynamic content |
 
+**Non-negotiable rule:** if `search + get` already provides usable selectors for required fields, do not run `snapshot`/`screenshot` first. Start with a script draft using `get` selectors, then only branch to fallback if validation fails.
+
 ## Mechanism-Aware Script Strategy
 
 Websites use patterns that break naive scraping. The generated Playwright script **must** account for these:
@@ -187,7 +189,7 @@ Identify from the user request:
 - **Scope** — single page, paginated, infinite scroll, or multi-page crawl
 - **Output format** — JSON (default), CSV, or other
 
-### Step 2: Obtain selectors (Actionbook-first)
+### Step 2: Obtain selectors and choose execution path
 
 ```bash
 # Try Actionbook index first
@@ -197,7 +199,22 @@ actionbook search "<site> <data-description>" --domain <domain>
 actionbook get "<ID>"
 ```
 
-If Actionbook has no coverage or selectors look stale, fall back:
+Use this routing strictly:
+
+- **Path A (default when `get` is good):** requested fields are covered by `get` selectors and quality is acceptable.
+  - Go directly to script generation + sample validation.
+  - **Do not call `snapshot` / `screenshot` / inspect tools before first script draft.**
+  - Field mapping must default to `get` selectors and mark source as `actionbook_get`.
+
+- **Path B (partial / unstable):** `get` exists but required fields are missing, selector resolves 0 elements, or validation fails.
+  - Run targeted fallback only for failed fields/steps.
+
+- **Path C (no usable coverage):** search/get has no usable result.
+  - Run full fallback discovery.
+
+### Step 3: Probe page mechanisms only when needed
+
+Fallback discovery (Path B/C):
 
 ```bash
 actionbook browser open "<url>"
@@ -205,24 +222,23 @@ actionbook browser snapshot          # accessibility tree for selectors
 actionbook browser screenshot        # visual confirmation
 ```
 
-### Step 3: Probe page mechanisms
-
-Before writing the script, detect which mechanisms are in play:
+Mechanism probes (run when script strategy needs confirmation):
 
 ```bash
-# Check if content loads after JS hydration
+# Hydration / streaming check
 actionbook browser text "<container-selector>"
-# If empty → hydration/streaming in progress
 
-# Check for virtualized list
-actionbook browser snapshot          # compare visible row count vs stated total
-
-# Check for infinite scroll / lazy load
-# Scroll once and compare item count
+# Infinite scroll quick signal
 actionbook browser click "body"
 actionbook browser press End
 actionbook browser text "<container-selector>"
 ```
+
+Fallback trigger conditions:
+- `actionbook get` cannot map all required fields.
+- `actionbook get` selectors return empty/unstable values in sample run.
+- Runtime behavior conflicts with expected mechanism (e.g., virtualized container, delayed hydration).
+
 
 ### Step 4: Generate Playwright script
 
