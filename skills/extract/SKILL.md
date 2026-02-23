@@ -136,20 +136,31 @@ while (pageIndex < maxPages) {
     .$eval('.result-item', el => el.textContent?.trim() || '')
     .catch(() => '');
 
-  await nextBtn.click();
-
-  // Wait for either full navigation or list content update
-  await Promise.race([
-    page.waitForURL(url => url.toString() !== previousUrl, { timeout: 5000 }),
-    page.waitForFunction(
+  // Register waits before clicking to avoid race conditions
+  const waitForUrlChange = page
+    .waitForURL(url => url.toString() !== previousUrl, { timeout: 5000 })
+    .then(() => true)
+    .catch(() => false);
+  const waitForListChange = page
+    .waitForFunction(
       prev => {
         const first = document.querySelector('.result-item');
         return !!first && (first.textContent || '').trim() !== prev;
       },
       previousFirstItem,
       { timeout: 5000 }
-    ),
-  ]).catch(() => {});
+    )
+    .then(() => true)
+    .catch(() => false);
+
+  await nextBtn.click();
+  const [urlChanged, listChanged] = await Promise.all([
+    waitForUrlChange,
+    waitForListChange,
+  ]);
+
+  const advanced = urlChanged || listChanged;
+  if (!advanced) break;
 
   await page.waitForLoadState('networkidle').catch(() => {});
   pageIndex += 1;
@@ -286,7 +297,7 @@ Every `extract` invocation produces:
 | Playwright script | `./extract_<domain>_<slug>.cjs` | Standalone Node.js script using `playwright` |
 | Extracted data | `./output.json` (default) or user-specified path | JSON array of objects (default), CSV, or user-specified |
 
-The script must be **re-runnable** — a user should be able to execute it later without Actionbook installed.
+The script must be **re-runnable** — a user should be able to execute it later without Actionbook installed, as long as Node.js + Playwright are available in the runtime environment.
 
 ## Selector Priority
 
