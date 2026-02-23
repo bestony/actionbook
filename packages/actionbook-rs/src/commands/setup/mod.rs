@@ -303,20 +303,23 @@ fn handle_existing_config(cli: &Cli, non_interactive: bool, reset: bool) -> Resu
 
 /// Return setup logo symbol. Prefer natural-join on UTF-8 terminals.
 fn setup_logo_symbol() -> &'static str {
-    let locale_candidates = [
-        std::env::var("LC_ALL").ok(),
-        std::env::var("LC_CTYPE").ok(),
-        std::env::var("LANG").ok(),
-    ];
+    let locale = std::env::var("LC_ALL")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .or_else(|| std::env::var("LC_CTYPE").ok().filter(|v| !v.is_empty()))
+        .or_else(|| std::env::var("LANG").ok().filter(|v| !v.is_empty()));
 
-    for locale in locale_candidates.into_iter().flatten() {
-        let upper = locale.to_uppercase();
-        if upper.contains("UTF-8") || upper.contains("UTF8") {
-            return "⋈";
+    match locale {
+        Some(value) => {
+            let upper = value.to_uppercase();
+            if upper.contains("UTF-8") || upper.contains("UTF8") {
+                "⋈"
+            } else {
+                "><"
+            }
         }
+        None => "⋈",
     }
-
-    "><"
 }
 
 /// Print the welcome banner.
