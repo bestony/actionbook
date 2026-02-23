@@ -217,6 +217,8 @@ Use this routing strictly:
 
 Path A mechanism detection timing:
 - Run minimal probes either **before final script draft** or during **sample validation**.
+- Before any probe command, ensure the correct page context is open:
+  - `actionbook browser open "<url>"` (if current tab context is unknown/stale)
 - If probes/sample run indicate mismatch (missing rows, unstable selectors, wrong pagination behavior), escalate to Path B targeted fallback.
 
 Fallback discovery by path:
@@ -245,7 +247,8 @@ actionbook browser text "<container-selector>"
 
 # Infinite scroll quick signal (explicit before/after decision)
 actionbook browser eval "document.querySelectorAll('<item-selector>').length"   # before
-actionbook browser press End
+actionbook browser click "<scroll-container-selector-or-body>"                    # focus scroll context
+actionbook browser eval "const c=document.querySelector('<scroll-container-selector>') || document.scrollingElement; c.scrollBy(0, c.clientHeight || window.innerHeight);"
 actionbook browser eval "document.querySelectorAll('<item-selector>').length"   # after
 # If count increases, treat page as lazy-load/infinite-scroll.
 ```
