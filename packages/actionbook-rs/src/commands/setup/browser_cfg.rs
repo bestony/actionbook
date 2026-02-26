@@ -244,6 +244,10 @@ mod tests {
             block_images: false,
             block_media: false,
             no_animations: false,
+            auto_dismiss_dialogs: false,
+            session_tag: None,
+            rewrite_urls: false,
+            wait_hint: None,
             camofox: false,
             camofox_port: None,
             command: crate::cli::Commands::Config {
@@ -277,6 +281,10 @@ mod tests {
             block_images: false,
             block_media: false,
             no_animations: false,
+            auto_dismiss_dialogs: false,
+            session_tag: None,
+            rewrite_urls: false,
+            wait_hint: None,
             camofox: false,
             camofox_port: None,
             command: crate::cli::Commands::Config {
@@ -308,6 +316,10 @@ mod tests {
             block_images: false,
             block_media: false,
             no_animations: false,
+            auto_dismiss_dialogs: false,
+            session_tag: None,
+            rewrite_urls: false,
+            wait_hint: None,
             camofox: false,
             camofox_port: None,
             command: crate::cli::Commands::Config {

@@ -101,6 +101,22 @@ pub struct Cli {
     #[arg(long, env = "ACTIONBOOK_NO_ANIMATIONS", global = true)]
     pub no_animations: bool,
 
+    /// Auto-dismiss JavaScript dialogs (alert, confirm, prompt)
+    #[arg(long, env = "ACTIONBOOK_AUTO_DISMISS_DIALOGS", global = true)]
+    pub auto_dismiss_dialogs: bool,
+
+    /// Session tag for log correlation (auto-generated if omitted)
+    #[arg(long, env = "ACTIONBOOK_SESSION_TAG", global = true)]
+    pub session_tag: Option<String>,
+
+    /// Rewrite URLs to privacy-friendly frontends (x.com→xcancel.com, reddit→old.reddit)
+    #[arg(long, env = "ACTIONBOOK_REWRITE_URLS", global = true)]
+    pub rewrite_urls: bool,
+
+    /// Wait hint for navigation: instant, fast, normal, slow, heavy, or milliseconds
+    #[arg(long, env = "ACTIONBOOK_WAIT_HINT", global = true)]
+    pub wait_hint: Option<String>,
+
     /// Use Camoufox browser backend
     #[arg(long, env = "ACTIONBOOK_CAMOFOX", global = true)]
     pub camofox: bool,
@@ -430,18 +446,24 @@ pub enum BrowserCommands {
 
     /// Get accessibility snapshot via CDP Accessibility Tree
     Snapshot {
-        /// Only show interactive elements (buttons, links, inputs, etc.)
-        #[arg(long)]
-        filter: Option<String>,
+        /// Only show interactive elements (buttons, links, inputs)
+        #[arg(short = 'i', long)]
+        interactive: bool,
+        /// Include cursor-interactive elements (cursor:pointer, onclick, tabindex)
+        #[arg(short = 'C', long)]
+        cursor: bool,
+        /// Remove empty structural elements (generic, group, list, etc.)
+        #[arg(short = 'c', long)]
+        compact: bool,
+        /// Maximum tree depth
+        #[arg(short = 'd', long)]
+        depth: Option<usize>,
+        /// Scope to elements under this CSS selector
+        #[arg(short = 's', long)]
+        selector: Option<String>,
         /// Output format: compact, text, json (default: compact)
         #[arg(long, default_value = "compact")]
         format: String,
-        /// Maximum tree depth
-        #[arg(long)]
-        depth: Option<usize>,
-        /// Scope to elements under this CSS selector
-        #[arg(long)]
-        selector: Option<String>,
         /// Show diff from last snapshot (added/changed/removed)
         #[arg(long)]
         diff: bool,
@@ -493,6 +515,90 @@ pub enum BrowserCommands {
     Fingerprint {
         #[command(subcommand)]
         command: FingerprintCommands,
+    },
+
+    /// Capture console log messages from the page
+    Console {
+        /// Duration to listen for messages in milliseconds (0 = snapshot current)
+        #[arg(long, default_value = "0")]
+        duration: u64,
+        /// Filter by log level: all, error, warning, info, log
+        #[arg(long, default_value = "all")]
+        level: String,
+    },
+
+    /// Wait for network to become idle (no pending requests)
+    WaitIdle {
+        /// Timeout in milliseconds
+        #[arg(long, default_value = "30000")]
+        timeout: u64,
+        /// Idle threshold in milliseconds (no requests for this long)
+        #[arg(long, default_value = "500")]
+        idle_time: u64,
+    },
+
+    /// Get detailed info about an element (bounding box, attributes, styles)
+    Info {
+        /// CSS selector
+        selector: String,
+    },
+
+    /// Manage localStorage and sessionStorage
+    Storage {
+        #[command(subcommand)]
+        command: StorageCommands,
+    },
+
+    /// Emulate a device (mobile, tablet, desktop presets)
+    Emulate {
+        /// Device name: iphone-14, iphone-se, pixel-7, ipad, desktop-hd, or custom WxH
+        device: String,
+    },
+
+    /// Wait for a JavaScript expression to return true
+    WaitFn {
+        /// JavaScript expression that should return a truthy value
+        expression: String,
+        /// Timeout in milliseconds
+        #[arg(long, default_value = "30000")]
+        timeout: u64,
+        /// Polling interval in milliseconds
+        #[arg(long, default_value = "100")]
+        interval: u64,
+    },
+
+    /// Upload file(s) to a file input element
+    Upload {
+        /// File path(s) to upload
+        #[arg(required = true)]
+        files: Vec<String>,
+        /// CSS selector for file input (auto-detects input[type="file"] if omitted)
+        #[arg(short = 's', long)]
+        selector: Option<String>,
+        /// Snapshot ref (e.g., e0) from last `browser snapshot`
+        #[arg(long, name = "ref")]
+        ref_id: Option<String>,
+        /// Wait for element before uploading (ms), 0 to skip
+        #[arg(long, default_value = "0")]
+        wait: u64,
+    },
+
+    /// Fetch page content in one shot (navigate → wait → extract → close)
+    Fetch {
+        /// URL to fetch
+        url: String,
+        /// Output format: snapshot, text, html (default: text)
+        #[arg(long, default_value = "text")]
+        format: String,
+        /// Truncate output to approximately N tokens
+        #[arg(long)]
+        max_tokens: Option<usize>,
+        /// Timeout in milliseconds for the entire operation
+        #[arg(long, default_value = "60000")]
+        timeout: u64,
+        /// Try HTTP fetch first, fallback to browser if needed
+        #[arg(long)]
+        lite: bool,
     },
 
     /// Close the browser
@@ -556,6 +662,48 @@ pub enum CookiesCommands {
         /// Skip confirmation — required to actually clear
         #[arg(short = 'y', long)]
         yes: bool,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum StorageCommands {
+    /// Get a value from localStorage
+    Get {
+        /// Key to get
+        key: String,
+        /// Use sessionStorage instead of localStorage
+        #[arg(long)]
+        session: bool,
+    },
+    /// Set a value in localStorage
+    Set {
+        /// Key to set
+        key: String,
+        /// Value to set
+        value: String,
+        /// Use sessionStorage instead of localStorage
+        #[arg(long)]
+        session: bool,
+    },
+    /// Remove a key from localStorage
+    Remove {
+        /// Key to remove
+        key: String,
+        /// Use sessionStorage instead of localStorage
+        #[arg(long)]
+        session: bool,
+    },
+    /// Clear all localStorage data
+    Clear {
+        /// Use sessionStorage instead of localStorage
+        #[arg(long)]
+        session: bool,
+    },
+    /// List all keys in localStorage
+    List {
+        /// Use sessionStorage instead of localStorage
+        #[arg(long)]
+        session: bool,
     },
 }
 

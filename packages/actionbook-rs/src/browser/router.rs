@@ -437,6 +437,41 @@ impl BrowserDriver {
         }
     }
 
+    // ========== File Upload ==========
+
+    /// Set files on a file input element by CSS selector
+    pub async fn set_file_input_files(&mut self, selector: &str, files: &[String]) -> Result<()> {
+        match self {
+            Self::Cdp(mgr) => mgr.set_file_input_files(None, selector, files).await,
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "File upload is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
+    /// Set files on a file input element by backendNodeId
+    pub async fn set_file_input_files_by_node_id(
+        &mut self,
+        backend_node_id: i64,
+        files: &[String],
+    ) -> Result<()> {
+        match self {
+            Self::Cdp(mgr) => {
+                mgr.set_file_input_files_by_node_id(None, backend_node_id, files)
+                    .await
+            }
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "File upload is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
     // ========== F5: Human-like input ==========
 
     /// Dispatch mouse move events along a path
@@ -447,6 +482,127 @@ impl BrowserDriver {
             Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
                 Err(ActionbookError::FeatureNotSupported(
                     "Human mouse simulation is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
+    // ========== H1: Console Log Capture ==========
+
+    /// Install console interceptor and capture logs
+    pub async fn install_console_interceptor(&mut self) -> Result<()> {
+        match self {
+            Self::Cdp(mgr) => mgr.install_console_interceptor(None).await,
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "Console capture is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
+    /// Capture console logs from the page
+    pub async fn capture_console_logs(&mut self) -> Result<Vec<serde_json::Value>> {
+        match self {
+            Self::Cdp(mgr) => mgr.capture_console_logs(None).await,
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "Console capture is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
+    // ========== H2: Network Idle Wait ==========
+
+    /// Wait for network to become idle
+    pub async fn wait_for_network_idle(&mut self, timeout_ms: u64, idle_ms: u64) -> Result<()> {
+        match self {
+            Self::Cdp(mgr) => mgr.wait_for_network_idle(None, timeout_ms, idle_ms).await,
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "Network idle wait is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
+    // ========== H3: Dialog Auto-Handling ==========
+
+    /// Enable auto-dismissal of JavaScript dialogs
+    pub async fn enable_dialog_auto_dismiss(&mut self) -> Result<()> {
+        match self {
+            Self::Cdp(mgr) => mgr.enable_dialog_auto_dismiss(None).await,
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "Dialog auto-dismiss is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
+    // ========== H4: Element Info ==========
+
+    /// Get detailed info about an element
+    pub async fn get_element_info(&mut self, selector: &str) -> Result<serde_json::Value> {
+        match self {
+            Self::Cdp(mgr) => mgr.get_element_info(None, selector).await,
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "Element info is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
+    // ========== H6: Device Emulation ==========
+
+    /// Emulate a device
+    pub async fn emulate_device(
+        &mut self,
+        width: u32,
+        height: u32,
+        device_scale_factor: f64,
+        mobile: bool,
+        user_agent: Option<&str>,
+    ) -> Result<()> {
+        match self {
+            Self::Cdp(mgr) => {
+                mgr.emulate_device(None, width, height, device_scale_factor, mobile, user_agent)
+                    .await
+            }
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "Device emulation is only supported on CDP backend".to_string(),
+                ))
+            }
+        }
+    }
+
+    // ========== H7: Wait for JS Condition ==========
+
+    /// Wait for a JavaScript expression to return a truthy value
+    pub async fn wait_for_function(
+        &mut self,
+        expression: &str,
+        timeout_ms: u64,
+        interval_ms: u64,
+    ) -> Result<serde_json::Value> {
+        match self {
+            Self::Cdp(mgr) => {
+                mgr.wait_for_function(None, expression, timeout_ms, interval_ms)
+                    .await
+            }
+            #[cfg(feature = "camoufox")]
+            Self::Camofox(_) | Self::CamofoxWebDriver(_) => {
+                Err(ActionbookError::FeatureNotSupported(
+                    "Wait for function is only supported on CDP backend".to_string(),
                 ))
             }
         }

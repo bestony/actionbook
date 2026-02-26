@@ -3,9 +3,11 @@
 //! Uses `Accessibility.getFullAXTree` to get the real browser accessibility tree,
 //! then filters, assigns refs (e0, e1...), and formats for AI agent consumption.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use serde::{Deserialize, Serialize};
+
+use crate::error::Result;
 
 /// A single node in the accessibility tree
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,6 +85,13 @@ const INTERACTIVE_ROLES: &[&str] = &[
 
 /// Roles to skip (noise)
 const SKIP_ROLES: &[&str] = &["none", "generic", "InlineTextBox"];
+
+/// Structural roles that may be removed during compact filtering
+const STRUCTURAL_ROLES: &[&str] = &[
+    "generic", "group", "list", "table", "row", "rowgroup",
+    "grid", "treegrid", "menu", "menubar", "toolbar", "tablist",
+    "tree", "directory", "document", "application", "presentation", "none",
+];
 
 /// Parse the raw CDP Accessibility.getFullAXTree response into A11yNode list
 pub fn parse_ax_tree(
@@ -461,4 +470,141 @@ pub fn truncate_to_tokens(
     }
 
     (result, false)
+}
+
+/// Remove empty structural elements from the node list.
+///
+/// A structural node is removed if:
+/// - Its role is in `STRUCTURAL_ROLES`
+/// - Its name is empty
+/// - It is not an interactive element
+/// - It has no meaningful descendants (interactive or named nodes below it in the tree)
+pub fn compact_tree_nodes(nodes: &[A11yNode]) -> Vec<A11yNode> {
+    let structural_set: HashSet<&str> = STRUCTURAL_ROLES.iter().copied().collect();
+    let interactive_set: HashSet<&str> = INTERACTIVE_ROLES.iter().copied().collect();
+
+    // For each node index, determine if it has meaningful descendants.
+    // A node at index i with depth d has descendants at indices j > i where depth > d,
+    // until we hit a node at depth <= d.
+    let mut has_meaningful_descendant = vec![false; nodes.len()];
+
+    // Walk backwards so we can propagate descendant info upward
+    for i in (0..nodes.len()).rev() {
+        let d = nodes[i].depth;
+        // Scan forward for children
+        for j in (i + 1)..nodes.len() {
+            if nodes[j].depth <= d {
+                break; // No longer a descendant
+            }
+            // Check if this descendant is meaningful
+            if interactive_set.contains(nodes[j].role.as_str())
+                || !nodes[j].name.is_empty()
+                || has_meaningful_descendant[j]
+            {
+                has_meaningful_descendant[i] = true;
+                break;
+            }
+        }
+    }
+
+    nodes
+        .iter()
+        .enumerate()
+        .filter(|(i, node)| {
+            // Keep non-structural nodes always
+            if !structural_set.contains(node.role.as_str()) {
+                return true;
+            }
+            // Keep interactive structural nodes
+            if interactive_set.contains(node.role.as_str()) {
+                return true;
+            }
+            // Keep named structural nodes
+            if !node.name.is_empty() {
+                return true;
+            }
+            // Keep if it has meaningful descendants
+            has_meaningful_descendant[*i]
+        })
+        .map(|(_, node)| node.clone())
+        .collect()
+}
+
+/// A cursor-interactive element detected via DOM inspection
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CursorElement {
+    pub selector: String,
+    pub text: String,
+    pub tag_name: String,
+    pub has_onclick: bool,
+    pub has_cursor_pointer: bool,
+    pub has_tabindex: bool,
+}
+
+/// Find elements that are cursor-interactive but not in the accessibility tree.
+///
+/// Detects elements with `cursor: pointer`, `onclick`, or `tabindex` attributes
+/// that may not have ARIA roles but are still clickable/focusable.
+pub async fn find_cursor_interactive_elements(
+    driver: &mut super::router::BrowserDriver,
+    scope_selector: Option<&str>,
+) -> Result<Vec<CursorElement>> {
+    let scope = scope_selector.unwrap_or("document.body");
+    let js = format!(
+        r#"(function() {{
+    const root = {};
+    if (!root) return JSON.stringify([]);
+    const results = [];
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT);
+    const seen = new Set();
+    let node;
+    while (node = walker.nextNode()) {{
+        if (seen.has(node)) continue;
+        seen.add(node);
+        const tag = node.tagName.toLowerCase();
+        // Skip elements that already have ARIA roles (handled by AX tree)
+        if (node.getAttribute('role')) continue;
+        // Skip standard interactive elements (already in AX tree)
+        if (['a','button','input','select','textarea','summary','details'].includes(tag)) continue;
+        const style = window.getComputedStyle(node);
+        const hasCursorPointer = style.cursor === 'pointer';
+        const hasOnclick = node.hasAttribute('onclick') || node.onclick !== null;
+        const hasTabindex = node.hasAttribute('tabindex');
+        if (!hasCursorPointer && !hasOnclick && !hasTabindex) continue;
+        // Get concise text
+        let text = (node.textContent || '').trim().substring(0, 80);
+        if (!text && node.getAttribute('aria-label')) text = node.getAttribute('aria-label');
+        if (!text && node.getAttribute('title')) text = node.getAttribute('title');
+        // Build a simple selector
+        let sel = tag;
+        if (node.id) sel = '#' + node.id;
+        else if (node.className && typeof node.className === 'string') sel = tag + '.' + node.className.trim().split(/\s+/).join('.');
+        results.push({{
+            selector: sel,
+            text: text,
+            tagName: tag,
+            hasOnclick: hasOnclick,
+            hasCursorPointer: hasCursorPointer,
+            hasTabindex: hasTabindex,
+        }});
+        if (results.length >= 100) break;
+    }}
+    return JSON.stringify(results);
+}})()"#,
+        if scope_selector.is_some() {
+            format!("document.querySelector('{}')", scope.replace('\'', "\\'"))
+        } else {
+            "document.body".to_string()
+        }
+    );
+
+    let result_str = driver.eval(&js).await?;
+
+    // The eval result is JSON-stringified, possibly wrapped in quotes
+    let cleaned = result_str.trim().trim_matches('"');
+    // Unescape if needed (eval returns JSON string inside JSON string)
+    let unescaped = cleaned.replace("\\\"", "\"").replace("\\\\", "\\");
+
+    let elements: Vec<CursorElement> = serde_json::from_str(&unescaped).unwrap_or_default();
+    Ok(elements)
 }

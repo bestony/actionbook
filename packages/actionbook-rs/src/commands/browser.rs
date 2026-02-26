@@ -14,7 +14,7 @@ use crate::browser::{
     stealth_status, SessionManager, SessionStatus, StealthConfig,
     ResourceBlockLevel,
 };
-use crate::cli::{BrowserCommands, Cli, CookiesCommands, FingerprintCommands};
+use crate::cli::{BrowserCommands, Cli, CookiesCommands, FingerprintCommands, StorageCommands};
 use crate::config::Config;
 use crate::error::{ActionbookError, Result};
 
@@ -202,6 +202,13 @@ async fn apply_resource_blocking(cli: &Cli, driver: &mut BrowserDriver) {
     if cli.no_animations {
         if let Err(e) = driver.disable_animations().await {
             tracing::warn!("Failed to disable animations: {}", e);
+        }
+    }
+
+    // H3: Apply dialog auto-dismissal if requested
+    if cli.auto_dismiss_dialogs {
+        if let Err(e) = driver.enable_dialog_auto_dismiss().await {
+            tracing::warn!("Failed to enable dialog auto-dismiss: {}", e);
         }
     }
 }
@@ -562,8 +569,8 @@ pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
         BrowserCommands::Eval { code } => eval(cli, &config, code).await,
         BrowserCommands::Html { selector } => html(cli, &config, selector.as_deref()).await,
         BrowserCommands::Text { selector, mode } => text(cli, &config, selector.as_deref(), mode).await,
-        BrowserCommands::Snapshot { filter, format, depth, selector, diff, max_tokens } => {
-            snapshot(cli, &config, filter.as_deref(), format, *depth, selector.as_deref(), *diff, *max_tokens).await
+        BrowserCommands::Snapshot { interactive, cursor, compact, format, depth, selector, diff, max_tokens } => {
+            snapshot(cli, &config, *interactive, *cursor, *compact, format, *depth, selector.as_deref(), *diff, *max_tokens).await
         }
         BrowserCommands::Inspect { x, y, desc } => {
             inspect(cli, &config, *x, *y, desc.as_deref()).await
@@ -577,6 +584,24 @@ pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
             crate::commands::batch::run(cli, &config, file.as_deref(), *delay).await
         }
         BrowserCommands::Fingerprint { command } => fingerprint(cli, &config, command).await,
+        BrowserCommands::Console { duration, level } => {
+            console_log(cli, &config, *duration, level).await
+        }
+        BrowserCommands::WaitIdle { timeout, idle_time } => {
+            wait_idle(cli, &config, *timeout, *idle_time).await
+        }
+        BrowserCommands::Info { selector } => info(cli, &config, selector).await,
+        BrowserCommands::Storage { command } => storage(cli, &config, command).await,
+        BrowserCommands::Emulate { device } => emulate(cli, &config, device).await,
+        BrowserCommands::WaitFn { expression, timeout, interval } => {
+            wait_fn(cli, &config, expression, *timeout, *interval).await
+        }
+        BrowserCommands::Upload { files, selector, ref_id, wait: w } => {
+            upload(cli, &config, files, selector.as_deref(), ref_id.as_deref(), *w).await
+        }
+        BrowserCommands::Fetch { url, format, max_tokens, timeout: t, lite } => {
+            fetch(cli, &config, url, format, *max_tokens, *t, *lite).await
+        }
         BrowserCommands::Close => close(cli, &config).await,
         BrowserCommands::Restart => restart(cli, &config).await,
         BrowserCommands::Connect { endpoint } => connect(cli, &config, endpoint).await,
@@ -697,6 +722,15 @@ async fn status(cli: &Cli, config: &Config) -> Result<()> {
 
 async fn open(cli: &Cli, config: &Config, url: &str) -> Result<()> {
     let normalized_url = normalize_navigation_url(url)?;
+    let normalized_url = if cli.rewrite_urls {
+        let (rewritten, was_rewritten) = crate::browser::url_rewrite::maybe_rewrite(&normalized_url);
+        if was_rewritten {
+            tracing::info!("URL rewritten: {} -> {}", normalized_url, rewritten);
+        }
+        rewritten
+    } else {
+        normalized_url
+    };
 
     if cli.extension {
         let result = extension_send(
@@ -818,6 +852,15 @@ async fn open(cli: &Cli, config: &Config, url: &str) -> Result<()> {
 
 async fn goto(cli: &Cli, config: &Config, url: &str, _timeout_ms: u64) -> Result<()> {
     let normalized_url = normalize_navigation_url(url)?;
+    let normalized_url = if cli.rewrite_urls {
+        let (rewritten, was_rewritten) = crate::browser::url_rewrite::maybe_rewrite(&normalized_url);
+        if was_rewritten {
+            tracing::info!("URL rewritten: {} -> {}", normalized_url, rewritten);
+        }
+        rewritten
+    } else {
+        normalized_url
+    };
 
     if cli.extension {
         // Extension + Camoufox mode: use Camoufox backend through bridge
@@ -2403,7 +2446,9 @@ fn save_last_snapshot(nodes: &[crate::browser::snapshot::A11yNode]) {
 async fn snapshot(
     cli: &Cli,
     config: &Config,
-    filter: Option<&str>,
+    interactive: bool,
+    cursor: bool,
+    compact: bool,
     format: &str,
     depth: Option<usize>,
     selector: Option<&str>,
@@ -2414,11 +2459,11 @@ async fn snapshot(
         self, SnapshotFilter, SnapshotFormat,
     };
 
-    // Parse filter
-    let snap_filter = match filter {
-        Some("interactive") => SnapshotFilter::Interactive,
-        Some(f) => return Err(ActionbookError::Other(format!("Unknown filter: '{}'. Use 'interactive'.", f))),
-        None => SnapshotFilter::All,
+    // Parse filter from boolean flag
+    let snap_filter = if interactive {
+        SnapshotFilter::Interactive
+    } else {
+        SnapshotFilter::All
     };
 
     // Parse format
@@ -2446,7 +2491,37 @@ async fn snapshot(
     };
 
     let raw = driver.get_accessibility_tree_raw().await?;
-    let (nodes, _cache) = snapshot::parse_ax_tree(&raw, snap_filter, depth, scope_backend_id);
+    let (mut nodes, _cache) = snapshot::parse_ax_tree(&raw, snap_filter, depth, scope_backend_id);
+
+    // Apply compact tree filtering (-c): remove empty structural elements
+    if compact {
+        nodes = snapshot::compact_tree_nodes(&nodes);
+    }
+
+    // Append cursor-interactive elements (-C)
+    if cursor {
+        let cursor_nodes = snapshot::find_cursor_interactive_elements(&mut driver, selector).await?;
+        if !cursor_nodes.is_empty() {
+            // Continue ref numbering from where AX tree left off
+            let next_ref = nodes.len();
+            for (i, cn) in cursor_nodes.into_iter().enumerate() {
+                nodes.push(snapshot::A11yNode {
+                    ref_id: format!("e{}", next_ref + i),
+                    role: if cn.has_cursor_pointer || cn.has_onclick {
+                        "clickable".to_string()
+                    } else {
+                        "focusable".to_string()
+                    },
+                    name: cn.text,
+                    value: None,
+                    depth: 0,
+                    disabled: false,
+                    focused: false,
+                    backend_node_id: -1,
+                });
+            }
+        }
+    }
 
     // Handle --diff mode
     if diff {
@@ -3535,6 +3610,448 @@ async fn scroll(
     Ok(())
 }
 
+/// Resolve session tag: use CLI value, env var, or auto-generate.
+fn resolve_session_tag(cli: &Cli) -> String {
+    cli.session_tag.clone().unwrap_or_else(|| {
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        format!("ab-{}", ts)
+    })
+}
+
+/// One-shot content fetching: navigate → wait → extract → close.
+///
+/// Combines I2 (HTTP degradation), I3 (session tags), I4 (URL rewriting),
+/// and I5 (domain-aware wait hints) into a single high-level command.
+async fn fetch(
+    cli: &Cli,
+    config: &Config,
+    url: &str,
+    format: &str,
+    max_tokens: Option<usize>,
+    timeout_ms: u64,
+    lite: bool,
+) -> Result<()> {
+    // Extension mode not supported for one-shot fetch
+    if cli.extension {
+        return Err(ActionbookError::FeatureNotSupported(
+            "browser fetch is not supported in extension mode. Use browser open + snapshot instead."
+                .to_string(),
+        ));
+    }
+
+    let session_tag = resolve_session_tag(cli);
+    tracing::info!("[{}] fetch starting: {}", session_tag, url);
+
+    // I4: URL rewriting
+    let normalized_url = normalize_navigation_url(url)?;
+    let normalized_url = if cli.rewrite_urls {
+        let (rewritten, was_rewritten) =
+            crate::browser::url_rewrite::maybe_rewrite(&normalized_url);
+        if was_rewritten {
+            tracing::info!(
+                "[{}] URL rewritten: {} -> {}",
+                session_tag,
+                normalized_url,
+                rewritten
+            );
+        }
+        rewritten
+    } else {
+        normalized_url
+    };
+
+    // I2: HTTP-first fetch for --lite mode (skip for snapshot format which needs a11y tree)
+    if lite && format != "snapshot" {
+        tracing::info!("[{}] trying HTTP fetch (lite mode)", session_tag);
+        match crate::browser::http_fetch::try_http_fetch(
+            &normalized_url,
+            max_tokens,
+            Some(&session_tag),
+        )
+        .await
+        {
+            Ok(Some(result)) => {
+                tracing::info!(
+                    "[{}] HTTP fetch succeeded ({} tokens)",
+                    session_tag,
+                    result.tokens_estimate
+                );
+                if cli.json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "content": result.content,
+                            "format": result.format,
+                            "url": result.url,
+                            "tokensEstimate": result.tokens_estimate,
+                            "truncated": result.truncated,
+                            "sessionTag": session_tag,
+                            "method": "http",
+                        })
+                    );
+                } else {
+                    println!("{}", result.content);
+                }
+                return Ok(());
+            }
+            Ok(None) => {
+                tracing::info!("[{}] HTTP fetch returned empty/SPA, falling back to browser", session_tag);
+            }
+            Err(e) => {
+                tracing::warn!("[{}] HTTP fetch error, falling back to browser: {}", session_tag, e);
+            }
+        }
+    }
+
+    // Browser-based fetch path
+    let fetch_result = timeout(
+        Duration::from_millis(timeout_ms),
+        fetch_via_browser(cli, config, &normalized_url, format, max_tokens, &session_tag),
+    )
+    .await;
+
+    match fetch_result {
+        Ok(Ok(())) => Ok(()),
+        Ok(Err(e)) => Err(e),
+        Err(_) => Err(ActionbookError::Timeout(format!(
+            "Fetch timed out after {}ms: {}",
+            timeout_ms, normalized_url
+        ))),
+    }
+}
+
+/// Browser-based fetch implementation (used by `fetch()` after HTTP fallback).
+async fn fetch_via_browser(
+    cli: &Cli,
+    config: &Config,
+    url: &str,
+    format: &str,
+    max_tokens: Option<usize>,
+    session_tag: &str,
+) -> Result<()> {
+    // Create a temporary config with headless forced on
+    let mut fetch_config = config.clone();
+    let profile_name = format!("__fetch_{}__", std::process::id());
+
+    // Set up a temporary profile with headless mode
+    let mut profile = fetch_config.get_profile("actionbook").unwrap_or_default();
+    profile.headless = true;
+    if let Some(ref path) = cli.browser_path {
+        profile.browser_path = Some(path.clone());
+    }
+    fetch_config.set_profile(&profile_name, profile);
+    fetch_config.browser.default_profile = profile_name.clone();
+
+    // Create driver with temporary profile
+    let temp_cli = Cli {
+        browser_path: cli.browser_path.clone(),
+        cdp: cli.cdp.clone(),
+        profile: Some(profile_name.clone()),
+        headless: true,
+        stealth: cli.stealth,
+        stealth_os: cli.stealth_os.clone(),
+        stealth_gpu: cli.stealth_gpu.clone(),
+        api_key: cli.api_key.clone(),
+        json: cli.json,
+        extension: false,
+        extension_port: cli.extension_port,
+        verbose: cli.verbose,
+        block_images: cli.block_images,
+        block_media: cli.block_media,
+        no_animations: true, // Always disable animations for fetch
+        auto_dismiss_dialogs: true, // Always auto-dismiss for fetch
+        session_tag: cli.session_tag.clone(),
+        rewrite_urls: false, // Already rewritten above
+        wait_hint: cli.wait_hint.clone(),
+        camofox: cli.camofox,
+        camofox_port: cli.camofox_port,
+        command: crate::cli::Commands::Browser {
+            command: BrowserCommands::Status,
+        },
+    };
+
+    let mut driver = create_browser_driver(&temp_cli, &fetch_config).await?;
+
+    // Apply resource blocking
+    apply_resource_blocking(&temp_cli, &mut driver).await;
+
+    // Apply animation disabling
+    if let Err(e) = driver.disable_animations().await {
+        tracing::warn!("[{}] Failed to disable animations: {}", session_tag, e);
+    }
+
+    // Apply dialog auto-dismissal
+    if let Err(e) = driver.enable_dialog_auto_dismiss().await {
+        tracing::warn!("[{}] Failed to enable dialog auto-dismiss: {}", session_tag, e);
+    }
+
+    // Navigate
+    tracing::info!("[{}] navigating to {}", session_tag, url);
+    driver.goto(url).await?;
+
+    // I5: Domain-aware wait
+    let wait_ms =
+        crate::browser::wait_hints::resolve_wait_ms(url, cli.wait_hint.as_deref());
+    if wait_ms > 0 {
+        tracing::info!("[{}] waiting {}ms (domain hint)", session_tag, wait_ms);
+        tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+    }
+
+    // Also wait for network idle
+    if let Err(e) = driver.wait_for_network_idle(15_000, 500).await {
+        tracing::debug!("[{}] network idle wait ended: {}", session_tag, e);
+    }
+
+    // Extract content based on format
+    let (content, content_format, tokens_estimate, truncated) = match format {
+        "snapshot" => {
+            let raw = driver.get_accessibility_tree_raw().await?;
+            let (nodes, _cache) = crate::browser::snapshot::parse_ax_tree(
+                &raw,
+                crate::browser::snapshot::SnapshotFilter::All,
+                None,
+                None,
+            );
+
+            let (final_nodes, was_truncated) = if let Some(max) = max_tokens {
+                crate::browser::snapshot::truncate_to_tokens(
+                    &nodes,
+                    max,
+                    crate::browser::snapshot::SnapshotFormat::Compact,
+                )
+            } else {
+                (nodes, false)
+            };
+
+            let output = crate::browser::snapshot::format_compact(&final_nodes);
+            let est = output.len() / 4;
+            (output, "snapshot", est, was_truncated)
+        }
+        "html" => {
+            let html = driver.get_content().await?;
+            let est = html.len() / 4;
+            let (content, truncated) = if let Some(max) = max_tokens {
+                if est > max {
+                    let char_limit = max * 4;
+                    let end = if html.len() > char_limit {
+                        html[..char_limit]
+                            .rfind(char::is_whitespace)
+                            .unwrap_or(char_limit)
+                    } else {
+                        html.len()
+                    };
+                    (html[..end].to_string(), true)
+                } else {
+                    (html, false)
+                }
+            } else {
+                (html, false)
+            };
+            let final_est = content.len() / 4;
+            (content, "html", final_est, truncated)
+        }
+        _ => {
+            // "text" (default) — use readability
+            let text = driver
+                .get_readable_text(crate::browser::TextExtractionMode::Readability)
+                .await?;
+            let est = text.len() / 4;
+            let (content, truncated) = if let Some(max) = max_tokens {
+                if est > max {
+                    let char_limit = max * 4;
+                    let end = if text.len() > char_limit {
+                        text[..char_limit]
+                            .rfind(char::is_whitespace)
+                            .unwrap_or(char_limit)
+                    } else {
+                        text.len()
+                    };
+                    (text[..end].to_string(), true)
+                } else {
+                    (text, false)
+                }
+            } else {
+                (text, false)
+            };
+            let final_est = content.len() / 4;
+            (content, "text", final_est, truncated)
+        }
+    };
+
+    tracing::info!(
+        "[{}] extracted {} tokens ({} format)",
+        session_tag,
+        tokens_estimate,
+        content_format
+    );
+
+    // Output
+    if cli.json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "content": content,
+                "format": content_format,
+                "url": url,
+                "tokensEstimate": tokens_estimate,
+                "truncated": truncated,
+                "sessionTag": session_tag,
+                "method": "browser",
+            })
+        );
+    } else {
+        println!("{}", content);
+    }
+
+    // Clean up: close the session
+    let session_manager = create_session_manager(&temp_cli, &fetch_config);
+    if let Err(e) = session_manager.close_session(Some(&profile_name)).await {
+        tracing::debug!("[{}] cleanup: {}", session_tag, e);
+    }
+
+    // Clean up temporary profile directory
+    let data_dir = dirs::data_dir()
+        .unwrap_or_else(|| std::path::PathBuf::from("."))
+        .join("actionbook");
+    let session_file = data_dir.join("sessions").join(format!("{}.json", profile_name));
+    let _ = std::fs::remove_file(&session_file);
+    let profile_dir = data_dir.join("profiles").join(&profile_name);
+    let _ = std::fs::remove_dir_all(&profile_dir);
+
+    Ok(())
+}
+
+async fn upload(
+    cli: &Cli,
+    config: &Config,
+    files: &[String],
+    selector: Option<&str>,
+    ref_id: Option<&str>,
+    wait_ms: u64,
+) -> Result<()> {
+    // 1. Validate all files exist and resolve to absolute paths
+    let mut abs_paths = Vec::with_capacity(files.len());
+    for f in files {
+        let path = std::path::Path::new(f);
+        if !path.exists() {
+            return Err(ActionbookError::Other(format!("File not found: {}", f)));
+        }
+        let canonical = std::fs::canonicalize(path).map_err(|e| {
+            ActionbookError::Other(format!("Cannot resolve path {}: {}", f, e))
+        })?;
+        abs_paths.push(canonical.to_string_lossy().to_string());
+    }
+
+    // 2. Extension mode: JS fallback (cannot set files programmatically, just click the input)
+    if cli.extension {
+        let sel = selector.unwrap_or("input[type=\"file\"]");
+        let resolve_js = js_resolve_selector(sel);
+        let click_js = format!(
+            r#"(function() {{
+                var el = {};
+                if (!el) return {{ success: false, error: 'File input not found' }};
+                el.click();
+                return {{ success: true, note: 'Triggered native file dialog — extension mode cannot set files programmatically' }};
+            }})()"#,
+            resolve_js
+        );
+        let result = extension_eval(cli, &click_js).await?;
+        if result.get("success").and_then(|v| v.as_bool()) != Some(true) {
+            let err = result
+                .get("error")
+                .and_then(|v| v.as_str())
+                .unwrap_or("File input not found");
+            return Err(ActionbookError::ElementNotFound(err.to_string()));
+        }
+        if cli.json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": true,
+                    "selector": sel,
+                    "note": "Extension mode: opened native file dialog. Cannot set files programmatically."
+                })
+            );
+        } else {
+            println!(
+                "{} Opened file dialog for: {} (extension mode — select files manually)",
+                "⚠".yellow(),
+                sel
+            );
+        }
+        return Ok(());
+    }
+
+    // 3. CDP mode
+    let mut driver = create_browser_driver(cli, config).await?;
+    apply_resource_blocking(cli, &mut driver).await;
+
+    // --ref mode
+    if let Some(ref_str) = ref_id {
+        let backend_node_id = resolve_snapshot_ref(&mut driver, ref_str).await?;
+
+        driver
+            .set_file_input_files_by_node_id(backend_node_id, &abs_paths)
+            .await?;
+
+        if cli.json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "success": true,
+                    "ref": ref_str,
+                    "backendNodeId": backend_node_id,
+                    "files": abs_paths,
+                })
+            );
+        } else {
+            println!(
+                "{} Uploaded {} file(s) via ref={} (nodeId={})",
+                "✓".green(),
+                abs_paths.len(),
+                ref_str,
+                backend_node_id,
+            );
+        }
+        return Ok(());
+    }
+
+    // Selector mode (auto-detect if omitted)
+    let sel = selector.unwrap_or("input[type=\"file\"]");
+
+    // Optional wait for element
+    if wait_ms > 0 {
+        if let Some(mgr) = driver.as_cdp_mut() {
+            mgr.wait_for_element(None, sel, wait_ms).await?;
+        }
+    }
+
+    driver.set_file_input_files(sel, &abs_paths).await?;
+
+    if cli.json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "selector": sel,
+                "files": abs_paths,
+            })
+        );
+    } else {
+        println!(
+            "{} Uploaded {} file(s) to: {}",
+            "✓".green(),
+            abs_paths.len(),
+            sel,
+        );
+    }
+
+    Ok(())
+}
+
 async fn close(cli: &Cli, config: &Config) -> Result<()> {
     if cli.extension {
         extension_send(cli, "Extension.detachTab", serde_json::json!({})).await?;
@@ -3633,6 +4150,441 @@ async fn fingerprint(cli: &Cli, config: &Config, command: &FingerprintCommands) 
     Ok(())
 }
 
+// ========== H1: Console Log Capture ==========
+
+async fn console_log(cli: &Cli, config: &Config, duration_ms: u64, level: &str) -> Result<()> {
+    if cli.extension {
+        return Err(ActionbookError::FeatureNotSupported(
+            "Console capture is not supported in extension mode".to_string(),
+        ));
+    }
+
+    let mut driver = create_browser_driver(cli, config).await?;
+
+    // Install interceptor
+    driver.install_console_interceptor().await?;
+
+    if duration_ms > 0 {
+        // Listen for specified duration
+        tokio::time::sleep(Duration::from_millis(duration_ms)).await;
+    }
+
+    let logs = driver.capture_console_logs().await?;
+
+    // Filter by level
+    let filtered: Vec<&serde_json::Value> = if level == "all" {
+        logs.iter().collect()
+    } else {
+        logs.iter()
+            .filter(|l| l.get("level").and_then(|v| v.as_str()) == Some(level))
+            .collect()
+    };
+
+    if cli.json {
+        println!("{}", serde_json::to_string_pretty(&filtered)?);
+    } else {
+        if filtered.is_empty() {
+            println!(
+                "{} No console messages captured{}",
+                "ℹ".blue(),
+                if duration_ms > 0 {
+                    format!(" (listened for {}ms)", duration_ms)
+                } else {
+                    String::new()
+                }
+            );
+        } else {
+            for entry in &filtered {
+                let lvl = entry.get("level").and_then(|v| v.as_str()).unwrap_or("log");
+                let text = entry.get("text").and_then(|v| v.as_str()).unwrap_or("");
+                let prefix = match lvl {
+                    "error" => format!("[{}]", "ERR".red()),
+                    "warn" => format!("[{}]", "WRN".yellow()),
+                    "info" => format!("[{}]", "INF".blue()),
+                    "debug" => format!("[{}]", "DBG".dimmed()),
+                    _ => format!("[{}]", "LOG".normal()),
+                };
+                println!("{} {}", prefix, text);
+            }
+            println!(
+                "\n{} {} message(s) captured",
+                "✓".green(),
+                filtered.len()
+            );
+        }
+    }
+    Ok(())
+}
+
+// ========== H2: Network Idle Wait ==========
+
+async fn wait_idle(cli: &Cli, config: &Config, timeout_ms: u64, idle_ms: u64) -> Result<()> {
+    if cli.extension {
+        return Err(ActionbookError::FeatureNotSupported(
+            "Network idle wait is not supported in extension mode".to_string(),
+        ));
+    }
+
+    let mut driver = create_browser_driver(cli, config).await?;
+    driver.wait_for_network_idle(timeout_ms, idle_ms).await?;
+
+    if cli.json {
+        println!("{}", serde_json::json!({ "success": true, "idle": true }));
+    } else {
+        println!("{} Network is idle", "✓".green());
+    }
+    Ok(())
+}
+
+// ========== H4: Element Info ==========
+
+async fn info(cli: &Cli, config: &Config, selector: &str) -> Result<()> {
+    if cli.extension {
+        let js = format!(
+            r#"(function() {{
+                var el = document.querySelector('{}');
+                if (!el) return null;
+                var rect = el.getBoundingClientRect();
+                var cs = getComputedStyle(el);
+                return {{
+                    tagName: el.tagName.toLowerCase(),
+                    id: el.id || null,
+                    textContent: (el.textContent || '').trim().substring(0, 200),
+                    boundingBox: {{ x: rect.x, y: rect.y, width: rect.width, height: rect.height }},
+                    isVisible: rect.width > 0 && rect.height > 0 && cs.visibility !== 'hidden'
+                }};
+            }})()"#,
+            escape_js_string(selector)
+        );
+        let result = extension_eval(cli, &js).await?;
+        if result.is_null() {
+            return Err(ActionbookError::ElementNotFound(selector.to_string()));
+        }
+        println!("{}", serde_json::to_string_pretty(&result)?);
+        return Ok(());
+    }
+
+    let mut driver = create_browser_driver(cli, config).await?;
+    let result = driver.get_element_info(selector).await?;
+
+    if cli.json {
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        let tag = result.get("tagName").and_then(|v| v.as_str()).unwrap_or("?");
+        let id = result.get("id").and_then(|v| v.as_str());
+        let text = result.get("textContent").and_then(|v| v.as_str()).unwrap_or("");
+        let visible = result.get("isVisible").and_then(|v| v.as_bool()).unwrap_or(false);
+        let interactive = result.get("isInteractive").and_then(|v| v.as_bool()).unwrap_or(false);
+
+        println!("{} <{}>", "Element:".bold(), tag);
+        if let Some(id) = id {
+            if !id.is_empty() {
+                println!("  id: {}", id);
+            }
+        }
+        if !text.is_empty() {
+            let display = if text.len() > 80 { &text[..80] } else { text };
+            println!("  text: \"{}\"", display);
+        }
+        if let Some(bbox) = result.get("boundingBox") {
+            let x = bbox.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let y = bbox.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let w = bbox.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let h = bbox.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            println!("  bbox: ({:.0}, {:.0}) {}x{}", x, y, w as u32, h as u32);
+        }
+        println!(
+            "  visible: {} | interactive: {}",
+            if visible { "yes".green().to_string() } else { "no".red().to_string() },
+            if interactive { "yes".green().to_string() } else { "no".dimmed().to_string() }
+        );
+        if let Some(selectors) = result.get("suggestedSelectors").and_then(|v| v.as_array()) {
+            if !selectors.is_empty() {
+                println!("  selectors:");
+                for s in selectors {
+                    if let Some(sel) = s.as_str() {
+                        println!("    {}", sel);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// ========== H5: Local Storage Management ==========
+
+async fn storage(cli: &Cli, config: &Config, command: &StorageCommands) -> Result<()> {
+    match command {
+        StorageCommands::Get { key, session } => {
+            let storage_type = if *session { "sessionStorage" } else { "localStorage" };
+            let js = format!(
+                "(function() {{ var v = {}.getItem('{}'); return v; }})()",
+                storage_type,
+                escape_js_string(key)
+            );
+
+            let result = if cli.extension {
+                extension_eval(cli, &js).await?
+            } else {
+                let mut driver = create_browser_driver(cli, config).await?;
+                let r = driver.eval(&js).await?;
+                serde_json::from_str(&r).unwrap_or(serde_json::Value::Null)
+            };
+
+            if cli.json {
+                println!(
+                    "{}",
+                    serde_json::json!({ "key": key, "value": result, "storage": storage_type })
+                );
+            } else if result.is_null() {
+                println!("{} Key '{}' not found in {}", "ℹ".blue(), key, storage_type);
+            } else {
+                println!("{}", result.as_str().unwrap_or(&result.to_string()));
+            }
+        }
+        StorageCommands::Set { key, value, session } => {
+            let storage_type = if *session { "sessionStorage" } else { "localStorage" };
+            let js = format!(
+                "{}.setItem('{}', '{}')",
+                storage_type,
+                escape_js_string(key),
+                escape_js_string(value)
+            );
+
+            if cli.extension {
+                extension_eval(cli, &js).await?;
+            } else {
+                let mut driver = create_browser_driver(cli, config).await?;
+                driver.eval(&js).await?;
+            };
+
+            if cli.json {
+                println!("{}", serde_json::json!({ "success": true }));
+            } else {
+                println!("{} Set {}['{}']", "✓".green(), storage_type, key);
+            }
+        }
+        StorageCommands::Remove { key, session } => {
+            let storage_type = if *session { "sessionStorage" } else { "localStorage" };
+            let js = format!(
+                "{}.removeItem('{}')",
+                storage_type,
+                escape_js_string(key)
+            );
+
+            if cli.extension {
+                extension_eval(cli, &js).await?;
+            } else {
+                let mut driver = create_browser_driver(cli, config).await?;
+                driver.eval(&js).await?;
+            };
+
+            if cli.json {
+                println!("{}", serde_json::json!({ "success": true }));
+            } else {
+                println!("{} Removed '{}' from {}", "✓".green(), key, storage_type);
+            }
+        }
+        StorageCommands::Clear { session } => {
+            let storage_type = if *session { "sessionStorage" } else { "localStorage" };
+            let js = format!("{}.clear()", storage_type);
+
+            if cli.extension {
+                extension_eval(cli, &js).await?;
+            } else {
+                let mut driver = create_browser_driver(cli, config).await?;
+                driver.eval(&js).await?;
+            };
+
+            if cli.json {
+                println!("{}", serde_json::json!({ "success": true }));
+            } else {
+                println!("{} Cleared {}", "✓".green(), storage_type);
+            }
+        }
+        StorageCommands::List { session } => {
+            let storage_type = if *session { "sessionStorage" } else { "localStorage" };
+            let js = format!(
+                "(function() {{ var s = {}; var keys = []; for (var i = 0; i < s.length; i++) {{ var k = s.key(i); keys.push({{ key: k, value: s.getItem(k) }}); }} return keys; }})()",
+                storage_type
+            );
+
+            let result = if cli.extension {
+                extension_eval(cli, &js).await?
+            } else {
+                let mut driver = create_browser_driver(cli, config).await?;
+                let r = driver.eval(&js).await?;
+                serde_json::from_str(&r).unwrap_or(serde_json::Value::Null)
+            };
+
+            if cli.json {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                let empty = vec![];
+                let items = result.as_array().unwrap_or(&empty);
+                if items.is_empty() {
+                    println!("{} {} is empty", "ℹ".blue(), storage_type);
+                } else {
+                    println!("{} ({} keys):", storage_type, items.len());
+                    for item in items {
+                        let k = item.get("key").and_then(|v| v.as_str()).unwrap_or("?");
+                        let v = item.get("value").and_then(|v| v.as_str()).unwrap_or("");
+                        let display = if v.len() > 60 { &v[..60] } else { v };
+                        println!("  {} = {}", k.bold(), display);
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+// ========== H6: Device Emulation ==========
+
+/// Device presets for emulation
+fn resolve_device(name: &str) -> Result<(u32, u32, f64, bool, Option<&'static str>)> {
+    // (width, height, scale, mobile, user_agent)
+    match name.to_lowercase().as_str() {
+        "iphone-14" | "iphone14" => Ok((
+            390, 844, 3.0, true,
+            Some("Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"),
+        )),
+        "iphone-se" | "iphonese" => Ok((
+            375, 667, 2.0, true,
+            Some("Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1"),
+        )),
+        "pixel-7" | "pixel7" => Ok((
+            412, 915, 2.625, true,
+            Some("Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"),
+        )),
+        "ipad" | "ipad-air" => Ok((
+            820, 1180, 2.0, true,
+            Some("Mozilla/5.0 (iPad; CPU OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"),
+        )),
+        "desktop-hd" | "1080p" => Ok((1920, 1080, 1.0, false, None)),
+        "desktop-4k" | "4k" => Ok((3840, 2160, 2.0, false, None)),
+        _ => {
+            // Try to parse WxH format (e.g., "1280x720")
+            let parts: Vec<&str> = name.split('x').collect();
+            if parts.len() == 2 {
+                let w = parts[0].parse::<u32>().map_err(|_| {
+                    ActionbookError::Other(format!("Invalid width in '{}'", name))
+                })?;
+                let h = parts[1].parse::<u32>().map_err(|_| {
+                    ActionbookError::Other(format!("Invalid height in '{}'", name))
+                })?;
+                Ok((w, h, 1.0, false, None))
+            } else {
+                Err(ActionbookError::Other(format!(
+                    "Unknown device '{}'. Available: iphone-14, iphone-se, pixel-7, ipad, desktop-hd, desktop-4k, or WxH (e.g., 1280x720)",
+                    name
+                )))
+            }
+        }
+    }
+}
+
+async fn emulate(cli: &Cli, config: &Config, device: &str) -> Result<()> {
+    let (width, height, scale, mobile, ua) = resolve_device(device)?;
+
+    if cli.extension {
+        return Err(ActionbookError::FeatureNotSupported(
+            "Device emulation is not supported in extension mode".to_string(),
+        ));
+    }
+
+    let mut driver = create_browser_driver(cli, config).await?;
+    driver
+        .emulate_device(width, height, scale, mobile, ua)
+        .await?;
+
+    if cli.json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "success": true,
+                "device": device,
+                "width": width,
+                "height": height,
+                "scale": scale,
+                "mobile": mobile
+            })
+        );
+    } else {
+        println!(
+            "{} Emulating {} ({}x{} @{}x{})",
+            "✓".green(),
+            device,
+            width,
+            height,
+            scale,
+            if mobile { " mobile" } else { "" }
+        );
+    }
+    Ok(())
+}
+
+// ========== H7: Wait for JS Condition ==========
+
+async fn wait_fn(
+    cli: &Cli,
+    config: &Config,
+    expression: &str,
+    timeout_ms: u64,
+    interval_ms: u64,
+) -> Result<()> {
+    if cli.extension {
+        // Extension mode: poll via extension_eval
+        let start = std::time::Instant::now();
+        let timeout = Duration::from_millis(timeout_ms);
+        loop {
+            let result = extension_eval(cli, expression).await?;
+            let truthy = match &result {
+                serde_json::Value::Bool(b) => *b,
+                serde_json::Value::Number(n) => n.as_f64().map_or(false, |f| f != 0.0),
+                serde_json::Value::String(s) => !s.is_empty(),
+                serde_json::Value::Null => false,
+                serde_json::Value::Array(a) => !a.is_empty(),
+                serde_json::Value::Object(_) => true,
+            };
+            if truthy {
+                if cli.json {
+                    println!(
+                        "{}",
+                        serde_json::json!({ "success": true, "value": result })
+                    );
+                } else {
+                    println!("{} Expression returned truthy", "✓".green());
+                }
+                return Ok(());
+            }
+            if start.elapsed() > timeout {
+                return Err(ActionbookError::Timeout(format!(
+                    "Expression did not become truthy within {}ms",
+                    timeout_ms
+                )));
+            }
+            tokio::time::sleep(Duration::from_millis(interval_ms)).await;
+        }
+    }
+
+    let mut driver = create_browser_driver(cli, config).await?;
+    let result = driver
+        .wait_for_function(expression, timeout_ms, interval_ms)
+        .await?;
+
+    if cli.json {
+        println!(
+            "{}",
+            serde_json::json!({ "success": true, "value": result })
+        );
+    } else {
+        println!("{} Expression returned truthy", "✓".green());
+    }
+    Ok(())
+}
+
 async fn restart(cli: &Cli, config: &Config) -> Result<()> {
     if cli.extension {
         // In extension mode, reload the page as a "restart"
@@ -3724,6 +4676,10 @@ mod tests {
             block_images: false,
             block_media: false,
             no_animations: false,
+            auto_dismiss_dialogs: false,
+            session_tag: None,
+            rewrite_urls: false,
+            wait_hint: None,
             camofox: false,
             camofox_port: None,
             command: Commands::Browser { command },

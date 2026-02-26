@@ -88,6 +88,13 @@ A high-performance CLI for browser automation with zero installation. Built in R
 - **Fingerprint Rotation** - Dynamically change UA, screen, hardware fingerprint
 - **Chrome Session Integrity** - Clean stale lock files, prevent "didn't shut down correctly" bar
 - **Scroll** - 5 directions (down, up, top, bottom, to element) with smooth option
+- **Console Log Capture** - Intercept and display page console.log/warn/error messages
+- **Network Idle Wait** - Wait for all network requests to complete (SPA-friendly)
+- **Dialog Auto-Handling** - Auto-dismiss JavaScript alert/confirm/prompt dialogs
+- **Element Info** - Get element bounding box, attributes, computed styles, and suggested selectors
+- **Local Storage Management** - Get, set, remove, clear, and list localStorage/sessionStorage
+- **Device Emulation** - Emulate mobile/tablet devices with preset viewports (iPhone, Pixel, iPad)
+- **Wait for JS Condition** - Poll a JavaScript expression until it returns truthy
 
 ## Architecture
 
@@ -352,6 +359,7 @@ CLI args > Environment variables > Config file > Auto-discovery
 | `--block-images` | `ACTIONBOOK_BLOCK_IMAGES` | Block image downloads for faster page loads |
 | `--block-media` | `ACTIONBOOK_BLOCK_MEDIA` | Block images, fonts, CSS, and media |
 | `--no-animations` | `ACTIONBOOK_NO_ANIMATIONS` | Disable CSS animations, transitions, and smooth scrolling |
+| `--auto-dismiss-dialogs` | `ACTIONBOOK_AUTO_DISMISS_DIALOGS` | Auto-dismiss JS alert/confirm/prompt dialogs |
 
 ## Commands Reference
 
@@ -413,6 +421,23 @@ actionbook browser scroll top               # Scroll to page top
 actionbook browser scroll to <SELECTOR>     # Scroll to element
 actionbook browser batch --file actions.json  # Execute batch of actions
 actionbook browser fingerprint rotate       # Rotate browser fingerprint
+actionbook browser console                  # Capture console log messages
+actionbook browser console --duration 5000  # Listen for 5 seconds
+actionbook browser console --level error    # Errors only
+actionbook browser wait-idle                # Wait for network idle
+actionbook browser wait-idle --timeout 10000 --idle-time 1000
+actionbook browser info <SELECTOR>          # Get element info (bbox, attrs, styles)
+actionbook browser storage list             # List all localStorage keys
+actionbook browser storage get <KEY>        # Get localStorage value
+actionbook browser storage set <KEY> <VALUE>  # Set localStorage value
+actionbook browser storage clear            # Clear localStorage
+actionbook browser storage list --session   # Use sessionStorage
+actionbook browser emulate iphone-14        # Emulate iPhone 14
+actionbook browser emulate pixel-7          # Emulate Pixel 7
+actionbook browser emulate ipad             # Emulate iPad
+actionbook browser emulate 1280x720         # Custom resolution
+actionbook browser wait-fn "document.querySelector('#done')"  # Wait for condition
+actionbook browser wait-fn "window.loaded === true" --timeout 10000
 actionbook browser connect <PORT>   # Connect to existing browser
 actionbook browser close            # Close browser
 actionbook browser restart          # Restart browser
@@ -532,6 +557,34 @@ e0 navigation "Main Menu"
   e3 button "Submit"
 ```
 
+### Interactive Filter (`--filter interactive`)
+
+Filters the accessibility tree to only show actionable elements — the nodes an AI agent can actually interact with. This dramatically reduces noise from decorative/structural nodes.
+
+**16 supported ARIA roles:**
+
+| Category | Roles |
+|----------|-------|
+| Form inputs | `textbox`, `searchbox`, `combobox`, `spinbutton`, `slider` |
+| Buttons | `button` |
+| Links | `link` |
+| Selection | `checkbox`, `radio`, `switch`, `menuitem`, `option` |
+| Containers | `tab`, `treeitem` |
+| Media | `video`, `audio` |
+
+```bash
+# Interactive-only snapshot
+actionbook browser snapshot --filter interactive
+
+# Combine with token budget (recommended for LLM agents)
+actionbook browser snapshot --filter interactive --max-tokens 500
+
+# Interactive + JSON output
+actionbook browser snapshot --filter interactive --format json
+```
+
+**Typical reduction:** A full page may have 200+ a11y nodes; `--filter interactive` typically returns 20-40 actionable elements. Combined with `--max-tokens`, this gives agents a focused, budget-friendly view of what they can do on the page.
+
 ### Token Truncation (`--max-tokens`)
 
 When `--max-tokens N` is set, nodes are included until the token budget is exceeded. A `(truncated to ~N tokens)` notice is appended. In JSON mode, truncated output includes `"truncated": true`.
@@ -616,6 +669,112 @@ ACTIONBOOK_NO_ANIMATIONS=true actionbook browser goto "https://example.com"
 ```
 
 Injects CSS `animation: none !important; transition: none !important;` and sets `prefers-reduced-motion: reduce` via CDP Emulation.
+
+### Console Log Capture
+
+```bash
+# Snapshot current console messages
+actionbook browser console
+
+# Listen for 5 seconds, errors only
+actionbook browser console --duration 5000 --level error
+
+# All levels: all, log, info, warn, error, debug
+actionbook browser console --level warn
+```
+
+Installs a JS interceptor that captures `console.log/warn/error/info/debug` messages. Up to 200 messages are buffered. The interceptor persists across navigations via `Page.addScriptToEvaluateOnNewDocument`.
+
+### Network Idle Wait
+
+```bash
+# Wait until no pending requests for 500ms (default)
+actionbook browser wait-idle
+
+# Custom timeout and idle threshold
+actionbook browser wait-idle --timeout 10000 --idle-time 1000
+```
+
+Monitors `fetch()` and `XMLHttpRequest` to track pending network requests. Returns when no requests have been in-flight for the specified idle time. Essential for SPAs that load data asynchronously after initial page load.
+
+### Dialog Auto-Handling
+
+```bash
+# Enable globally — auto-dismiss all JS dialogs
+actionbook --auto-dismiss-dialogs browser open "https://example.com"
+
+# Or via environment variable
+export ACTIONBOOK_AUTO_DISMISS_DIALOGS=true
+```
+
+Overrides `window.alert`, `window.confirm` (returns `true`), and `window.prompt` (returns default value). Logged dismissed dialogs are accessible via the console capture feature. Prevents JavaScript dialogs from blocking agent execution.
+
+### Element Info
+
+```bash
+# Get detailed info about an element
+actionbook browser info "#search-button"
+
+# Output includes:
+#   Element: <button>
+#   id: search-button
+#   text: "Search"
+#   bbox: (120, 340) 200x40
+#   visible: yes | interactive: yes
+#   selectors:
+#     #search-button
+#     button.btn.btn-primary
+```
+
+Returns element's tag name, bounding box, attributes, computed styles (display, visibility, color, cursor, etc.), visibility status, interactivity detection, and suggested CSS selectors.
+
+### Local Storage Management
+
+```bash
+# localStorage operations
+actionbook browser storage list              # List all keys
+actionbook browser storage get "token"       # Get a value
+actionbook browser storage set "key" "val"   # Set a value
+actionbook browser storage remove "key"      # Remove a key
+actionbook browser storage clear             # Clear all
+
+# sessionStorage — add --session flag
+actionbook browser storage list --session
+actionbook browser storage get "tab_id" --session
+```
+
+### Device Emulation
+
+```bash
+# Preset devices
+actionbook browser emulate iphone-14       # 390x844 @3x, mobile UA
+actionbook browser emulate iphone-se       # 375x667 @2x, mobile UA
+actionbook browser emulate pixel-7         # 412x915 @2.625x, mobile UA
+actionbook browser emulate ipad            # 820x1180 @2x, mobile UA
+actionbook browser emulate desktop-hd      # 1920x1080 @1x
+actionbook browser emulate desktop-4k      # 3840x2160 @2x
+
+# Custom resolution (WxH)
+actionbook browser emulate 1280x720
+actionbook browser emulate 375x812
+```
+
+Sets viewport dimensions, device scale factor, user agent, and touch emulation via CDP `Emulation.setDeviceMetricsOverride`.
+
+### Wait for JS Condition
+
+```bash
+# Wait for element to appear
+actionbook browser wait-fn "document.querySelector('#loaded')"
+
+# Wait for custom flag
+actionbook browser wait-fn "window.appReady === true"
+
+# With custom timeout and polling interval
+actionbook browser wait-fn "document.title.includes('Done')" --timeout 10000 --interval 200
+```
+
+Polls the JavaScript expression at the specified interval until it returns a truthy value (non-null, non-false, non-empty, non-zero). Returns the expression's value on success or times out with an error.
 
 ## Supported Browsers
 
