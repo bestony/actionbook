@@ -165,7 +165,7 @@ fn apply_browser_mode(
     config: &mut Config,
 ) -> Result<()> {
     match mode {
-        BrowserMode::System => {
+        BrowserMode::Extension => {
             if let Some(browser) = env.browsers.first() {
                 config.browser.executable = Some(browser.path.display().to_string());
                 if !cli.json {
@@ -181,7 +181,7 @@ fn apply_browser_mode(
                 ));
             }
         }
-        BrowserMode::Builtin => {
+        BrowserMode::Isolated => {
             config.browser.executable = None;
             if !cli.json {
                 println!("  {}  Using built-in browser", "◇".green());
@@ -257,7 +257,7 @@ mod tests {
         let env = make_env_with_browsers(vec![]);
         let mut config = Config::default();
 
-        let result = apply_browser_mode(&cli, &env, BrowserMode::Builtin, &mut config);
+        let result = apply_browser_mode(&cli, &env, BrowserMode::Isolated, &mut config);
         assert!(result.is_ok());
         assert!(config.browser.executable.is_none());
         assert!(config.browser.headless);
@@ -294,7 +294,7 @@ mod tests {
         let env = make_env_with_browsers(vec![]);
         let mut config = Config::default();
 
-        let result = apply_browser_mode(&cli, &env, BrowserMode::System, &mut config);
+        let result = apply_browser_mode(&cli, &env, BrowserMode::Extension, &mut config);
         assert!(result.is_err());
     }
 
@@ -334,7 +334,7 @@ mod tests {
         let env = make_env_with_browsers(vec![browser]);
         let mut config = Config::default();
 
-        let result = apply_browser_mode(&cli, &env, BrowserMode::System, &mut config);
+        let result = apply_browser_mode(&cli, &env, BrowserMode::Extension, &mut config);
         assert!(result.is_ok());
         assert_eq!(
             config.browser.executable,

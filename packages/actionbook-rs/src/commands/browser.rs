@@ -3756,6 +3756,7 @@ async fn fetch_via_browser(
         stealth_gpu: cli.stealth_gpu.clone(),
         api_key: cli.api_key.clone(),
         json: cli.json,
+        browser_mode: None, // Use default mode
         extension: false,
         extension_port: cli.extension_port,
         verbose: cli.verbose,

@@ -28,6 +28,7 @@ dependencies = [
  "serde",
  "serde_json",
  "shellexpand",
+ "subtle",
  "tempfile",
  "thirtyfour",
  "thiserror 2.0.18",
