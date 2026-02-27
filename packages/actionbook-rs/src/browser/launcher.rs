@@ -116,25 +116,24 @@ fn sanitize_deprecated_flags(args: &mut Vec<String>) {
 
         // Handle --disable-blink-features <value> (split form: flag and value as separate args)
         if arg == BLINK_FLAG {
-            if i + 1 < args.len() {
-                let filtered: Vec<String> = args[i + 1]
-                    .split(',')
-                    .map(|t| t.trim())
-                    .filter(|token| *token != "AutomationControlled")
-                    .map(|t| t.to_string())
-                    .collect();
-                if filtered.is_empty() {
-                    // Remove both flag and value
-                    args.remove(i);
-                    args.remove(i);
-                    continue;
-                }
-                args[i + 1] = filtered.join(",");
-            } else {
-                // Flag with no following value — remove the dangling flag
+            if i + 1 >= args.len() || args[i + 1].starts_with('-') {
+                // No following value or next arg is another flag — remove dangling flag
                 args.remove(i);
                 continue;
             }
+            let filtered: Vec<String> = args[i + 1]
+                .split(',')
+                .map(|t| t.trim())
+                .filter(|token| *token != "AutomationControlled")
+                .map(|t| t.to_string())
+                .collect();
+            if filtered.is_empty() {
+                // Remove both flag and value
+                args.remove(i);
+                args.remove(i);
+                continue;
+            }
+            args[i + 1] = filtered.join(",");
         }
 
         i += 1;
@@ -828,5 +827,28 @@ mod tests {
         ];
         sanitize_deprecated_flags(&mut args);
         assert_eq!(args, vec!["--disable-blink-features=TranslateUI,Foo"]);
+    }
+
+    #[test]
+    fn sanitize_split_blink_followed_by_another_flag_removes_dangling() {
+        let mut args = vec![
+            "--keep-me".to_string(),
+            "--disable-blink-features".to_string(),
+            "--disable-infobars".to_string(),
+            "--lang=en-US".to_string(),
+        ];
+        sanitize_deprecated_flags(&mut args);
+        assert_eq!(args, vec!["--keep-me", "--lang=en-US"]);
+    }
+
+    #[test]
+    fn sanitize_split_blink_followed_by_unrelated_flag_keeps_flag() {
+        let mut args = vec![
+            "--keep-me".to_string(),
+            "--disable-blink-features".to_string(),
+            "--lang=en-US".to_string(),
+        ];
+        sanitize_deprecated_flags(&mut args);
+        assert_eq!(args, vec!["--keep-me", "--lang=en-US"]);
     }
 }
