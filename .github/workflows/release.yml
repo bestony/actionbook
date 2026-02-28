@@ -343,6 +343,37 @@ jobs:
             exit 1
           fi
 
+      - name: Generate SHA256 checksums for CLI binaries
+        run: |
+          EXPECTED_BINARIES=(
+            "artifacts/actionbook-darwin-arm64/actionbook-darwin-arm64"
+            "artifacts/actionbook-darwin-x64/actionbook-darwin-x64"
+            "artifacts/actionbook-linux-x64/actionbook-linux-x64"
+            "artifacts/actionbook-linux-arm64/actionbook-linux-arm64"
+            "artifacts/actionbook-win32-x64/actionbook-win32-x64.exe"
+            "artifacts/actionbook-win32-arm64/actionbook-win32-arm64.exe"
+          )
+
+          missing=0
+          for binary in "${EXPECTED_BINARIES[@]}"; do
+            if [[ ! -f "$binary" ]]; then
+              echo "ERROR: Expected binary not found: $binary"
+              missing=$((missing + 1))
+            fi
+          done
+          if [[ "$missing" -gt 0 ]]; then
+            echo "Missing $missing expected binaries — aborting checksum generation"
+            exit 1
+          fi
+
+          mkdir -p artifacts/checksums
+          for binary in "${EXPECTED_BINARIES[@]}"; do
+            sha256sum "$binary"
+          done | tee artifacts/checksums/SHA256SUMS
+
+          echo "--- SHA256SUMS ---"
+          cat artifacts/checksums/SHA256SUMS
+
       - name: Publish platform packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -405,6 +436,7 @@ jobs:
             artifacts/actionbook-linux-arm64/actionbook-linux-arm64
             artifacts/actionbook-win32-x64/actionbook-win32-x64.exe
             artifacts/actionbook-win32-arm64/actionbook-win32-arm64.exe
+            artifacts/checksums/SHA256SUMS
           generate_release_notes: true
 
   # --------------------------------------------------------------------------
