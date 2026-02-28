@@ -3,7 +3,7 @@ use colored::Colorize;
 use crate::browser::extension_bridge;
 use crate::browser::extension_installer;
 use crate::cli::{Cli, ExtensionCommands};
-use crate::error::{ActionbookError, Result};
+use crate::error::Result;
 
 pub async fn run(cli: &Cli, command: &ExtensionCommands) -> Result<()> {
     match command {
@@ -64,16 +64,6 @@ async fn serve(_cli: &Cli, port: u16) -> Result<()> {
     println!("  {}  Press Ctrl+C to stop", "ℹ".dimmed());
     println!();
 
-    // Write PID file so `extension stop` can find this process
-    // Mandatory: fail-fast if PID file cannot be written
-    extension_bridge::write_pid_file(port).await
-        .map_err(|e| {
-            ActionbookError::Other(format!(
-                "Failed to write PID file - check directory permissions: {}",
-                e
-            ))
-        })?;
-
     // Generate session token
     let token = extension_bridge::generate_token();
     extension_bridge::write_token_file(&token).await?;
@@ -83,9 +73,6 @@ async fn serve(_cli: &Cli, port: u16) -> Result<()> {
 
     // Run the bridge server
     let result = extension_bridge::serve(port, token).await;
-
-    // Cleanup PID file on exit
-    extension_bridge::delete_pid_file().await;
 
     result
 }
@@ -248,8 +235,9 @@ async fn stop(cli: &Cli, port: u16) -> Result<()> {
         }
     };
 
-    // Guard against malformed PID files: PID must be positive
-    if pid == 0 {
+    // Guard against malformed PID files: PID must be positive and fit in i32
+    // (pid > i32::MAX would overflow to negative in libc::kill, signaling a process group)
+    if pid == 0 || pid > i32::MAX as u32 {
         extension_bridge::delete_pid_file().await;
         if cli.json {
             println!("{}", serde_json::json!({ "status": "not_running" }));
@@ -364,7 +352,7 @@ async fn stop(cli: &Cli, port: u16) -> Result<()> {
         if still_running {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             let still_running = unsafe { libc::kill(pid as i32, 0) } == 0;
-            if still_running {
+            if still_running && extension_bridge::is_bridge_running(port).await {
                 unsafe { libc::kill(pid as i32, libc::SIGKILL) };
                 tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             }

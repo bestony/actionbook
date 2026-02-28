@@ -256,6 +256,9 @@ struct BridgeState {
     next_id: u64,
     /// Last activity timestamp (any message from any client resets this)
     last_activity: Instant,
+    /// Monotonically increasing connection id to distinguish extension connections.
+    /// On disconnect, only the connection that owns this id may clear extension_tx.
+    connection_id: u64,
     /// Camoufox session for --extension --camofox mode (persistent across commands)
     #[cfg(feature = "camoufox")]
     camofox_session: Option<crate::browser::camofox::CamofoxSession>,
@@ -269,6 +272,7 @@ impl BridgeState {
             pending: HashMap::new(),
             next_id: 1,
             last_activity: Instant::now(),
+            connection_id: 0,
             #[cfg(feature = "camoufox")]
             camofox_session: None,
         }
@@ -339,6 +343,16 @@ pub async fn serve_with_shutdown(
     let listener = TcpListener::bind(&addr).await.map_err(|e| {
         ActionbookError::Other(format!("Failed to bind to {}: {}", addr, e))
     })?;
+
+    // Write PID file after successful bind so `extension stop` can find this process.
+    // Fail fast: a running bridge without a PID file causes ensure_bridge_running to
+    // misidentify it as a port conflict, breaking all subsequent extension commands.
+    if let Err(e) = write_pid_file(port).await {
+        return Err(ActionbookError::Other(format!(
+            "Failed to write PID file: {}. Bridge startup aborted.",
+            e
+        )));
+    }
 
     let state = Arc::new(Mutex::new(BridgeState::new(token)));
 
@@ -425,6 +439,7 @@ pub async fn serve_with_shutdown(
 
     // Cleanup always runs, whether shutdown was graceful or the loop exited.
     delete_port_file().await;
+    delete_pid_file().await;
     ttl_handle.abort();
     result
 }
@@ -493,18 +508,27 @@ fn is_origin_allowed(origin: Option<&str>) -> bool {
 /// Handle a single incoming WebSocket connection.
 /// Performs origin validation during the upgrade, then does the hello handshake.
 async fn handle_connection(stream: TcpStream, state: Arc<Mutex<BridgeState>>) {
+    // Capture origin during WebSocket upgrade for hello handshake validation.
+    let captured_origin: Arc<std::sync::Mutex<Option<String>>> =
+        Arc::new(std::sync::Mutex::new(None));
+    let origin_capture = Arc::clone(&captured_origin);
+
     // Use accept_hdr_async to inspect upgrade request headers for origin validation
     let ws = match tokio_tungstenite::accept_hdr_async(
         stream,
-        |req: &tokio_tungstenite::tungstenite::http::Request<()>,
-         resp: tokio_tungstenite::tungstenite::http::Response<()>|
-         -> std::result::Result<
+        move |req: &tokio_tungstenite::tungstenite::http::Request<()>,
+              resp: tokio_tungstenite::tungstenite::http::Response<()>|
+              -> std::result::Result<
             tokio_tungstenite::tungstenite::http::Response<()>,
             tokio_tungstenite::tungstenite::http::Response<Option<String>>,
         > {
-            let origin = req.headers().get("origin").and_then(|v| v.to_str().ok());
+            let origin = req
+                .headers()
+                .get("origin")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_lowercase());
 
-            if !is_origin_allowed(origin) {
+            if !is_origin_allowed(origin.as_deref()) {
                 tracing::warn!("Rejected WebSocket connection with origin: {:?}", origin);
                 let rejection = tokio_tungstenite::tungstenite::http::Response::builder()
                     .status(StatusCode::FORBIDDEN)
@@ -513,6 +537,8 @@ async fn handle_connection(stream: TcpStream, state: Arc<Mutex<BridgeState>>) {
                 return Err(rejection);
             }
 
+            // Store origin for post-upgrade validation
+            *origin_capture.lock().unwrap() = origin;
             Ok(resp)
         },
     )
@@ -524,6 +550,9 @@ async fn handle_connection(stream: TcpStream, state: Arc<Mutex<BridgeState>>) {
             return;
         }
     };
+
+    // Retrieve origin captured during WebSocket upgrade (already lowercase)
+    let connection_origin = captured_origin.lock().unwrap().take();
 
     let (mut write, mut read) = ws.split();
 
@@ -592,8 +621,32 @@ async fn handle_connection(stream: TcpStream, state: Arc<Mutex<BridgeState>>) {
         }
     }
 
-    // Validate token (constant-time to prevent timing side-channels)
-    {
+    // Validate token or origin depending on client role.
+    // Extension clients skip token but must prove they are the Actionbook extension
+    // by matching the exact chrome-extension://<EXTENSION_ID> origin.
+    // CLI / other clients must provide a valid token.
+    if client_role == "extension" {
+        let expected_origin = format!("chrome-extension://{}", super::native_messaging::EXTENSION_ID);
+        let origin_matches = connection_origin
+            .as_deref()
+            .map(|o| o.eq_ignore_ascii_case(&expected_origin))
+            .unwrap_or(false);
+        if !origin_matches {
+            tracing::warn!(
+                "Rejected extension client: origin {:?} does not match expected {}",
+                connection_origin, expected_origin
+            );
+            let err_msg = serde_json::json!({
+                "type": "hello_error",
+                "error": "invalid_origin",
+                "message": "Extension origin does not match the Actionbook extension ID.",
+            });
+            let _ = write
+                .send(Message::Text(err_msg.to_string().into()))
+                .await;
+            return;
+        }
+    } else {
         let s = state.lock().await;
         let token_match = client_token.as_bytes().ct_eq(s.token.as_bytes());
         if token_match.unwrap_u8() != 1 {
@@ -651,10 +704,12 @@ async fn handle_extension_client(
     // Create a channel for sending commands to the extension
     let (tx, mut rx) = mpsc::unbounded_channel::<String>();
 
-    {
+    let my_connection_id = {
         let mut s = state.lock().await;
+        s.connection_id += 1;
         s.extension_tx = Some(tx);
-    }
+        s.connection_id
+    };
 
     // Spawn a task to forward commands from the channel to the WebSocket
     let write_handle = tokio::spawn(async move {
@@ -717,17 +772,20 @@ async fn handle_extension_client(
         colored::Colorize::yellow("!")
     );
 
-    // Clean up: notify all pending requests and clear extension channel
+    // Clean up: only clear extension_tx if this is still the active connection.
+    // A newer extension may have already connected and taken ownership.
     {
         let mut s = state.lock().await;
-        for (_id, sender) in s.pending.drain() {
-            let err_msg = serde_json::json!({
-                "id": 0,
-                "error": { "code": -32000, "message": "Extension disconnected" }
-            });
-            let _ = sender.send(err_msg.to_string());
+        if s.connection_id == my_connection_id {
+            for (_id, sender) in s.pending.drain() {
+                let err_msg = serde_json::json!({
+                    "id": 0,
+                    "error": { "code": -32000, "message": "Extension disconnected" }
+                });
+                let _ = sender.send(err_msg.to_string());
+            }
+            s.extension_tx = None;
         }
-        s.extension_tx = None;
     }
 
     write_handle.abort();
@@ -1135,7 +1193,10 @@ pub async fn send_command_with_token(
 pub fn is_pid_alive(pid: u32) -> bool {
     #[cfg(unix)]
     {
-        unsafe { libc::kill(pid as i32, 0) == 0 }
+        match i32::try_from(pid) {
+            Ok(p) if p > 0 => unsafe { libc::kill(p, 0) == 0 },
+            _ => false,
+        }
     }
     #[cfg(not(unix))]
     {
@@ -1227,5 +1288,39 @@ mod tests {
         let token = generate_token();
         assert!(token.starts_with(TOKEN_PREFIX));
         assert_eq!(token.len(), 4 + 32); // "abk_" + 32 hex chars
+    }
+
+    #[test]
+    fn test_extension_origin_required() {
+        use super::super::native_messaging::EXTENSION_ID;
+        let expected = format!("chrome-extension://{}", EXTENSION_ID);
+
+        // No origin → rejected
+        let no_origin: Option<&str> = None;
+        let matches = no_origin
+            .map(|o| o.eq_ignore_ascii_case(&expected))
+            .unwrap_or(false);
+        assert!(!matches);
+
+        // localhost origin → rejected
+        let localhost_origin = Some("http://localhost:8080");
+        let matches = localhost_origin
+            .map(|o| o.eq_ignore_ascii_case(&expected))
+            .unwrap_or(false);
+        assert!(!matches);
+
+        // Random other extension → rejected
+        let other_ext = Some("chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let matches = other_ext
+            .map(|o| o.eq_ignore_ascii_case(&expected))
+            .unwrap_or(false);
+        assert!(!matches);
+
+        // Exact Actionbook extension origin → accepted
+        let ext_origin = Some(expected.as_str());
+        let matches = ext_origin
+            .map(|o| o.eq_ignore_ascii_case(&expected))
+            .unwrap_or(false);
+        assert!(matches);
     }
 }

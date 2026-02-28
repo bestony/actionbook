@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 
 use crate::commands;
+use crate::config::DEFAULT_EXTENSION_PORT;
 use crate::error::Result;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -28,7 +29,7 @@ pub enum BrowserMode {
 }
 
 /// Actionbook CLI - Browser automation with zero installation
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 #[command(name = "actionbook", bin_name = "actionbook")]
 #[command(author, version, about, long_about = None)]
 pub struct Cli {
@@ -81,8 +82,8 @@ pub struct Cli {
     #[arg(long, env = "ACTIONBOOK_EXTENSION", global = true, hide = true)]
     pub extension: bool,
 
-    /// [Deprecated: set port in config.toml under [browser.extension]] Extension bridge port override
-    #[arg(long, env = "ACTIONBOOK_EXTENSION_PORT", global = true, default_value = "19222", hide = true)]
+    /// [Deprecated] Extension bridge port override
+    #[arg(long, env = "ACTIONBOOK_EXTENSION_PORT", global = true, default_value_t = DEFAULT_EXTENSION_PORT, hide = true)]
     pub extension_port: u16,
 
     /// Enable verbose output
@@ -129,7 +130,7 @@ pub struct Cli {
     pub command: Commands,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum Commands {
     /// Browser automation commands
     Browser {
@@ -276,7 +277,7 @@ pub enum Commands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum BrowserCommands {
     /// Show browser status and detection results
     Status,
@@ -614,7 +615,7 @@ pub enum BrowserCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum FingerprintCommands {
     /// Generate and apply a new random fingerprint
     Rotate {
@@ -627,7 +628,7 @@ pub enum FingerprintCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum CookiesCommands {
     /// List all cookies
     List,
@@ -665,7 +666,7 @@ pub enum CookiesCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum StorageCommands {
     /// Get a value from localStorage
     Get {
@@ -707,7 +708,7 @@ pub enum StorageCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum ScrollDirection {
     /// Scroll down by pixels
     Down {
@@ -739,7 +740,7 @@ pub enum ScrollDirection {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum ExtensionCommands {
     #[command(hide = true)]
     /// Start the extension bridge WebSocket server
@@ -748,21 +749,21 @@ pub enum ExtensionCommands {
     /// This command is provided for debugging and manual control only.
     Serve {
         /// Port to listen on
-        #[arg(long, default_value = "19222")]
+        #[arg(long, default_value_t = DEFAULT_EXTENSION_PORT)]
         port: u16,
     },
 
     /// Check if the bridge server is running
     Status {
         /// Bridge server port
-        #[arg(long, default_value = "19222")]
+        #[arg(long, default_value_t = DEFAULT_EXTENSION_PORT)]
         port: u16,
     },
 
     /// Ping the extension through the bridge
     Ping {
         /// Bridge server port
-        #[arg(long, default_value = "19222")]
+        #[arg(long, default_value_t = DEFAULT_EXTENSION_PORT)]
         port: u16,
     },
 
@@ -776,7 +777,7 @@ pub enum ExtensionCommands {
     /// Stop the running bridge server
     Stop {
         /// Bridge server port
-        #[arg(long, default_value = "19222")]
+        #[arg(long, default_value_t = DEFAULT_EXTENSION_PORT)]
         port: u16,
     },
 
@@ -787,7 +788,7 @@ pub enum ExtensionCommands {
     Uninstall,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum SourcesCommands {
     /// List all sources
     List,
@@ -799,7 +800,7 @@ pub enum SourcesCommands {
     },
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum ConfigCommands {
     /// Show current configuration
     Show,
@@ -828,7 +829,7 @@ pub enum ConfigCommands {
     Reset,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Clone)]
 pub enum ProfileCommands {
     /// List all profiles
     List,

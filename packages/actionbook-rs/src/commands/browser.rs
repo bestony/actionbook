@@ -9,39 +9,27 @@ use tokio::time::timeout;
 
 #[cfg(feature = "stealth")]
 use crate::browser::apply_stealth_to_page;
+use crate::browser::extension_backend::ExtensionBackend;
 use crate::browser::{
-    build_stealth_profile, discover_all_browsers, extension_bridge, BrowserDriver,
-    stealth_status, SessionManager, SessionStatus, StealthConfig,
+    bridge_lifecycle, build_stealth_profile, discover_all_browsers,
+    BrowserDriver, stealth_status, SessionManager, SessionStatus, StealthConfig,
     ResourceBlockLevel,
 };
-use crate::cli::{BrowserCommands, Cli, CookiesCommands, FingerprintCommands, StorageCommands};
-use crate::config::Config;
+use crate::cli::{BrowserCommands, BrowserMode, Cli, CookiesCommands, FingerprintCommands, StorageCommands};
+use crate::config::{Config, DEFAULT_EXTENSION_PORT};
 use crate::error::{ActionbookError, Result};
 
 /// Send a command (CDP or Extension.*) through the extension bridge.
-/// For CDP methods, auto-attaches the active tab if no tab is currently attached.
+/// Delegates to ExtensionBackend which provides:
+/// - Auto-attach: retries with Extension.attachActiveTab on "No tab attached"
+/// - Connection retry: waits up to 30s for the extension to connect
 async fn extension_send(
     cli: &Cli,
     method: &str,
     params: serde_json::Value,
 ) -> Result<serde_json::Value> {
-    let result = extension_bridge::send_command(cli.extension_port, method, params.clone()).await;
-
-    // Auto-attach: if a CDP method fails because no tab is attached, attach the active tab and retry
-    if let Err(ActionbookError::ExtensionError(ref msg)) = result {
-        if msg.contains("No tab attached") && !method.starts_with("Extension.") {
-            tracing::debug!("Auto-attaching active tab for {}", method);
-            extension_bridge::send_command(
-                cli.extension_port,
-                "Extension.attachActiveTab",
-                serde_json::json!({}),
-            )
-            .await?;
-            return extension_bridge::send_command(cli.extension_port, method, params).await;
-        }
-    }
-
-    result
+    let backend = ExtensionBackend::new(cli.extension_port);
+    backend.send(method, params).await
 }
 
 /// Evaluate JS via the extension bridge and return the result value
@@ -487,7 +475,47 @@ fn has_explicit_scheme(input: &str) -> bool {
     false
 }
 
+/// Resolve effective browser mode.
+/// Priority: --browser-mode > --extension (deprecated) > config.browser.mode
+fn resolve_browser_mode(
+    browser_mode: Option<BrowserMode>,
+    extension_flag: bool,
+    extension_port: u16,
+    config_mode: BrowserMode,
+    config_port: u16,
+) -> (bool, u16) {
+    if browser_mode == Some(BrowserMode::Extension) {
+        let port = if extension_port == DEFAULT_EXTENSION_PORT { config_port } else { extension_port };
+        (true, port)
+    } else if browser_mode == Some(BrowserMode::Isolated) {
+        (false, extension_port)
+    } else if extension_flag {
+        let port = if extension_port == DEFAULT_EXTENSION_PORT { config_port } else { extension_port };
+        (true, port)
+    } else if browser_mode.is_none() && matches!(config_mode, BrowserMode::Extension) {
+        (true, config_port)
+    } else {
+        (false, extension_port)
+    }
+}
+
 pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
+    let mut config = Config::load()?;
+
+    // Resolve effective extension mode.
+    // Priority: --browser-mode > --extension (deprecated) > config.browser.mode
+    let (ext_enabled, ext_port) = resolve_browser_mode(
+        cli.browser_mode, cli.extension, cli.extension_port,
+        config.browser.mode, config.browser.extension.port,
+    );
+    let cli = {
+        let mut effective = cli.clone();
+        effective.extension = ext_enabled;
+        effective.extension_port = ext_port;
+        effective
+    };
+    let cli = &cli;
+
     // --profile is not supported in extension mode: extension operates on the live Chrome profile
     if cli.extension && cli.profile.is_some() {
         return Err(ActionbookError::Other(
@@ -495,8 +523,6 @@ pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
              Remove --profile to use the default profile, or remove --extension to use isolated mode.".to_string()
         ));
     }
-
-    let mut config = Config::load()?;
 
     // Apply CLI overrides (--browser-path, --headless) to the active profile
     if cli.browser_path.is_some() || cli.headless {
@@ -520,6 +546,11 @@ pub async fn run(cli: &Cli, command: &BrowserCommands) -> Result<()> {
     // which has its own CDP resolution logic.
     if !matches!(command, BrowserCommands::Connect { .. }) {
         ensure_cdp_override(cli, &config).await?;
+    }
+
+    // Auto-start extension bridge when in extension mode
+    if cli.extension {
+        bridge_lifecycle::ensure_bridge_running(cli.extension_port).await?;
     }
 
     match command {
@@ -4656,7 +4687,7 @@ mod tests {
     use super::{
         effective_profile_name, is_reusable_initial_blank_page_url, normalize_navigation_url,
     };
-    use crate::cli::{BrowserCommands, Cli, Commands};
+    use crate::cli::{BrowserCommands, BrowserMode, Cli, Commands};
     use crate::config::Config;
     use serde_json::json;
 
@@ -4822,6 +4853,67 @@ mod tests {
         config.browser.default_profile = "team-connect".to_string();
 
         assert_eq!(effective_profile_name(&cli, &config), "team-connect");
+    }
+
+    // --- resolve_browser_mode tests ---
+
+    #[test]
+    fn browser_mode_extension_enables_extension() {
+        let (ext, _port) = super::resolve_browser_mode(
+            Some(BrowserMode::Extension), false, 19222, BrowserMode::Isolated, 19222,
+        );
+        assert!(ext, "--browser-mode=extension should enable extension");
+    }
+
+    #[test]
+    fn browser_mode_isolated_overrides_extension_flag() {
+        let (ext, _port) = super::resolve_browser_mode(
+            Some(BrowserMode::Isolated), true, 19222, BrowserMode::Extension, 19222,
+        );
+        assert!(!ext, "--browser-mode=isolated should override --extension flag");
+    }
+
+    #[test]
+    fn extension_flag_alone_enables_extension() {
+        let (ext, _port) = super::resolve_browser_mode(
+            None, true, 19222, BrowserMode::Isolated, 19222,
+        );
+        assert!(ext, "--extension alone should enable extension");
+    }
+
+    #[test]
+    fn config_extension_mode_activates_when_no_flags() {
+        let (ext, port) = super::resolve_browser_mode(
+            None, false, 19222, BrowserMode::Extension, 18000,
+        );
+        assert!(ext, "Config extension mode should activate when no flags");
+        assert_eq!(port, 18000, "Should use config port");
+    }
+
+    #[test]
+    fn default_stays_isolated() {
+        let (ext, _port) = super::resolve_browser_mode(
+            None, false, 19222, BrowserMode::Isolated, 19222,
+        );
+        assert!(!ext, "Default should stay isolated");
+    }
+
+    #[test]
+    fn custom_cli_port_preserved() {
+        let (ext, port) = super::resolve_browser_mode(
+            Some(BrowserMode::Extension), false, 20000, BrowserMode::Isolated, 19222,
+        );
+        assert!(ext);
+        assert_eq!(port, 20000, "Non-default CLI port should be preserved");
+    }
+
+    #[test]
+    fn default_port_falls_back_to_config_port() {
+        let (ext, port) = super::resolve_browser_mode(
+            Some(BrowserMode::Extension), false, 19222, BrowserMode::Isolated, 18500,
+        );
+        assert!(ext);
+        assert_eq!(port, 18500, "Default port (19222) should fall back to config port");
     }
 
     // Tests for the new CDP Accessibility Tree snapshot formatting are in
