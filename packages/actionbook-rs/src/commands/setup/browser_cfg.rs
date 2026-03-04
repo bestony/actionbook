@@ -384,10 +384,23 @@ async fn configure_extension(cli: &Cli, config: &mut Config) -> Result<()> {
     )?;
 
     if !fallback_ready {
+        println!();
+        println!("  {}", "✖ Extension setup incomplete".red().bold());
+        println!();
+        println!("  Actionbook could not finish installing the Chrome extension.");
+        println!();
+        println!("  You can try one of the following options:");
+        println!();
+        println!("  1) Retry actionbook setup using isolated browser mode (recommended)");
+        println!();
+        println!("     This runs Actionbook in a separate browser environment.");
+        println!();
+        println!("  2) Contact us on Discord");
+        println!();
+        println!("     {}", "https://actionbook.dev/discord".cyan());
+
         return Err(ActionbookError::SetupError(
-            "Extension setup not completed. Please finish installation and re-run actionbook setup. \
-If you don't need your existing Chrome session, switch to isolated mode in setup."
-                .to_string(),
+            "Extension setup incomplete".to_string(),
         ));
     }
 

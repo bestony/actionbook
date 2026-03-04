@@ -9,7 +9,7 @@ use clap::Parser;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use cli::Cli;
-use error::Result;
+use error::{ActionbookError, Result};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -52,7 +52,15 @@ async fn main() -> Result<()> {
                 })
             );
         } else {
-            eprintln!("Error: {}", e);
+            // Some setup flows already print a full user-facing message block.
+            let suppress_default_error_line = matches!(
+                &e,
+                ActionbookError::SetupError(msg)
+                    if msg.trim() == "Extension setup incomplete"
+            );
+            if !suppress_default_error_line {
+                eprintln!("Error: {}", e);
+            }
         }
         std::process::exit(1);
     }
