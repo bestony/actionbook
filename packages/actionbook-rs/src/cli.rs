@@ -178,30 +178,6 @@ pub enum Commands {
         area_id: String,
     },
 
-    /// Execute an action on a specific element within an area
-    Execute {
-        /// Area ID (e.g., "github.com:/login:default")
-        area_id: String,
-
-        /// Element ID within the area
-        element_id: String,
-
-        /// Method to execute (click, fill, type, select, hover, focus)
-        method: String,
-
-        /// Text value for fill/type methods
-        #[arg(long)]
-        text: Option<String>,
-
-        /// Value for select method
-        #[arg(long)]
-        value: Option<String>,
-
-        /// Navigate to the page URL first
-        #[arg(long)]
-        navigate: bool,
-    },
-
     /// List or search sources
     Sources {
         #[command(subcommand)]
@@ -224,37 +200,6 @@ pub enum Commands {
     Extension {
         #[command(subcommand)]
         command: ExtensionCommands,
-    },
-
-    /// Record user browser actions into a scenario file
-    Record {
-        /// URL to navigate to and start recording
-        #[arg(long)]
-        url: String,
-
-        /// Output file path (default: stdout)
-        #[arg(long)]
-        output: Option<String>,
-    },
-
-    /// Replay a recorded scenario file
-    Replay {
-        /// Path to scenario JSON file
-        file: String,
-
-        /// Show steps without executing
-        #[arg(long)]
-        dry_run: bool,
-    },
-
-    /// Validate selectors for an area by testing them in the browser
-    Validate {
-        /// Area ID (e.g., "github.com:/login:default")
-        area_id: String,
-
-        /// Submit validation report to backend API
-        #[arg(long)]
-        report: bool,
     },
 
     /// Initial setup wizard
@@ -1279,32 +1224,6 @@ impl Cli {
             }
             Commands::Get { area_id } => commands::get::run(self, area_id).await,
             Commands::Act { area_id } => commands::act::run(self, area_id).await,
-            Commands::Execute {
-                area_id,
-                element_id,
-                method,
-                text,
-                value,
-                navigate,
-            } => {
-                commands::execute::run(
-                    self,
-                    area_id,
-                    element_id,
-                    method,
-                    text.as_deref(),
-                    value.as_deref(),
-                    *navigate,
-                )
-                .await
-            }
-            Commands::Record { url, output } => {
-                commands::record::run(self, url, output.as_deref()).await
-            }
-            Commands::Replay { file, dry_run } => commands::replay::run(self, file, *dry_run).await,
-            Commands::Validate { area_id, report } => {
-                commands::validate::run(self, area_id, *report).await
-            }
             Commands::Sources { command } => commands::sources::run(self, command).await,
             Commands::Config { command } => commands::config::run(self, command).await,
             Commands::Profile { command } => commands::profile::run(self, command).await,
