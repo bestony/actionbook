@@ -665,6 +665,38 @@ async fn handle_connection(stream: TcpStream, state: Arc<Mutex<BridgeState>>) {
         }
     }
 
+    // For extension clients: only one extension connection at a time.
+    // If an extension is already connected (channel alive), reject the new one
+    // BEFORE sending hello_ack so it never enters "connected" state.
+    // This prevents two extension instances (CWS + dev) from fighting over
+    // the single slot and causing a connect/disconnect loop.
+    //
+    // Same-extension reconnect (SW restart): the old WebSocket closes first,
+    // the bridge handler cleans up extension_tx = None, then the new connection
+    // is accepted on the next retry (~2s).
+    if client_role == "extension" {
+        let mut s = state.lock().await;
+        let has_active = s
+            .extension_tx
+            .as_ref()
+            .map(|tx| !tx.is_closed())
+            .unwrap_or(false);
+
+        if has_active {
+            drop(s);
+            let err_msg = serde_json::json!({
+                "type": "hello_error",
+                "error": "already_connected",
+                "message": "Another extension instance is already connected to the bridge. Only one extension can connect at a time.",
+            });
+            let _ = write
+                .send(Message::Text(err_msg.to_string().into()))
+                .await;
+            return;
+        }
+        drop(s);
+    }
+
     // Send hello_ack to confirm successful authentication
     let ack = serde_json::json!({ "type": "hello_ack", "version": PROTOCOL_VERSION });
     if write
@@ -709,6 +741,14 @@ async fn handle_extension_client(
     let my_connection_id = {
         let mut s = state.lock().await;
         s.connection_id += 1;
+
+        // If there's a stale extension connection (same extension reconnecting
+        // after SW restart — the pre-hello_ack guard already rejected different-
+        // origin connections), clean it up silently.
+        if s.extension_tx.is_some() {
+            tracing::debug!("Replacing stale extension connection (same-origin SW restart)");
+        }
+
         s.extension_tx = Some(tx);
         s.connection_id
     };
