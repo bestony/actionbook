@@ -54,6 +54,7 @@ let retryCount = 0;
 let lastLoggedState = null;
 let handshakeTimer = null;
 let handshakeCompleted = false;
+let wasReplaced = false; // true when bridge notified us another extension instance took over
 
 // L3 confirmation state: pending command waiting for user approval
 let pendingL3 = null; // { id, method, params, domain, nonce, resolve }
@@ -195,6 +196,23 @@ async function connect() {
       return;
     }
 
+    // Handle replaced notification: another extension instance connected to the bridge.
+    // Stop reconnecting to avoid an infinite connect/disconnect loop.
+    if (msg.type === "replaced") {
+      debugLog("[actionbook] Replaced by another extension instance");
+      wasReplaced = true;
+      connectionState = "failed";
+      logStateTransition("failed", "replaced by another extension instance");
+      stopBridgePolling();
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      broadcastState();
+      // Server will close the WebSocket after this message
+      return;
+    }
+
     // Handle hello_error from server (version mismatch, invalid token, etc.)
     if (msg.type === "hello_error") {
       debugLog("[actionbook] Server rejected handshake:", msg.message);
@@ -234,6 +252,14 @@ async function connect() {
       handshakeTimer = null;
     }
 
+    // If we were replaced by another extension instance, stay stopped.
+    if (wasReplaced) {
+      connectionState = "failed";
+      logStateTransition("failed", "replaced by another extension instance");
+      broadcastState();
+      return;
+    }
+
     if (!handshakeCompleted) {
       if (!wsOpened) {
         // Connection never opened - network error (server down, etc.)
@@ -270,6 +296,8 @@ function wsSend(data) {
 }
 
 function scheduleReconnect() {
+  if (wasReplaced) return;
+
   if (reconnectTimer) {
     clearTimeout(reconnectTimer);
   }
@@ -810,6 +838,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "connect") {
     // User-initiated connection from popup
     if (connectionState === "idle" || connectionState === "disconnected" || connectionState === "failed" || connectionState === "pairing_required") {
+      wasReplaced = false;
       retryCount = 0;
       reconnectDelay = RECONNECT_BASE_MS;
       startBridgePolling();
@@ -819,6 +848,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === "retry") {
     // User-initiated retry (reset retry count and reconnect)
+    wasReplaced = false;
     retryCount = 0;
     reconnectDelay = RECONNECT_BASE_MS;
     if (reconnectTimer) {
