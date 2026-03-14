@@ -1,0 +1,128 @@
+---
+title: 'Dify Plugin'
+description: 'Use Actionbook inside Dify workflows and agents'
+---
+
+<Note>
+  The recommended way to get started is the [CLI](/guides/installation). The
+  Dify plugin is an **optional, advanced** integration for teams building
+  workflows and agents inside Dify.
+</Note>
+
+Use this option if you want verified selectors from Actionbook and cloud browser
+automation directly in Dify.
+
+## Included Tools
+
+| Tool | What it does | Best for |
+| --- | --- | --- |
+| `search_actions` | Search Actionbook for verified page areas and selectors | Finding the right element on a site |
+| `get_action_by_area_id` | Fetch the full action manual for a selected area ID | Getting precise CSS, XPath, and ARIA selectors |
+| `browser_create_session` | Start a managed cloud browser session | Opening a browser before multi-step automation |
+| `browser_operator` | Navigate, click, fill, snapshot, and inspect pages | Executing browser steps in a workflow |
+| `browser_stop_session` | Stop the cloud browser session and release resources | Cleanup and profile persistence |
+
+## Installation
+
+<AccordionGroup>
+  <Accordion title="Dify Marketplace">
+    Search for `Actionbook` in the Dify plugin marketplace, then install it in
+    your workspace.
+  </Accordion>
+
+  <Accordion title="Upload a release package">
+    1. Download the latest `.difypkg` from the
+    [Actionbook releases](https://github.com/actionbook/actionbook/releases?q=actionbook-dify-plugin)
+    page.
+    2. Open your Dify instance and go to `Plugins`.
+    3. Upload the package and enable the plugin for your workspace.
+  </Accordion>
+
+  <Accordion title="Build the package from source">
+    ```bash
+    cd packages/dify-plugin
+    uv sync
+    uv run dify plugin package . --output_path dist/actionbook.difypkg
+    ```
+
+    Then upload `dist/actionbook.difypkg` in Dify.
+  </Accordion>
+</AccordionGroup>
+
+## Requirements
+
+- `search_actions` and `get_action_by_area_id` call the Actionbook API and work
+  without an extra Actionbook credential in the current plugin flow.
+- `browser_create_session`, `browser_operator`, and `browser_stop_session`
+  require a Hyperbrowser API key.
+- Reuse the same `profile_id` in `browser_create_session` when you want cookies
+  and login state to persist across runs.
+
+## Recommended Workflow
+
+The most reliable Dify flow is:
+
+1. `search_actions` to find a relevant page area.
+2. `get_action_by_area_id` to retrieve the full selector manual.
+3. `browser_create_session` to start a cloud browser session.
+4. `browser_operator` for navigation and page interaction.
+5. `browser_stop_session` to release the session when the workflow finishes.
+
+Example sequence:
+
+```text
+search_actions(query="github login", domain="github.com")
+get_action_by_area_id(area_id="github.com:login:email-input")
+
+browser_create_session(
+  api_key="hb-...",
+  profile_id="user-42"
+)
+
+browser_operator(
+  session_id="<session_id>",
+  cdp_url="<ws_endpoint>",
+  action="navigate",
+  url="https://github.com/login"
+)
+
+browser_operator(
+  session_id="<session_id>",
+  cdp_url="<ws_endpoint>",
+  action="snapshot"
+)
+
+browser_stop_session(session_id="<session_id>")
+```
+
+<Tip>
+  For `browser_operator`, pass both `session_id` and `cdp_url` on each call.
+  The plugin explicitly recommends using the `ws_endpoint` returned by
+  `browser_create_session` as `cdp_url` for better recovery.
+</Tip>
+
+## Browser Operator Tips
+
+- Use `fill` for form inputs when possible. It clears and writes the value in a
+  single step.
+- Use `snapshot` after navigation, after major page changes, or whenever a
+  selector fails.
+- Snapshot responses include accessibility refs like `[ref=e3]`; these are often
+  the most reliable selectors for follow-up `click` and `fill` calls.
+- Always call `browser_stop_session` at the end of the workflow to avoid
+  unnecessary browser billing.
+
+## Dify Cloud Caveats
+
+<Warning>
+  Dify Cloud may block or proxy outbound requests to `api.actionbook.dev` or the
+  Hyperbrowser API. In the plugin codebase, this is handled as SSRF-style empty
+  responses, connection failures, or timeouts. If that happens, use Dify
+  Self-hosted for more reliable external network access.
+</Warning>
+
+Common symptoms:
+
+- `search_actions` or `get_action_by_area_id` returns an empty response.
+- Browser session creation fails with a network or connectivity error.
+- Requests to Actionbook time out even though the target service is healthy.

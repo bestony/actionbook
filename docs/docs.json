@@ -33,6 +33,7 @@
               "examples",
               "guides/mcp-server",
               "guides/sdk-integration",
+              "guides/dify-plugin",
               "community/contributing"
             ]
           }
