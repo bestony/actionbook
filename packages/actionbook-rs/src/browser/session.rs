@@ -289,6 +289,14 @@ impl SessionManager {
         }
     }
 
+    /// Whether the saved session for a profile requires custom WS headers.
+    pub fn session_has_ws_headers(&self, profile_name: Option<&str>) -> bool {
+        let profile_name = self.resolve_profile_name(profile_name);
+        self.load_session_state(&profile_name)
+            .and_then(|state| state.ws_headers)
+            .is_some_and(|headers| !headers.is_empty())
+    }
+
     /// Probe a WebSocket endpoint to check if it's reachable and auth succeeds.
     /// Returns true on successful handshake, false on any error or timeout.
     pub async fn is_websocket_reachable(
@@ -962,7 +970,7 @@ impl SessionManager {
         });
 
         let result = self
-            .send_cdp_command(Some(&profile_name), "Target.createTarget", params)
+            .send_browser_command(Some(&profile_name), "Target.createTarget", params)
             .await?;
         let target_id = result
             .get("targetId")
@@ -1248,6 +1256,37 @@ impl SessionManager {
         .await
     }
 
+    async fn send_browser_command(
+        &self,
+        profile_name: Option<&str>,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let resolved_profile = self.resolve_profile_name(profile_name);
+
+        #[cfg(unix)]
+        {
+            if let Some(result) = self
+                .try_send_via_daemon(&resolved_profile, method, params.clone())
+                .await
+            {
+                return result;
+            }
+        }
+
+        let state = self
+            .load_session_state(&resolved_profile)
+            .ok_or(ActionbookError::BrowserNotRunning)?;
+
+        self.send_browser_command_over_ws(
+            &state.cdp_url,
+            method,
+            params,
+            state.ws_headers.as_ref(),
+        )
+        .await
+    }
+
     /// Try to send a CDP command through the daemon for this profile.
     ///
     /// Only attempts daemon routing when `daemon_enabled` is true AND the daemon
@@ -1481,6 +1520,49 @@ impl SessionManager {
                 Ok(tokio_tungstenite::tungstenite::Message::Text(text)) => {
                     let response: serde_json::Value = serde_json::from_str(text.as_str())?;
                     if response.get("id") == Some(&serde_json::json!(2)) {
+                        if let Some(error) = response.get("error") {
+                            return Err(ActionbookError::Other(format!("CDP error: {}", error)));
+                        }
+                        return Ok(response
+                            .get("result")
+                            .cloned()
+                            .unwrap_or(serde_json::Value::Null));
+                    }
+                }
+                Ok(_) => continue,
+                Err(e) => return Err(ActionbookError::Other(format!("WebSocket error: {}", e))),
+            }
+        }
+
+        Err(ActionbookError::Other("No response received".to_string()))
+    }
+
+    async fn send_browser_command_over_ws(
+        &self,
+        browser_ws_url: &str,
+        method: &str,
+        params: serde_json::Value,
+        headers: Option<&std::collections::HashMap<String, String>>,
+    ) -> Result<serde_json::Value> {
+        let mut ws = Self::connect_ws_with_headers(browser_ws_url, headers).await?;
+
+        let cmd = serde_json::json!({
+            "id": 1,
+            "method": method,
+            "params": params
+        });
+
+        ws.send(tokio_tungstenite::tungstenite::Message::Text(
+            cmd.to_string().into(),
+        ))
+        .await
+        .map_err(|e| ActionbookError::Other(format!("Failed to send command: {}", e)))?;
+
+        while let Some(msg) = ws.next().await {
+            match msg {
+                Ok(tokio_tungstenite::tungstenite::Message::Text(text)) => {
+                    let response: serde_json::Value = serde_json::from_str(text.as_str())?;
+                    if response.get("id") == Some(&serde_json::json!(1)) {
                         if let Some(error) = response.get("error") {
                             return Err(ActionbookError::Other(format!("CDP error: {}", error)));
                         }

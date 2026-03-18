@@ -184,6 +184,9 @@ mod sources_command {
 
 mod browser_command {
     use super::*;
+    use futures::{SinkExt, StreamExt};
+    use serial_test::serial;
+    use std::time::Duration;
 
     fn setup_config(default_profile: &str) -> (tempfile::TempDir, String, String, String) {
         let tmp = tempfile::tempdir().unwrap();
@@ -230,6 +233,134 @@ default_profile = "{}"
             config_home.to_string_lossy().to_string(),
             data_home.to_string_lossy().to_string(),
         )
+    }
+
+    fn write_session_state(home: &str, profile: &str, cdp_url: &str) {
+        let sessions_dir = std::path::Path::new(home)
+            .join(".actionbook")
+            .join("sessions");
+        fs::create_dir_all(&sessions_dir).unwrap();
+        let state = serde_json::json!({
+            "profile_name": profile,
+            "cdp_port": 9222,
+            "pid": serde_json::Value::Null,
+            "cdp_url": cdp_url,
+            "active_page_id": "page-1",
+            "ws_headers": {
+                "x-test-auth": "secret"
+            }
+        });
+        fs::write(
+            sessions_dir.join(format!("{profile}.json")),
+            serde_json::to_vec_pretty(&state).unwrap(),
+        )
+        .unwrap();
+    }
+
+    fn spawn_remote_cdp_server() -> (u16, std::thread::JoinHandle<()>) {
+        let (tx, rx) = std::sync::mpsc::channel();
+
+        let handle = std::thread::spawn(move || {
+            let runtime = tokio::runtime::Runtime::new().unwrap();
+            runtime.block_on(async move {
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                tx.send(listener.local_addr().unwrap().port()).unwrap();
+
+                let mut pages = vec![serde_json::json!({
+                    "targetId": "page-1",
+                    "type": "page",
+                    "title": "Existing Page",
+                    "url": "https://existing.example",
+                })];
+                let mut next_page_id = 2usize;
+
+                loop {
+                    let accepted =
+                        tokio::time::timeout(Duration::from_secs(2), listener.accept()).await;
+                    let Ok(Ok((stream, _))) = accepted else {
+                        break;
+                    };
+
+                    let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
+
+                    while let Some(message) = ws.next().await {
+                        let message = match message {
+                            Ok(tokio_tungstenite::tungstenite::Message::Text(text)) => text,
+                            Ok(tokio_tungstenite::tungstenite::Message::Close(_)) => break,
+                            Ok(_) => continue,
+                            Err(_) => break,
+                        };
+
+                        let request: serde_json::Value =
+                            serde_json::from_str(message.as_str()).unwrap();
+                        let method = request
+                            .get("method")
+                            .and_then(|value| value.as_str())
+                            .unwrap_or("");
+
+                        let response = match method {
+                            "Target.getTargets" => serde_json::json!({
+                                "id": request.get("id").cloned().unwrap_or_else(|| serde_json::json!(1)),
+                                "result": {
+                                    "targetInfos": pages.clone()
+                                }
+                            }),
+                            "Target.attachToTarget" => serde_json::json!({
+                                "id": request.get("id").cloned().unwrap_or_else(|| serde_json::json!(1)),
+                                "result": {
+                                    "sessionId": "session-1"
+                                }
+                            }),
+                            "Target.createTarget" => {
+                                if request.get("sessionId").is_some() {
+                                    serde_json::json!({
+                                        "id": request.get("id").cloned().unwrap_or_else(|| serde_json::json!(2)),
+                                        "error": {
+                                            "message": "Target.createTarget must be sent without sessionId"
+                                        }
+                                    })
+                                } else {
+                                    let new_page_id = format!("page-{}", next_page_id);
+                                    next_page_id += 1;
+                                    let url = request
+                                        .get("params")
+                                        .and_then(|params| params.get("url"))
+                                        .and_then(|value| value.as_str())
+                                        .unwrap_or("about:blank")
+                                        .to_string();
+                                    pages.push(serde_json::json!({
+                                        "targetId": new_page_id,
+                                        "type": "page",
+                                        "title": "Opened Page",
+                                        "url": url,
+                                    }));
+                                    serde_json::json!({
+                                        "id": request.get("id").cloned().unwrap_or_else(|| serde_json::json!(2)),
+                                        "result": {
+                                            "targetId": format!("page-{}", next_page_id - 1)
+                                        }
+                                    })
+                                }
+                            }
+                            _ => serde_json::json!({
+                                "id": request.get("id").cloned().unwrap_or_else(|| serde_json::json!(1)),
+                                "error": {
+                                    "message": format!("unsupported method: {method}")
+                                }
+                            }),
+                        };
+
+                        ws.send(tokio_tungstenite::tungstenite::Message::Text(
+                            response.to_string().into(),
+                        ))
+                        .await
+                        .unwrap();
+                    }
+                }
+            });
+        });
+
+        (rx.recv().unwrap(), handle)
     }
 
     // ── Subcommand requirement ──────────────────────────────────────
@@ -815,6 +946,27 @@ default_profile = "{}"
             .assert()
             .failure()
             .stdout(predicate::str::contains("\"profile\":\"cli-profile\""));
+    }
+
+    #[test]
+    #[serial]
+    fn browser_open_reuses_connected_remote_session_with_headers() {
+        let (_tmp, home, config_home, data_home) = setup_config("team");
+        let (port, server) = spawn_remote_cdp_server();
+        let ws_url = format!("ws://127.0.0.1:{port}/automation");
+        write_session_state(&home, "team", &ws_url);
+
+        actionbook()
+            .env("HOME", &home)
+            .env("XDG_CONFIG_HOME", &config_home)
+            .env("XDG_DATA_HOME", &data_home)
+            .args(["--no-daemon", "browser", "open", "https://example.com"])
+            .timeout(Duration::from_secs(10))
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("https://example.com"));
+
+        server.join().unwrap();
     }
 
     // ── Cross-cutting flags ─────────────────────────────────────────

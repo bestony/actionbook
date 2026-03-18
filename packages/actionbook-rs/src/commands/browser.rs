@@ -1025,10 +1025,6 @@ pub(crate) async fn open(cli: &Cli, config: &Config, url: &str) -> Result<()> {
 
     let session_manager = create_session_manager(cli, config);
     let profile_arg = effective_profile_arg(cli, config);
-    let (browser, mut handler) = session_manager.get_or_create_session(profile_arg).await?;
-
-    // Spawn handler in background
-    tokio::spawn(async move { while handler.next().await.is_some() {} });
 
     if let Some(title) =
         match try_open_on_initial_blank_page(&session_manager, profile_arg, &normalized_url).await
@@ -1056,42 +1052,66 @@ pub(crate) async fn open(cli: &Cli, config: &Config, url: &str) -> Result<()> {
         return Ok(());
     }
 
-    // Navigate to URL with timeout (30 seconds for page creation)
-    let page = match timeout(Duration::from_secs(30), browser.new_page(&normalized_url)).await {
-        Ok(Ok(page)) => page,
-        Ok(Err(e)) => {
-            return Err(ActionbookError::Other(format!(
-                "Failed to open page: {}",
-                e
-            )));
-        }
-        Err(_) => {
-            return Err(ActionbookError::Timeout(format!(
-                "Page load timed out after 30 seconds: {}",
-                normalized_url
-            )));
-        }
-    };
+    let use_driver_new_page = session_manager.session_has_ws_headers(profile_arg);
 
-    // Apply stealth profile if enabled
-    #[cfg(feature = "stealth")]
-    if cli.stealth {
-        let stealth_profile =
-            build_stealth_profile(cli.stealth_os.as_deref(), cli.stealth_gpu.as_deref());
-        if let Err(e) = apply_stealth_to_page(&page, &stealth_profile).await {
-            tracing::warn!("Failed to apply stealth profile: {}", e);
-        } else {
-            tracing::info!("Applied stealth profile to page");
+    let title = if use_driver_new_page {
+        let mut driver = create_browser_driver(cli, config).await?;
+        driver.new_page(Some(&normalized_url)).await?;
+
+        let _ = wait_for_document_complete(&session_manager, profile_arg, 30_000).await;
+
+        match timeout(
+            Duration::from_secs(5),
+            session_manager.eval_on_page(profile_arg, "document.title"),
+        )
+        .await
+        {
+            Ok(Ok(value)) => value.as_str().unwrap_or("").to_string(),
+            _ => String::new(),
         }
-    }
+    } else {
+        let (browser, mut handler) = session_manager.get_or_create_session(profile_arg).await?;
 
-    // Wait for page to fully load (additional 30 seconds)
-    let _ = timeout(Duration::from_secs(30), page.wait_for_navigation()).await;
+        // Spawn handler in background
+        tokio::spawn(async move { while handler.next().await.is_some() {} });
 
-    // Get page title with timeout
-    let title = match timeout(Duration::from_secs(5), page.get_title()).await {
-        Ok(Ok(Some(t))) => t,
-        _ => String::new(),
+        // Navigate to URL with timeout (30 seconds for page creation)
+        let page = match timeout(Duration::from_secs(30), browser.new_page(&normalized_url)).await {
+            Ok(Ok(page)) => page,
+            Ok(Err(e)) => {
+                return Err(ActionbookError::Other(format!(
+                    "Failed to open page: {}",
+                    e
+                )));
+            }
+            Err(_) => {
+                return Err(ActionbookError::Timeout(format!(
+                    "Page load timed out after 30 seconds: {}",
+                    normalized_url
+                )));
+            }
+        };
+
+        // Apply stealth profile if enabled
+        #[cfg(feature = "stealth")]
+        if cli.stealth {
+            let stealth_profile =
+                build_stealth_profile(cli.stealth_os.as_deref(), cli.stealth_gpu.as_deref());
+            if let Err(e) = apply_stealth_to_page(&page, &stealth_profile).await {
+                tracing::warn!("Failed to apply stealth profile: {}", e);
+            } else {
+                tracing::info!("Applied stealth profile to page");
+            }
+        }
+
+        // Wait for page to fully load (additional 30 seconds)
+        let _ = timeout(Duration::from_secs(30), page.wait_for_navigation()).await;
+
+        // Get page title with timeout
+        match timeout(Duration::from_secs(5), page.get_title()).await {
+            Ok(Ok(Some(t))) => t,
+            _ => String::new(),
+        }
     };
 
     if cli.json {
@@ -1104,7 +1124,11 @@ pub(crate) async fn open(cli: &Cli, config: &Config, url: &str) -> Result<()> {
             })
         );
     } else {
-        println!("{} {}", "✓".green(), title.bold());
+        if title.is_empty() {
+            println!("{} Opened new tab", "✓".green());
+        } else {
+            println!("{} {}", "✓".green(), title.bold());
+        }
         println!("  {}", normalized_url.dimmed());
     }
 
