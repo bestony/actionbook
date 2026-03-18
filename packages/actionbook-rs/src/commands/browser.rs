@@ -5377,6 +5377,7 @@ mod tests {
     use super::{
         effective_profile_name, is_reusable_initial_blank_page_url, normalize_navigation_url,
     };
+    use crate::browser::BrowserDriver;
     use crate::cli::{BrowserCommands, BrowserMode, Cli, Commands};
     use crate::config::Config;
 
@@ -5647,6 +5648,24 @@ mod tests {
                 );
             }
             Ok(_) => panic!("Expected error for unknown profile without --cdp"),
+        }
+    }
+
+    #[tokio::test]
+    async fn create_browser_driver_propagates_stealth_config_to_cdp_backend() {
+        let mut cli = test_cli(Some("adhoc-test-profile"), BrowserCommands::Status);
+        cli.cdp = Some("9999".to_string());
+        cli.browser_mode = Some(BrowserMode::Isolated);
+        cli.stealth = true;
+        let config = Config::default();
+
+        let driver = super::create_browser_driver(&cli, &config).await.unwrap();
+        match driver {
+            BrowserDriver::Cdp(session_manager) => {
+                assert!(session_manager.is_stealth_enabled());
+            }
+            #[cfg(feature = "camoufox")]
+            _ => panic!("Expected CDP backend"),
         }
     }
 }

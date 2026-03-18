@@ -186,6 +186,7 @@ mod browser_command {
     use super::*;
     use futures::{SinkExt, StreamExt};
     use serial_test::serial;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     fn setup_config(default_profile: &str) -> (tempfile::TempDir, String, String, String) {
@@ -257,8 +258,11 @@ default_profile = "{}"
         .unwrap();
     }
 
-    fn spawn_remote_cdp_server() -> (u16, std::thread::JoinHandle<()>) {
+    fn spawn_remote_cdp_server(
+    ) -> (u16, Arc<Mutex<Vec<serde_json::Value>>>, std::thread::JoinHandle<()>) {
         let (tx, rx) = std::sync::mpsc::channel();
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let server_requests = Arc::clone(&requests);
 
         let handle = std::thread::spawn(move || {
             let runtime = tokio::runtime::Runtime::new().unwrap();
@@ -293,6 +297,7 @@ default_profile = "{}"
 
                         let request: serde_json::Value =
                             serde_json::from_str(message.as_str()).unwrap();
+                        server_requests.lock().unwrap().push(request.clone());
                         let method = request
                             .get("method")
                             .and_then(|value| value.as_str())
@@ -342,6 +347,34 @@ default_profile = "{}"
                                     })
                                 }
                             }
+                            "Page.addScriptToEvaluateOnNewDocument" => serde_json::json!({
+                                "id": request.get("id").cloned().unwrap_or_else(|| serde_json::json!(2)),
+                                "result": {
+                                    "identifier": "stealth-script"
+                                }
+                            }),
+                            "Runtime.evaluate" => {
+                                let expression = request
+                                    .get("params")
+                                    .and_then(|params| params.get("expression"))
+                                    .and_then(|value| value.as_str())
+                                    .unwrap_or("");
+                                let value = if expression.contains("document.readyState") {
+                                    serde_json::json!("complete")
+                                } else if expression.contains("document.title") {
+                                    serde_json::json!("Opened Page")
+                                } else {
+                                    serde_json::Value::Null
+                                };
+                                serde_json::json!({
+                                    "id": request.get("id").cloned().unwrap_or_else(|| serde_json::json!(2)),
+                                    "result": {
+                                        "result": {
+                                            "value": value
+                                        }
+                                    }
+                                })
+                            }
                             _ => serde_json::json!({
                                 "id": request.get("id").cloned().unwrap_or_else(|| serde_json::json!(1)),
                                 "error": {
@@ -360,7 +393,7 @@ default_profile = "{}"
             });
         });
 
-        (rx.recv().unwrap(), handle)
+        (rx.recv().unwrap(), requests, handle)
     }
 
     // ── Subcommand requirement ──────────────────────────────────────
@@ -952,7 +985,7 @@ default_profile = "{}"
     #[serial]
     fn browser_open_reuses_connected_remote_session_with_headers() {
         let (_tmp, home, config_home, data_home) = setup_config("team");
-        let (port, server) = spawn_remote_cdp_server();
+        let (port, _requests, server) = spawn_remote_cdp_server();
         let ws_url = format!("ws://127.0.0.1:{port}/automation");
         write_session_state(&home, "team", &ws_url);
 
@@ -967,6 +1000,48 @@ default_profile = "{}"
             .stdout(predicate::str::contains("https://example.com"));
 
         server.join().unwrap();
+    }
+
+    #[cfg(feature = "stealth")]
+    #[test]
+    #[serial]
+    fn browser_open_remote_session_with_headers_preserves_stealth() {
+        let (_tmp, home, config_home, data_home) = setup_config("team");
+        let (port, requests, server) = spawn_remote_cdp_server();
+        let ws_url = format!("ws://127.0.0.1:{port}/automation");
+        write_session_state(&home, "team", &ws_url);
+
+        actionbook()
+            .env("HOME", &home)
+            .env("XDG_CONFIG_HOME", &config_home)
+            .env("XDG_DATA_HOME", &data_home)
+            .args([
+                "--no-daemon",
+                "--stealth",
+                "browser",
+                "open",
+                "https://example.com",
+            ])
+            .timeout(Duration::from_secs(10))
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("https://example.com"));
+
+        server.join().unwrap();
+
+        let requests = requests.lock().unwrap();
+        assert!(requests.iter().any(|request| {
+            request.get("method").and_then(|value| value.as_str())
+                == Some("Page.addScriptToEvaluateOnNewDocument")
+        }));
+        assert!(requests.iter().any(|request| {
+            request.get("method").and_then(|value| value.as_str()) == Some("Runtime.evaluate")
+                && request
+                    .get("params")
+                    .and_then(|params| params.get("expression"))
+                    .and_then(|value| value.as_str())
+                    .is_some_and(|expression| expression.contains("navigator, 'webdriver'"))
+        }));
     }
 
     // ── Cross-cutting flags ─────────────────────────────────────────

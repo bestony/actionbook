@@ -101,6 +101,21 @@ fn derive_page_ws_url(browser_ws_url: &str, target_id: &str) -> Option<String> {
     Some(format!("{}/devtools/page/{}", prefix, target_id))
 }
 
+fn format_page_load_timeout(timeout: Duration, url: &str) -> String {
+    let timeout_text = if timeout.as_secs() >= 1 {
+        let secs = timeout.as_secs();
+        if secs == 1 {
+            "1 second".to_string()
+        } else {
+            format!("{} seconds", secs)
+        }
+    } else {
+        format!("{}ms", timeout.as_millis())
+    };
+
+    format!("Page load timed out after {}: {}", timeout_text, url)
+}
+
 /// Manages browser sessions across CLI invocations
 pub struct SessionManager {
     config: Config,
@@ -647,6 +662,34 @@ impl SessionManager {
         tracing::info!("Stealth JS overrides applied");
     }
 
+    #[cfg(feature = "stealth")]
+    async fn apply_stealth_to_active_page(&self, profile_name: Option<&str>) -> Result<()> {
+        let Some(profile) = self.get_stealth_profile() else {
+            return Ok(());
+        };
+
+        let script = super::stealth::build_stealth_script(profile);
+
+        self.send_cdp_command(
+            profile_name,
+            "Page.addScriptToEvaluateOnNewDocument",
+            serde_json::json!({ "source": script.clone() }),
+        )
+        .await?;
+
+        self.send_cdp_command(
+            profile_name,
+            "Runtime.evaluate",
+            serde_json::json!({
+                "expression": script,
+                "returnByValue": true
+            }),
+        )
+        .await?;
+
+        Ok(())
+    }
+
     /// Inject stealth JS into a specific page via its WebSocket URL
     async fn inject_stealth_to_page(&self, ws_url: &str, js: &str) -> Result<()> {
         use futures::SinkExt;
@@ -962,16 +1005,38 @@ impl SessionManager {
         profile_name: Option<&str>,
         url: Option<&str>,
     ) -> Result<PageInfo> {
+        self.new_page_with_timeout(profile_name, url, Duration::from_secs(30))
+            .await
+    }
+
+    async fn new_page_with_timeout(
+        &self,
+        profile_name: Option<&str>,
+        url: Option<&str>,
+        create_target_timeout: Duration,
+    ) -> Result<PageInfo> {
         let profile_name = self.resolve_profile_name(profile_name);
+        let page_url = url.unwrap_or("about:blank");
 
         // Send CDP command Target.createTarget
         let params = serde_json::json!({
-            "url": url.unwrap_or("about:blank")
+            "url": page_url
         });
 
-        let result = self
-            .send_browser_command(Some(&profile_name), "Target.createTarget", params)
-            .await?;
+        let result = match tokio::time::timeout(
+            create_target_timeout,
+            self.send_browser_command(Some(&profile_name), "Target.createTarget", params),
+        )
+        .await
+        {
+            Ok(result) => result?,
+            Err(_) => {
+                return Err(ActionbookError::Timeout(format_page_load_timeout(
+                    create_target_timeout,
+                    page_url,
+                )));
+            }
+        };
         let target_id = result
             .get("targetId")
             .and_then(|v| v.as_str())
@@ -990,6 +1055,15 @@ impl SessionManager {
         // Auto-switch to newly created page
         self.switch_to_page(Some(&profile_name), &new_page.id)
             .await?;
+
+        #[cfg(feature = "stealth")]
+        if self.is_stealth_enabled() {
+            if let Err(e) = self.apply_stealth_to_active_page(Some(&profile_name)).await {
+                tracing::warn!("Failed to apply stealth profile: {}", e);
+            } else {
+                tracing::info!("Applied stealth profile to page");
+            }
+        }
 
         Ok(new_page)
     }
@@ -4543,6 +4617,55 @@ mod tests {
 
         ws_server.await.unwrap();
         http_server.await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn new_page_times_out_when_browser_ws_never_replies() {
+        let dir = tempfile::tempdir().unwrap();
+        let sm = test_session_manager(dir.path());
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+
+        let server = tokio::spawn(async move {
+            let (stream, _) = listener.accept().await.unwrap();
+            let mut ws = tokio_tungstenite::accept_async(stream).await.unwrap();
+
+            while let Some(msg) = ws.next().await {
+                let msg = msg.unwrap();
+                if let tokio_tungstenite::tungstenite::Message::Text(text) = msg {
+                    let req: serde_json::Value = serde_json::from_str(text.as_str()).unwrap();
+                    if req.get("method").and_then(|m| m.as_str()) == Some("Target.createTarget") {
+                        tokio::time::sleep(Duration::from_millis(200)).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        let mut headers = std::collections::HashMap::new();
+        headers.insert("x-test-auth".to_string(), "secret".to_string());
+        let remote_ws = format!("ws://127.0.0.1:{port}/automation");
+        sm.save_external_session_full("remote-timeout", 9222, &remote_ws, None, Some(headers))
+            .unwrap();
+
+        let err = sm
+            .new_page_with_timeout(
+                Some("remote-timeout"),
+                Some("https://example.com"),
+                Duration::from_millis(50),
+            )
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            ActionbookError::Timeout(msg)
+                if msg.contains("Page load timed out")
+                    && msg.contains("https://example.com")
+        ));
+
+        server.await.unwrap();
     }
 
     #[tokio::test]
