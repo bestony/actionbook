@@ -207,11 +207,7 @@ fn main() {
         + password_type_time
         + submit_move_time;
 
-    println!(
-        "\n📈 Total interaction time: {}ms ({:.1}s)",
-        total_time,
-        total_time as f64 / 1000.0
-    );
+    println!("\n📈 Total interaction simulation completed.");
 
     println!("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     println!("✅ All demonstrations completed!\n");
