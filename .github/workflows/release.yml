@@ -156,8 +156,9 @@ jobs:
         if: steps.publish.outputs.has_published == 'true'
         env:
           WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PUBLISHED_LIST: ${{ steps.publish.outputs.published_list }}
         run: |
-          DESCRIPTION="The following packages have been published to npm:\n\n${{ steps.publish.outputs.published_list }}"
+          DESCRIPTION="The following packages have been published to npm:\n\n${PUBLISHED_LIST}"
           PAYLOAD=$(jq -n \
             --arg desc "$DESCRIPTION" \
             '{
