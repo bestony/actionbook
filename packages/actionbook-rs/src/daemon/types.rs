@@ -97,7 +97,7 @@ impl FromStr for WindowId {
 // ---------------------------------------------------------------------------
 
 /// Browser connection mode, determining which [`BrowserBackend`] to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Mode {
     /// Launch and control a local Chrome process via CDP over `ws://127.0.0.1`.
@@ -114,6 +114,78 @@ impl fmt::Display for Mode {
             Mode::Local => write!(f, "local"),
             Mode::Extension => write!(f, "extension"),
             Mode::Cloud => write!(f, "cloud"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// QueryMode
+// ---------------------------------------------------------------------------
+
+/// Query mode for element search.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMode {
+    /// CSS selector query.
+    Css,
+    /// XPath query.
+    Xpath,
+    /// Text content search.
+    Text,
+}
+
+impl fmt::Display for QueryMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            QueryMode::Css => write!(f, "css"),
+            QueryMode::Xpath => write!(f, "xpath"),
+            QueryMode::Text => write!(f, "text"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// StorageKind
+// ---------------------------------------------------------------------------
+
+/// Web storage type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StorageKind {
+    /// `window.localStorage`
+    Local,
+    /// `window.sessionStorage`
+    Session,
+}
+
+impl fmt::Display for StorageKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            StorageKind::Local => write!(f, "local"),
+            StorageKind::Session => write!(f, "session"),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SameSite
+// ---------------------------------------------------------------------------
+
+/// Cookie SameSite attribute.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub enum SameSite {
+    Strict,
+    Lax,
+    None,
+}
+
+impl fmt::Display for SameSite {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            SameSite::Strict => write!(f, "Strict"),
+            SameSite::Lax => write!(f, "Lax"),
+            SameSite::None => write!(f, "None"),
         }
     }
 }

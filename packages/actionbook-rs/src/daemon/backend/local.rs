@@ -19,7 +19,7 @@ use super::types::*;
 use super::{BackendSession, BrowserBackendFactory};
 use crate::browser::cdp_types::CdpResponse;
 use crate::browser::launcher::BrowserLauncher;
-use crate::daemon_v2::backend_op::BackendOp;
+use crate::daemon::backend_op::BackendOp;
 use crate::error::{ActionbookError, Result};
 
 /// Type alias for the WebSocket stream used by local backend.
@@ -90,7 +90,9 @@ impl BrowserBackendFactory for LocalBackendFactory {
                     target_id: page_target.target_id.clone(),
                     url: url.clone(),
                 };
-                let _ = session.exec(op).await;
+                if let Err(e) = session.exec(op).await {
+                    tracing::warn!(url, "failed to navigate to open_url: {e}");
+                }
             }
         }
 
@@ -272,15 +274,24 @@ impl BackendSession for LocalBackendSession {
             .unwrap_or_else(|_| reqwest::Client::new());
 
         match client.get(&url).send().await {
-            Ok(resp) => {
-                let info: serde_json::Value = resp.json().await.unwrap_or_default();
-                let version = info["Browser"].as_str().map(|s| s.to_string());
-                Ok(Health {
-                    connected: true,
-                    browser_version: version,
-                    uptime_secs: None,
-                })
-            }
+            Ok(resp) => match resp.json::<serde_json::Value>().await {
+                Ok(info) => {
+                    let version = info["Browser"].as_str().map(|s| s.to_string());
+                    Ok(Health {
+                        connected: true,
+                        browser_version: version,
+                        uptime_secs: None,
+                    })
+                }
+                Err(e) => {
+                    tracing::debug!("health check: failed to parse JSON: {e}");
+                    Ok(Health {
+                        connected: false,
+                        browser_version: None,
+                        uptime_secs: None,
+                    })
+                }
+            },
             Err(_) => Ok(Health {
                 connected: false,
                 browser_version: None,
@@ -603,15 +614,31 @@ fn op_to_cdp(op: &BackendOp) -> (&'static str, serde_json::Value) {
             value,
             domain,
             path,
-        } => (
-            "Network.setCookie",
-            serde_json::json!({
+            secure,
+            http_only,
+            same_site,
+            expires,
+        } => {
+            let mut params = serde_json::json!({
                 "name": name,
                 "value": value,
                 "domain": domain,
                 "path": path,
-            }),
-        ),
+            });
+            if let Some(s) = secure {
+                params["secure"] = serde_json::json!(s);
+            }
+            if let Some(h) = http_only {
+                params["httpOnly"] = serde_json::json!(h);
+            }
+            if let Some(ss) = same_site {
+                params["sameSite"] = serde_json::json!(ss);
+            }
+            if let Some(e) = expires {
+                params["expires"] = serde_json::json!(e);
+            }
+            ("Network.setCookie", params)
+        }
         BackendOp::GetTargets => (
             "Target.getTargets",
             serde_json::json!({}),
@@ -630,6 +657,47 @@ fn op_to_cdp(op: &BackendOp) -> (&'static str, serde_json::Value) {
         BackendOp::CloseTarget { target_id } => (
             "Target.closeTarget",
             serde_json::json!({ "targetId": target_id }),
+        ),
+        BackendOp::DeleteCookies {
+            target_id: _,
+            name,
+            domain,
+            path,
+        } => {
+            let mut params = serde_json::json!({ "name": name });
+            if let Some(d) = domain {
+                params["domain"] = serde_json::json!(d);
+            }
+            if let Some(p) = path {
+                params["path"] = serde_json::json!(p);
+            }
+            ("Network.deleteCookies", params)
+        }
+        BackendOp::GetNodeForLocation {
+            target_id: _,
+            x,
+            y,
+        } => (
+            "DOM.getNodeForLocation",
+            serde_json::json!({ "x": x, "y": y }),
+        ),
+        BackendOp::DomFocus {
+            target_id: _,
+            node_id,
+        } => (
+            "DOM.focus",
+            serde_json::json!({ "nodeId": node_id }),
+        ),
+        BackendOp::SetFileInputFiles {
+            target_id: _,
+            node_id,
+            files,
+        } => (
+            "DOM.setFileInputFiles",
+            serde_json::json!({
+                "nodeId": node_id,
+                "files": files,
+            }),
         ),
     }
 }
@@ -818,6 +886,10 @@ mod tests {
             value: "abc123".into(),
             domain: ".example.com".into(),
             path: "/".into(),
+            secure: None,
+            http_only: None,
+            same_site: None,
+            expires: None,
         };
         let (method, params) = op_to_cdp(&op);
         assert_eq!(method, "Network.setCookie");
