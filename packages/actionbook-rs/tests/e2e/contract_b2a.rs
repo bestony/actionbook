@@ -37,7 +37,7 @@ fn start_session() -> (String, String) {
         .to_string();
     let tab_id = json["data"]["tabs"][0]["tab_id"]
         .as_str()
-        .unwrap_or("t0")
+        .unwrap_or("t1")
         .to_string();
     (session_id, tab_id)
 }

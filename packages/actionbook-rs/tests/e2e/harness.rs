@@ -144,7 +144,7 @@ pub fn ensure_no_sessions() {
         if attempt < 2 {
             // Graceful close
             for s in &sessions {
-                if let Some(id) = s.get("id").and_then(|v| v.as_str()) {
+                if let Some(id) = s.get("session_id").and_then(|v| v.as_str()) {
                     let _ = headless(&["browser", "close", "-s", id], 10);
                 }
             }

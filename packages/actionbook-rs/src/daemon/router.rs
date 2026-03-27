@@ -417,7 +417,7 @@ impl Router {
         // is only exposed through the Extensions API); included as null per PRD.
         let first_tab = page_targets.first().map(|t| {
             serde_json::json!({
-                "tab_id": format!("t{}", 0),
+                "tab_id": format!("t{}", 1),
                 "url": t.url,
                 "title": t.title,
                 "native_tab_id": null,

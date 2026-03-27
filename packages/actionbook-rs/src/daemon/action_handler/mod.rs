@@ -72,7 +72,7 @@ impl Registries {
         Self {
             tabs: std::collections::HashMap::new(),
             windows: std::collections::HashMap::new(),
-            next_tab_id: 0,
+            next_tab_id: 1,
             next_window_id: 0,
         }
     }

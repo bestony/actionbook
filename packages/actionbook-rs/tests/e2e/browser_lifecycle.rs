@@ -175,7 +175,7 @@ fn lifecycle_open_with_url() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -382,7 +382,7 @@ fn lifecycle_close_after_operations() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -401,7 +401,7 @@ fn lifecycle_close_after_operations() {
     );
 
     // Snapshot — verify JSON envelope
-    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "snapshot");
     let v = parse_json(&out);
     assert_eq!(v["ok"], true, "snapshot: ok should be true");
@@ -796,7 +796,7 @@ fn lifecycle_port_fallback_when_9222_occupied() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -806,7 +806,7 @@ fn lifecycle_port_fallback_when_9222_occupied() {
     assert_eq!(v["data"]["kind"], "goto", "goto: data.kind should be goto");
 
     // Snapshot
-    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "snapshot with fallback port");
     let v = parse_json(&out);
     assert_eq!(v["ok"], true, "snapshot: ok should be true");

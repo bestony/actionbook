@@ -41,7 +41,7 @@ fn int_click_element() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -60,7 +60,7 @@ fn int_click_element() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -68,7 +68,7 @@ fn int_click_element() {
 
     // Click the button
     let out = headless(
-        &["browser", "click", "#btn", "-s", "local-1", "-t", "t0"],
+        &["browser", "click", "#btn", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "click button");
@@ -82,7 +82,7 @@ fn int_click_element() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -133,7 +133,7 @@ fn int_click_s1t2_isolation() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -157,7 +157,7 @@ fn int_click_s1t2_isolation() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -172,7 +172,7 @@ fn int_click_s1t2_isolation() {
             "-s",
             "local-1",
             "-t",
-            "t1",
+            "t2",
         ],
         10,
     );
@@ -180,7 +180,7 @@ fn int_click_s1t2_isolation() {
 
     // Click on t0
     let out = headless(
-        &["browser", "click", "#btn", "-s", "local-1", "-t", "t0"],
+        &["browser", "click", "#btn", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "click on t0");
@@ -194,7 +194,7 @@ fn int_click_s1t2_isolation() {
             "-s",
             "local-1",
             "-t",
-            "t1",
+            "t2",
         ],
         10,
     );
@@ -244,7 +244,7 @@ fn int_click_seq() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -263,14 +263,14 @@ fn int_click_seq() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "inject buttons");
 
     // Click button A
-    let out = headless(&["browser", "click", "#a", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless(&["browser", "click", "#a", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "click #a");
 
     // Verify A clicked
@@ -282,7 +282,7 @@ fn int_click_seq() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -294,7 +294,7 @@ fn int_click_seq() {
     );
 
     // Click button B
-    let out = headless(&["browser", "click", "#b", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless(&["browser", "click", "#b", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "click #b");
 
     // Verify B clicked
@@ -306,7 +306,7 @@ fn int_click_seq() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -356,7 +356,7 @@ fn int_fill_input() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -373,7 +373,7 @@ fn int_fill_input() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -382,7 +382,7 @@ fn int_fill_input() {
     // Fill the input
     let out = headless(
         &[
-            "browser", "fill", "#test", "hello", "-s", "local-1", "-t", "t0",
+            "browser", "fill", "#test", "hello", "-s", "local-1", "-t", "t1",
         ],
         30,
     );
@@ -397,7 +397,7 @@ fn int_fill_input() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -451,7 +451,7 @@ fn int_fill_s1t2_isolation() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -466,7 +466,7 @@ fn int_fill_s1t2_isolation() {
             "-s",
             "local-1",
             "-t",
-            "t1",
+            "t2",
         ],
         30,
     );
@@ -482,7 +482,7 @@ fn int_fill_s1t2_isolation() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -497,7 +497,7 @@ fn int_fill_s1t2_isolation() {
             "-s",
             "local-1",
             "-t",
-            "t1",
+            "t2",
         ],
         10,
     );
@@ -544,7 +544,7 @@ fn int_fill_helper_stays_trusted_types_safe() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -552,7 +552,7 @@ fn int_fill_helper_stays_trusted_types_safe() {
 
     let out = headless(
         &[
-            "browser", "fill", "#tt-fill", "trusted", "-s", "local-1", "-t", "t0",
+            "browser", "fill", "#tt-fill", "trusted", "-s", "local-1", "-t", "t1",
         ],
         30,
     );
@@ -566,7 +566,7 @@ fn int_fill_helper_stays_trusted_types_safe() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         15,
     );
@@ -616,7 +616,7 @@ fn int_fill_seq() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -633,7 +633,7 @@ fn int_fill_seq() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -641,14 +641,14 @@ fn int_fill_seq() {
 
     // Fill input A
     let out = headless(
-        &["browser", "fill", "#a", "aaa", "-s", "local-1", "-t", "t0"],
+        &["browser", "fill", "#a", "aaa", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "fill #a");
 
     // Fill input B
     let out = headless(
-        &["browser", "fill", "#b", "bbb", "-s", "local-1", "-t", "t0"],
+        &["browser", "fill", "#b", "bbb", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "fill #b");
@@ -662,7 +662,7 @@ fn int_fill_seq() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -682,7 +682,7 @@ fn int_fill_seq() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -732,7 +732,7 @@ fn int_type_text() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -749,7 +749,7 @@ fn int_type_text() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -757,7 +757,7 @@ fn int_type_text() {
 
     // Click input to focus it
     let out = headless(
-        &["browser", "click", "#test", "-s", "local-1", "-t", "t0"],
+        &["browser", "click", "#test", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "click input");
@@ -765,7 +765,7 @@ fn int_type_text() {
     // Type text into the input
     let out = headless(
         &[
-            "browser", "type", "#test", "world", "-s", "local-1", "-t", "t0",
+            "browser", "type", "#test", "world", "-s", "local-1", "-t", "t1",
         ],
         30,
     );
@@ -780,7 +780,7 @@ fn int_type_text() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -830,7 +830,7 @@ fn int_select_dropdown() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -849,7 +849,7 @@ fn int_select_dropdown() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -858,7 +858,7 @@ fn int_select_dropdown() {
     // Select opt2
     let out = headless(
         &[
-            "browser", "select", "#sel", "opt2", "-s", "local-1", "-t", "t0",
+            "browser", "select", "#sel", "opt2", "-s", "local-1", "-t", "t1",
         ],
         30,
     );
@@ -873,7 +873,7 @@ fn int_select_dropdown() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -923,7 +923,7 @@ fn int_hover() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -932,7 +932,7 @@ fn int_hover() {
     assert_success(&out, "wait for page load");
 
     let out = headless(
-        &["browser", "hover", "body", "-s", "local-1", "-t", "t0"],
+        &["browser", "hover", "body", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "hover body");
@@ -976,7 +976,7 @@ fn int_focus() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -993,7 +993,7 @@ fn int_focus() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -1008,7 +1008,7 @@ fn int_focus() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -1023,7 +1023,7 @@ fn int_focus() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1073,7 +1073,7 @@ fn int_press_key() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1082,7 +1082,7 @@ fn int_press_key() {
     assert_success(&out, "wait for page load");
 
     let out = headless(
-        &["browser", "press", "Enter", "-s", "local-1", "-t", "t0"],
+        &["browser", "press", "Enter", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "press Enter");
@@ -1126,7 +1126,7 @@ fn int_drag() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1136,7 +1136,7 @@ fn int_drag() {
 
     let out = headless(
         &[
-            "browser", "drag", "body", "body", "-s", "local-1", "-t", "t0",
+            "browser", "drag", "body", "body", "-s", "local-1", "-t", "t1",
         ],
         30,
     );
@@ -1192,7 +1192,7 @@ fn int_upload() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1209,7 +1209,7 @@ fn int_upload() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -1225,7 +1225,7 @@ fn int_upload() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -1270,7 +1270,7 @@ fn int_mouse_move() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1286,7 +1286,7 @@ fn int_mouse_move() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -1331,7 +1331,7 @@ fn int_cursor_position() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1340,7 +1340,7 @@ fn int_cursor_position() {
     assert_success(&out, "wait for page load");
 
     let out = headless(
-        &["browser", "cursor-position", "-s", "local-1", "-t", "t0"],
+        &["browser", "cursor-position", "-s", "local-1", "-t", "t1"],
         10,
     );
     assert_success(&out, "cursor-position");
@@ -1391,7 +1391,7 @@ fn int_scroll_down() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1408,7 +1408,7 @@ fn int_scroll_down() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1417,7 +1417,7 @@ fn int_scroll_down() {
     // Scroll down
     let out = headless(
         &[
-            "browser", "scroll", "down", "500", "-s", "local-1", "-t", "t0",
+            "browser", "scroll", "down", "500", "-s", "local-1", "-t", "t1",
         ],
         30,
     );
@@ -1432,7 +1432,7 @@ fn int_scroll_down() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1482,7 +1482,7 @@ fn int_scroll_top() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1499,7 +1499,7 @@ fn int_scroll_top() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1508,7 +1508,7 @@ fn int_scroll_top() {
     // Scroll down first
     let out = headless(
         &[
-            "browser", "scroll", "down", "500", "-s", "local-1", "-t", "t0",
+            "browser", "scroll", "down", "500", "-s", "local-1", "-t", "t1",
         ],
         30,
     );
@@ -1523,7 +1523,7 @@ fn int_scroll_top() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1536,7 +1536,7 @@ fn int_scroll_top() {
 
     // Scroll to top
     let out = headless(
-        &["browser", "scroll", "top", "-s", "local-1", "-t", "t0"],
+        &["browser", "scroll", "top", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "scroll top");
@@ -1550,7 +1550,7 @@ fn int_scroll_top() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1600,7 +1600,7 @@ fn int_scroll_into_view() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1617,7 +1617,7 @@ fn int_scroll_into_view() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );

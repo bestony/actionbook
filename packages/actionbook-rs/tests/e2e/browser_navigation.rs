@@ -40,7 +40,7 @@ fn nav_goto_and_verify_url() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -57,7 +57,7 @@ fn nav_goto_and_verify_url() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -72,7 +72,7 @@ fn nav_goto_and_verify_url() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -122,7 +122,7 @@ fn nav_goto_seq_two_urls() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -139,7 +139,7 @@ fn nav_goto_seq_two_urls() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -153,7 +153,7 @@ fn nav_goto_seq_two_urls() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -173,7 +173,7 @@ fn nav_goto_seq_two_urls() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -187,7 +187,7 @@ fn nav_goto_seq_two_urls() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -238,7 +238,7 @@ fn nav_goto_s1t2_cross_tab() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -262,7 +262,7 @@ fn nav_goto_s1t2_cross_tab() {
             "-s",
             "local-1",
             "-t",
-            "t1",
+            "t2",
         ],
         30,
     );
@@ -277,7 +277,7 @@ fn nav_goto_s1t2_cross_tab() {
             "-s",
             "local-1",
             "-t",
-            "t1",
+            "t2",
         ],
         30,
     );
@@ -297,7 +297,7 @@ fn nav_goto_s1t2_cross_tab() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -347,7 +347,7 @@ fn nav_back_forward() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -364,7 +364,7 @@ fn nav_back_forward() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -379,14 +379,14 @@ fn nav_back_forward() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "goto httpbin.org");
 
     // Back — should return to example.org
-    let out = headless(&["browser", "back", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless(&["browser", "back", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "back");
 
     let out = headless(
@@ -397,7 +397,7 @@ fn nav_back_forward() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -409,7 +409,7 @@ fn nav_back_forward() {
     );
 
     // Forward — should return to httpbin.org
-    let out = headless(&["browser", "forward", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless(&["browser", "forward", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "forward");
 
     let out = headless(
@@ -420,7 +420,7 @@ fn nav_back_forward() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -469,7 +469,7 @@ fn nav_reload() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -486,7 +486,7 @@ fn nav_reload() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -501,7 +501,7 @@ fn nav_reload() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -516,7 +516,7 @@ fn nav_reload() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -528,7 +528,7 @@ fn nav_reload() {
     );
 
     // Reload the page — marker should be cleared
-    let out = headless(&["browser", "reload", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless(&["browser", "reload", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "reload");
 
     // Verify marker is gone (should be undefined/null)
@@ -540,7 +540,7 @@ fn nav_reload() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
