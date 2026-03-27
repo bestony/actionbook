@@ -9,6 +9,5 @@
 //! Run with:
 //!   RUN_E2E_TESTS=true cargo test --test e2e -- --test-threads=1 --nocapture
 
-mod api_commands;
 mod browser_lifecycle;
 mod harness;
