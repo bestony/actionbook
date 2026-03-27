@@ -11,6 +11,7 @@ use tokio::sync::{mpsc, oneshot, watch, Mutex};
 
 use super::lifecycle;
 use super::protocol::{self, DaemonRequest, DaemonResponse};
+use crate::browser::cdp_types::{JavascriptDialogOpeningEvent, PendingDialog};
 use crate::error::{ActionbookError, Result};
 
 /// Default idle timeout: daemon exits if no UDS client connects within this duration.
@@ -229,6 +230,9 @@ struct WsState {
     /// arrivals see the current state without missing a signal.
     ready_tx: watch::Sender<bool>,
     ready_rx: watch::Receiver<bool>,
+    /// Tracks the currently open JavaScript dialog (alert/confirm/prompt/beforeunload).
+    /// Updated by CDP events Page.javascriptDialogOpening / Page.javascriptDialogClosed.
+    pending_dialog: Arc<Mutex<Option<PendingDialog>>>,
 }
 
 /// Command sent to the WS writer task.
@@ -251,6 +255,7 @@ impl WsState {
             profile,
             ready_tx,
             ready_rx,
+            pending_dialog: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -275,6 +280,18 @@ impl WsState {
                 .await;
         }
 
+        self.send_cdp_to_ws(session_name, method, params).await
+    }
+
+    /// Send a CDP command directly through the persistent WS (no internal method dispatch).
+    /// Used by `send_cdp` for regular commands and by internal methods that need
+    /// to issue real CDP commands (e.g. `Page.handleJavaScriptDialog`).
+    async fn send_cdp_to_ws(
+        &self,
+        session_name: &str,
+        method: &str,
+        params: Value,
+    ) -> std::result::Result<Value, String> {
         // Wait for initial attach to complete (connect_and_run sets tx + sessions
         // then sends `true` on ready_tx). The watch channel is state-based: if
         // connect_and_run already completed, the current value is `true` and
@@ -726,8 +743,57 @@ impl WsState {
                     Err(format!("Session '{}' not found", name))
                 }
             }
+            "__actionbook.dialogStatus" => {
+                let dialog = self.pending_dialog.lock().await;
+                match dialog.as_ref() {
+                    Some(d) => Ok(serde_json::json!({
+                        "hasDialog": true,
+                        "type": d.dialog_type,
+                        "message": d.message,
+                        "url": d.url,
+                        "defaultPrompt": d.default_prompt,
+                    })),
+                    None => Ok(serde_json::json!({ "hasDialog": false })),
+                }
+            }
+            "__actionbook.handleDialog" => {
+                let accept = params
+                    .get("accept")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                let prompt_text = params
+                    .get("promptText")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+
+                let mut cdp_params = serde_json::json!({ "accept": accept });
+                if let Some(text) = prompt_text {
+                    cdp_params["promptText"] = serde_json::json!(text);
+                }
+
+                // Send Page.handleJavaScriptDialog through the normal CDP path
+                let result = self
+                    .send_cdp_to_ws(session_name, "Page.handleJavaScriptDialog", cdp_params)
+                    .await?;
+
+                // Clear pending dialog state on success
+                *self.pending_dialog.lock().await = None;
+
+                Ok(serde_json::json!({ "handled": true, "accepted": accept, "result": result }))
+            }
             _ => Err(format!("Unknown internal method: {}", method)),
         }
+    }
+
+    /// Build dialog warning string from pending_dialog state, if any.
+    async fn dialog_warning(&self) -> Option<String> {
+        let dialog = self.pending_dialog.lock().await;
+        dialog.as_ref().map(|d| {
+            format!(
+                "A JavaScript {} dialog is blocking the page: \"{}\" — use `browser dialog accept` or `browser dialog dismiss` to resolve it",
+                d.dialog_type, d.message
+            )
+        })
     }
 }
 
@@ -829,6 +895,7 @@ async fn ws_connection_loop(
                     *ws_state.tx.lock().await = None;
                     ws_state.sessions.lock().await.clear();
                     let _ = ws_state.ready_tx.send(false);
+                    *ws_state.pending_dialog.lock().await = None;
 
                     // Drain pending requests
                     {
@@ -1227,6 +1294,9 @@ async fn connect_and_run(
         session_id
     );
 
+    // Keep a copy for Page.enable below (session_id is moved into SessionEntry)
+    let session_id_for_page_enable = session_id.clone();
+
     // Store the initial session in the routing table under its actual name
     {
         let mut sessions = ws_state.sessions.lock().await;
@@ -1247,6 +1317,29 @@ async fn connect_and_run(
     // Any send_cdp() calls waiting on ready_rx.wait_for() will proceed.
     // Late arrivals also see `true` immediately (watch is state-based).
     let _ = ws_state.ready_tx.send(true);
+
+    // Enable Page domain events so we receive Page.javascriptDialogOpening/Closed.
+    // This is fire-and-forget — if it fails, dialog tracking won't work but
+    // other commands are unaffected.
+    {
+        let page_enable_id = ws_state.next_ws_id.fetch_add(1, Ordering::Relaxed);
+        let (pe_tx, _pe_rx) = oneshot::channel();
+        {
+            let mut pending = ws_state.pending.lock().await;
+            pending.insert(page_enable_id, pe_tx);
+        }
+        if let Some(ref tx) = *ws_state.tx.lock().await {
+            let _ = tx
+                .send(WsCommand {
+                    ws_id: page_enable_id,
+                    method: "Page.enable".to_string(),
+                    params: serde_json::json!({}),
+                    session_id: Some(session_id_for_page_enable.clone()),
+                })
+                .await;
+        }
+        // Don't wait for response — best effort
+    }
 
     // Writer task: receives WsCommand and sends CDP JSON over WS
     let ws_write_clone = ws_write.clone();
@@ -1275,6 +1368,7 @@ async fn connect_and_run(
 
     // Reader task: reads WS messages and routes responses by ID
     let pending = ws_state.pending.clone();
+    let pending_dialog = ws_state.pending_dialog.clone();
     let reader_result: std::result::Result<(), String> = loop {
         tokio::select! {
             msg = ws_read.next() => {
@@ -1293,8 +1387,33 @@ async fn connect_and_run(
                                     };
                                     let _ = tx.send(result);
                                 }
+                            } else if let Some(method) = obj.get("method").and_then(|v| v.as_str()) {
+                                // CDP Event — check for dialog events
+                                let params = obj.get("params").cloned().unwrap_or(Value::Null);
+                                match method {
+                                    "Page.javascriptDialogOpening" => {
+                                        if let Ok(event) = serde_json::from_value::<JavascriptDialogOpeningEvent>(params) {
+                                            tracing::info!(
+                                                "JavaScript {} dialog opened: \"{}\"",
+                                                event.dialog_type, event.message
+                                            );
+                                            *pending_dialog.lock().await = Some(PendingDialog {
+                                                dialog_type: event.dialog_type,
+                                                message: event.message,
+                                                url: event.url,
+                                                default_prompt: event.default_prompt,
+                                            });
+                                        }
+                                    }
+                                    "Page.javascriptDialogClosed" => {
+                                        tracing::info!("JavaScript dialog closed");
+                                        *pending_dialog.lock().await = None;
+                                    }
+                                    _ => {
+                                        tracing::trace!("Skipping CDP Event: {}", method);
+                                    }
+                                }
                             }
-                            // else: CDP Event (has "method" but no "id") — discard
                         }
                     }
                     Some(Ok(tokio_tungstenite::tungstenite::Message::Close(_))) => {
@@ -1348,9 +1467,10 @@ async fn handle_uds_client(
         };
 
         let id = request.id;
+        let method = request.method.clone();
         let session_name = request.session.as_deref().unwrap_or("default");
         let result = ws_state
-            .send_cdp(session_name, &request.method, request.params)
+            .send_cdp(session_name, &method, request.params)
             .await;
 
         let resp = match result {
@@ -1363,6 +1483,13 @@ async fn handle_uds_client(
                 }
             }
             Err(e) => DaemonResponse::err(id, e),
+        };
+
+        // Inject dialog warning for non-dialog commands
+        let resp = if !method.contains("dialog") && !method.contains("Dialog") {
+            resp.with_warning(ws_state.dialog_warning().await)
+        } else {
+            resp
         };
 
         let encoded = protocol::encode_line(&resp).map_err(|e| {
