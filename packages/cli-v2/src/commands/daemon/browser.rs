@@ -18,14 +18,13 @@ pub fn find_chrome() -> Result<String, CliError> {
         if std::path::Path::new(c).exists() {
             return Ok(c.to_string());
         }
-        if let Ok(output) = std::process::Command::new("which").arg(c).output() {
-            if output.status.success() {
+        if let Ok(output) = std::process::Command::new("which").arg(c).output()
+            && output.status.success() {
                 let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
                 if !path.is_empty() {
                     return Ok(path);
                 }
             }
-        }
     }
     Err(CliError::BrowserNotFound)
 }
@@ -55,7 +54,9 @@ pub async fn launch_chrome(
 
     let exe = executable.to_string();
     // Spawn Chrome and read stderr in a blocking thread to avoid blocking tokio
-    let result = tokio::task::spawn_blocking(move || -> Result<(Child, u16), CliError> {
+    
+
+    tokio::task::spawn_blocking(move || -> Result<(Child, u16), CliError> {
         let mut child = std::process::Command::new(&exe)
             .args(&args)
             .stdin(Stdio::null())
@@ -77,8 +78,8 @@ pub async fn launch_chrome(
                     Ok(l) => l,
                     Err(_) => break,
                 };
-                if line.contains("DevTools listening on") {
-                    if let Some(ws_start) = line.find("ws://") {
+                if line.contains("DevTools listening on")
+                    && let Some(ws_start) = line.find("ws://") {
                         let after_ws = &line[ws_start + 5..];
                         if let Some(colon) = after_ws.find(':') {
                             let after_colon = &after_ws[colon + 1..];
@@ -92,7 +93,6 @@ pub async fn launch_chrome(
                             }
                         }
                     }
-                }
             }
         });
 
@@ -108,9 +108,7 @@ pub async fn launch_chrome(
         Ok((child, port))
     })
     .await
-    .map_err(|e| CliError::Internal(format!("spawn_blocking failed: {e}")))?;
-
-    result
+    .map_err(|e| CliError::Internal(format!("spawn_blocking failed: {e}")))?
 }
 
 /// Discover the WebSocket debugger URL from Chrome's /json/version endpoint.
@@ -124,11 +122,10 @@ pub async fn discover_ws_url(port: u16) -> Result<String, CliError> {
         }
         match reqwest::get(&url).await {
             Ok(resp) => {
-                if let Ok(json) = resp.json::<serde_json::Value>().await {
-                    if let Some(ws) = json.get("webSocketDebuggerUrl").and_then(|v| v.as_str()) {
+                if let Ok(json) = resp.json::<serde_json::Value>().await
+                    && let Some(ws) = json.get("webSocketDebuggerUrl").and_then(|v| v.as_str()) {
                         return Ok(ws.to_string());
                     }
-                }
             }
             Err(_) => continue,
         }
@@ -155,9 +152,8 @@ pub async fn list_targets(port: u16) -> Result<Vec<serde_json::Value>, CliError>
 }
 
 fn ensure_scheme(url: &str) -> String {
-    if url.contains("://") {
-        url.to_string()
-    } else if url.starts_with("about:")
+    if url.contains("://")
+        || url.starts_with("about:")
         || url.starts_with("data:")
         || url.starts_with("chrome:")
         || url.starts_with("javascript:")

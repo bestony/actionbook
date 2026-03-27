@@ -58,6 +58,7 @@ impl JsonEnvelope {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn error(
         command: &str,
         context: Option<ResponseContext>,
@@ -267,7 +268,7 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
         }
         "browser.eval" => {
             if let Some(val) = data.get("value") {
-                lines.push(format!("{}", val.as_str().unwrap_or(&val.to_string())));
+                lines.push(val.as_str().unwrap_or(&val.to_string()).to_string());
             }
         }
         _ => {

@@ -43,7 +43,7 @@ fn lifecycle_open_and_close_json() {
     assert!(
         v["data"]["tab"]
             .as_object()
-            .map_or(false, |o| o.contains_key("native_tab_id")),
+            .is_some_and(|o| o.contains_key("native_tab_id")),
         "native_tab_id key must be present in tab object per §7.1"
     );
     let ntid = &v["data"]["tab"]["native_tab_id"];

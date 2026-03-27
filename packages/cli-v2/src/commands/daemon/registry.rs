@@ -40,6 +40,12 @@ pub struct SessionRegistry {
     next_auto_id: u32,
 }
 
+impl Default for SessionRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SessionRegistry {
     pub fn new() -> Self {
         SessionRegistry {

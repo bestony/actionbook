@@ -34,12 +34,11 @@ impl DaemonClient {
         // Wait for daemon to be ready (up to 10 seconds)
         let ready_path = path.with_extension("ready");
         for _ in 0..100 {
-            if ready_path.exists() {
-                if let Ok(stream) = UnixStream::connect(&path).await {
+            if ready_path.exists()
+                && let Ok(stream) = UnixStream::connect(&path).await {
                     let (reader, writer) = tokio::io::split(stream);
                     return Ok(DaemonClient { reader, writer });
                 }
-            }
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
 

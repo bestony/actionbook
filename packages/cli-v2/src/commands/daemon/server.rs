@@ -35,13 +35,11 @@ pub fn is_daemon_running() -> bool {
     if !pid_file.exists() {
         return false;
     }
-    if let Ok(pid_str) = std::fs::read_to_string(&pid_file) {
-        if let Ok(pid) = pid_str.trim().parse::<i32>() {
-            if process_alive(pid) {
+    if let Ok(pid_str) = std::fs::read_to_string(&pid_file)
+        && let Ok(pid) = pid_str.trim().parse::<i32>()
+            && process_alive(pid) {
                 return true;
             }
-        }
-    }
     // Stale PID file — remove it
     std::fs::remove_file(&pid_file).ok();
     false
@@ -165,12 +163,11 @@ pub async fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
             .map(|s| s.id.as_str().to_string())
             .collect();
         for sid in session_ids {
-            if let Some(mut entry) = reg.remove(&sid) {
-                if let Some(ref mut child) = entry.chrome_process {
+            if let Some(mut entry) = reg.remove(&sid)
+                && let Some(ref mut child) = entry.chrome_process {
                     let _ = child.kill();
                     let _ = child.wait();
                 }
-            }
         }
     }
 

@@ -65,8 +65,8 @@ async fn handle_start(
     let profile_name = profile.unwrap_or("actionbook");
 
     // Local mode: 1 profile = max 1 session. Reuse existing if same profile.
-    if mode == crate::types::Mode::Local {
-        if let Some(session_id) = reg
+    if mode == crate::types::Mode::Local
+        && let Some(session_id) = reg
             .list()
             .iter()
             .find(|s| s.profile == profile_name && s.mode == mode)
@@ -168,7 +168,6 @@ async fn handle_start(
                 "reused": true,
             }));
         }
-    }
 
     let session_id = match reg.generate_session_id(set_session_id, profile) {
         Ok(id) => id,
@@ -503,13 +502,11 @@ async fn handle_goto(
     // Re-acquire lock to update tab URL
     {
         let mut reg = registry.lock().await;
-        if let Some(entry) = reg.get_mut(session_id) {
-            if let Ok(parsed_tab) = tab_id.parse::<TabId>() {
-                if let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == parsed_tab) {
+        if let Some(entry) = reg.get_mut(session_id)
+            && let Ok(parsed_tab) = tab_id.parse::<TabId>()
+                && let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == parsed_tab) {
                     tab.url.clone_from(&final_url);
                 }
-            }
-        }
     }
 
     ActionResult::ok(json!({
@@ -777,9 +774,8 @@ async fn cdp_get_ax_tree(ws_url: &str) -> Result<String, CliError> {
 }
 
 fn ensure_scheme(url: &str) -> String {
-    if url.contains("://") {
-        url.to_string()
-    } else if url.starts_with("about:")
+    if url.contains("://")
+        || url.starts_with("about:")
         || url.starts_with("data:")
         || url.starts_with("chrome:")
         || url.starts_with("javascript:")
