@@ -47,6 +47,7 @@ pub struct JavascriptDialogOpeningEvent {
     #[serde(default)]
     pub default_prompt: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub has_browser_handler: Option<bool>,
 }
 
