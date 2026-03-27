@@ -1,3 +1,4 @@
+use std::io::{BufRead, BufReader};
 use std::process::{Child, Stdio};
 use std::time::Duration;
 
@@ -17,7 +18,6 @@ pub fn find_chrome() -> Result<String, CliError> {
         if std::path::Path::new(c).exists() {
             return Ok(c.to_string());
         }
-        // Check if it's in PATH
         if let Ok(output) = std::process::Command::new("which")
             .arg(c)
             .output()
@@ -34,15 +34,17 @@ pub fn find_chrome() -> Result<String, CliError> {
 }
 
 /// Launch Chrome with CDP enabled.
+/// Returns (Child, actual_cdp_port).
+/// Uses --remote-debugging-port=0 so Chrome picks a free port itself,
+/// then reads the actual port from stderr ("DevTools listening on ws://...").
 pub fn launch_chrome(
     executable: &str,
-    port: u16,
     headless: bool,
     user_data_dir: &str,
     open_url: Option<&str>,
-) -> Result<Child, CliError> {
+) -> Result<(Child, u16), CliError> {
     let mut args = vec![
-        format!("--remote-debugging-port={port}"),
+        "--remote-debugging-port=0".to_string(),
         format!("--user-data-dir={user_data_dir}"),
         "--no-first-run".to_string(),
         "--no-default-browser-check".to_string(),
@@ -54,7 +56,7 @@ pub fn launch_chrome(
         args.push(ensure_scheme(url));
     }
 
-    let child = std::process::Command::new(executable)
+    let mut child = std::process::Command::new(executable)
         .args(&args)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -62,24 +64,55 @@ pub fn launch_chrome(
         .spawn()
         .map_err(|e| CliError::BrowserLaunchFailed(e.to_string()))?;
 
-    Ok(child)
-}
+    // Read stderr to find the actual CDP port.
+    // Chrome prints: "DevTools listening on ws://127.0.0.1:PORT/devtools/browser/UUID"
+    let stderr = child.stderr.take().ok_or_else(|| {
+        CliError::BrowserLaunchFailed("failed to capture Chrome stderr".to_string())
+    })?;
 
-/// Find an available port, trying 9222 first.
-pub fn find_available_port() -> u16 {
-    if std::net::TcpListener::bind(("127.0.0.1", 9222)).is_ok() {
-        return 9222;
-    }
-    // Find a random available port
-    let listener = std::net::TcpListener::bind(("127.0.0.1", 0)).unwrap();
-    listener.local_addr().unwrap().port()
+    let port = std::thread::spawn(move || -> Option<u16> {
+        let reader = BufReader::new(stderr);
+        for line in reader.lines() {
+            let line = match line {
+                Ok(l) => l,
+                Err(_) => break,
+            };
+            // Look for: "DevTools listening on ws://127.0.0.1:PORT/..."
+            if line.contains("DevTools listening on ws://") {
+                // Extract port from the URL
+                if let Some(start) = line.find("127.0.0.1:") {
+                    let after = &line[start + "127.0.0.1:".len()..];
+                    if let Some(end) = after.find('/') {
+                        if let Ok(p) = after[..end].parse::<u16>() {
+                            return Some(p);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    });
+
+    let port = port
+        .join()
+        .ok()
+        .flatten()
+        .ok_or_else(|| {
+            let _ = child.kill();
+            CliError::CdpConnectionFailed(
+                "Chrome did not print DevTools listening URL".to_string(),
+            )
+        })?;
+
+    Ok((child, port))
 }
 
 /// Discover the WebSocket debugger URL from Chrome's /json/version endpoint.
 pub async fn discover_ws_url(port: u16) -> Result<String, CliError> {
     let url = format!("http://127.0.0.1:{port}/json/version");
 
-    for attempt in 0..30 {
+    // Up to 15 seconds (75 × 200ms)
+    for attempt in 0..75 {
         if attempt > 0 {
             tokio::time::sleep(Duration::from_millis(200)).await;
         }
@@ -98,7 +131,7 @@ pub async fn discover_ws_url(port: u16) -> Result<String, CliError> {
         }
     }
     Err(CliError::CdpConnectionFailed(format!(
-        "Chrome did not expose CDP on port {port} within 6s"
+        "Chrome did not expose CDP on port {port} within 15s"
     )))
 }
 

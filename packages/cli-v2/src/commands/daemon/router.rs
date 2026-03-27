@@ -76,10 +76,9 @@ async fn handle_start(
         Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
     };
 
-    let port = browser::find_available_port();
     let profile_name = profile.unwrap_or("actionbook");
 
-    // Fix #7: validate profile name — reject path traversal
+    // Validate profile name — reject path traversal
     if profile_name.contains('/') || profile_name.contains('\\') || profile_name.contains("..") {
         return ActionResult::fatal("INVALID_ARGUMENT", format!("invalid profile name: {profile_name}"));
     }
@@ -92,12 +91,13 @@ async fn handle_start(
     let user_data_dir = format!("{data_dir}/actionbook/profiles/{profile_name}");
     std::fs::create_dir_all(&user_data_dir).ok();
 
-    let mut chrome = match browser::launch_chrome(&executable, port, headless, &user_data_dir, open_url) {
+    // Chrome picks its own CDP port (--remote-debugging-port=0)
+    let (mut chrome, port) = match browser::launch_chrome(&executable, headless, &user_data_dir, open_url) {
         Ok(c) => c,
         Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
     };
 
-    // Fix #3: kill Chrome if subsequent setup fails
+    // Kill Chrome if subsequent setup fails
     let ws_url = match browser::discover_ws_url(port).await {
         Ok(ws) => ws,
         Err(e) => {
