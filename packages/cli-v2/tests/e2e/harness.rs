@@ -112,11 +112,12 @@ fn kill_daemon() {
     // Read PID and kill
     let pid_path = dir.join("daemon.pid");
     if let Ok(pid_str) = std::fs::read_to_string(&pid_path)
-        && let Ok(pid) = pid_str.trim().parse::<u32>() {
-            let _ = std::process::Command::new("kill")
-                .args(["-9", &pid.to_string()])
-                .output();
-        }
+        && let Ok(pid) = pid_str.trim().parse::<u32>()
+    {
+        let _ = std::process::Command::new("kill")
+            .args(["-9", &pid.to_string()])
+            .output();
+    }
 
     // Clean up files
     let _ = std::fs::remove_file(dir.join("daemon.sock"));

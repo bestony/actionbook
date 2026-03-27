@@ -266,17 +266,18 @@ fn build_context(command: &BrowserCommands, result: &ActionResult) -> Option<Res
             };
             // restart returns tab info per §7.5
             if matches!(command, BrowserCommands::Restart { .. })
-                && let ActionResult::Ok { data } = result {
-                    if let Some(tab_id) = data
-                        .pointer("/session/tab_id")
-                        .or_else(|| data.pointer("/tab/tab_id"))
-                        .and_then(|v| v.as_str())
-                    {
-                        ctx.tab_id = Some(tab_id.to_string());
-                    } else {
-                        ctx.tab_id = Some("t1".to_string());
-                    }
+                && let ActionResult::Ok { data } = result
+            {
+                if let Some(tab_id) = data
+                    .pointer("/session/tab_id")
+                    .or_else(|| data.pointer("/tab/tab_id"))
+                    .and_then(|v| v.as_str())
+                {
+                    ctx.tab_id = Some(tab_id.to_string());
+                } else {
+                    ctx.tab_id = Some("t1".to_string());
                 }
+            }
             Some(ctx)
         }
         // Tab-level commands

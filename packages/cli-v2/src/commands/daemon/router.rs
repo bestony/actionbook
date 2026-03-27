@@ -71,103 +71,101 @@ async fn handle_start(
             .iter()
             .find(|s| s.profile == profile_name && s.mode == mode)
             .map(|s| s.id.as_str().to_string())
-        {
-            // If open_url is provided, navigate or open a new tab in the existing session
-            if let Some(url) = open_url {
-                let final_url = ensure_scheme(url);
-                let entry = reg.get_mut(&session_id).unwrap();
-                let first_tab = entry.tabs.first();
-
-                if let Some(tab) = first_tab {
-                    // Navigate the first tab to the requested URL
-                    let ws_url = if !tab.target_id.is_empty() {
-                        Some(format!(
-                            "ws://127.0.0.1:{}/devtools/page/{}",
-                            entry.cdp_port, tab.target_id
-                        ))
-                    } else {
-                        None
-                    };
-                    let tab_info = (tab.id, tab.target_id.clone());
-                    // Release lock for CDP I/O
-                    drop(reg);
-                    if let Some(ref ws) = ws_url {
-                        if let Err(e) = cdp_navigate(ws, &final_url).await {
-                            return ActionResult::fatal(
-                                "NAVIGATION_FAILED",
-                                format!("reuse navigate failed: {e}"),
-                            );
-                        }
-                        // Wait for page to load
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    }
-                    // Refresh tab info from Chrome after navigation
-                    let mut reg = registry.lock().await;
-                    let entry = reg.get_mut(&session_id).unwrap();
-                    if let Ok(targets) = browser::list_targets(entry.cdp_port).await {
-                        for target in &targets {
-                            let tid = target.get("id").and_then(|v| v.as_str()).unwrap_or("");
-                            if tid == tab_info.1 {
-                                if let Some(tab) =
-                                    entry.tabs.iter_mut().find(|t| t.id == tab_info.0)
-                                {
-                                    tab.url = target
-                                        .get("url")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("")
-                                        .to_string();
-                                    tab.title = target
-                                        .get("title")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("")
-                                        .to_string();
-                                }
-                                break;
-                            }
-                        }
-                    } else if let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == tab_info.0) {
-                        tab.url = final_url.clone();
-                    }
-                    let tab = entry.tabs.first().unwrap();
-                    return ActionResult::ok(json!({
-                        "session": {
-                            "session_id": entry.id.as_str(),
-                            "mode": entry.mode.to_string(),
-                            "status": entry.status,
-                            "headless": entry.headless,
-                            "cdp_endpoint": entry.ws_url,
-                        },
-                        "tab": {
-                            "tab_id": tab.id.to_string(),
-                            "url": tab.url,
-                            "title": tab.title,
-                            "native_tab_id": if tab.target_id.is_empty() { serde_json::Value::Null } else { json!(tab.target_id) },
-                        },
-                        "reused": true,
-                    }));
-                }
-            }
-
-            // No open_url — just return existing session info
-            let entry = reg.get(&session_id).unwrap();
+    {
+        // If open_url is provided, navigate or open a new tab in the existing session
+        if let Some(url) = open_url {
+            let final_url = ensure_scheme(url);
+            let entry = reg.get_mut(&session_id).unwrap();
             let first_tab = entry.tabs.first();
-            return ActionResult::ok(json!({
-                "session": {
-                    "session_id": entry.id.as_str(),
-                    "mode": entry.mode.to_string(),
-                    "status": entry.status,
-                    "headless": entry.headless,
-                    "cdp_endpoint": entry.ws_url,
-                },
-                "tab": {
-                    "tab_id": first_tab.map(|t| t.id.to_string()).unwrap_or_else(|| "t1".to_string()),
-                    "url": first_tab.map(|t| t.url.as_str()).unwrap_or(""),
-                    "title": first_tab.map(|t| t.title.as_str()).unwrap_or(""),
-                    "native_tab_id": first_tab.map(|t| if t.target_id.is_empty() { serde_json::Value::Null } else { json!(t.target_id) }).unwrap_or(serde_json::Value::Null),
-                },
-                "reused": true,
-            }));
+
+            if let Some(tab) = first_tab {
+                // Navigate the first tab to the requested URL
+                let ws_url = if !tab.target_id.is_empty() {
+                    Some(format!(
+                        "ws://127.0.0.1:{}/devtools/page/{}",
+                        entry.cdp_port, tab.target_id
+                    ))
+                } else {
+                    None
+                };
+                let tab_info = (tab.id, tab.target_id.clone());
+                // Release lock for CDP I/O
+                drop(reg);
+                if let Some(ref ws) = ws_url {
+                    if let Err(e) = cdp_navigate(ws, &final_url).await {
+                        return ActionResult::fatal(
+                            "NAVIGATION_FAILED",
+                            format!("reuse navigate failed: {e}"),
+                        );
+                    }
+                    // Wait for page to load
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                }
+                // Refresh tab info from Chrome after navigation
+                let mut reg = registry.lock().await;
+                let entry = reg.get_mut(&session_id).unwrap();
+                if let Ok(targets) = browser::list_targets(entry.cdp_port).await {
+                    for target in &targets {
+                        let tid = target.get("id").and_then(|v| v.as_str()).unwrap_or("");
+                        if tid == tab_info.1 {
+                            if let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == tab_info.0) {
+                                tab.url = target
+                                    .get("url")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
+                                tab.title = target
+                                    .get("title")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
+                            }
+                            break;
+                        }
+                    }
+                } else if let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == tab_info.0) {
+                    tab.url = final_url.clone();
+                }
+                let tab = entry.tabs.first().unwrap();
+                return ActionResult::ok(json!({
+                    "session": {
+                        "session_id": entry.id.as_str(),
+                        "mode": entry.mode.to_string(),
+                        "status": entry.status,
+                        "headless": entry.headless,
+                        "cdp_endpoint": entry.ws_url,
+                    },
+                    "tab": {
+                        "tab_id": tab.id.to_string(),
+                        "url": tab.url,
+                        "title": tab.title,
+                        "native_tab_id": if tab.target_id.is_empty() { serde_json::Value::Null } else { json!(tab.target_id) },
+                    },
+                    "reused": true,
+                }));
+            }
         }
+
+        // No open_url — just return existing session info
+        let entry = reg.get(&session_id).unwrap();
+        let first_tab = entry.tabs.first();
+        return ActionResult::ok(json!({
+            "session": {
+                "session_id": entry.id.as_str(),
+                "mode": entry.mode.to_string(),
+                "status": entry.status,
+                "headless": entry.headless,
+                "cdp_endpoint": entry.ws_url,
+            },
+            "tab": {
+                "tab_id": first_tab.map(|t| t.id.to_string()).unwrap_or_else(|| "t1".to_string()),
+                "url": first_tab.map(|t| t.url.as_str()).unwrap_or(""),
+                "title": first_tab.map(|t| t.title.as_str()).unwrap_or(""),
+                "native_tab_id": first_tab.map(|t| if t.target_id.is_empty() { serde_json::Value::Null } else { json!(t.target_id) }).unwrap_or(serde_json::Value::Null),
+            },
+            "reused": true,
+        }));
+    }
 
     let session_id = match reg.generate_session_id(set_session_id, profile) {
         Ok(id) => id,
@@ -504,9 +502,10 @@ async fn handle_goto(
         let mut reg = registry.lock().await;
         if let Some(entry) = reg.get_mut(session_id)
             && let Ok(parsed_tab) = tab_id.parse::<TabId>()
-                && let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == parsed_tab) {
-                    tab.url.clone_from(&final_url);
-                }
+            && let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == parsed_tab)
+        {
+            tab.url.clone_from(&final_url);
+        }
     }
 
     ActionResult::ok(json!({

@@ -19,12 +19,13 @@ pub fn find_chrome() -> Result<String, CliError> {
             return Ok(c.to_string());
         }
         if let Ok(output) = std::process::Command::new("which").arg(c).output()
-            && output.status.success() {
-                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                if !path.is_empty() {
-                    return Ok(path);
-                }
+            && output.status.success()
+        {
+            let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !path.is_empty() {
+                return Ok(path);
             }
+        }
     }
     Err(CliError::BrowserNotFound)
 }
@@ -54,7 +55,6 @@ pub async fn launch_chrome(
 
     let exe = executable.to_string();
     // Spawn Chrome and read stderr in a blocking thread to avoid blocking tokio
-    
 
     tokio::task::spawn_blocking(move || -> Result<(Child, u16), CliError> {
         let mut child = std::process::Command::new(&exe)
@@ -79,20 +79,21 @@ pub async fn launch_chrome(
                     Err(_) => break,
                 };
                 if line.contains("DevTools listening on")
-                    && let Some(ws_start) = line.find("ws://") {
-                        let after_ws = &line[ws_start + 5..];
-                        if let Some(colon) = after_ws.find(':') {
-                            let after_colon = &after_ws[colon + 1..];
-                            let port_str: String = after_colon
-                                .chars()
-                                .take_while(|c| c.is_ascii_digit())
-                                .collect();
-                            if let Ok(p) = port_str.parse::<u16>() {
-                                let _ = tx.send(p);
-                                return;
-                            }
+                    && let Some(ws_start) = line.find("ws://")
+                {
+                    let after_ws = &line[ws_start + 5..];
+                    if let Some(colon) = after_ws.find(':') {
+                        let after_colon = &after_ws[colon + 1..];
+                        let port_str: String = after_colon
+                            .chars()
+                            .take_while(|c| c.is_ascii_digit())
+                            .collect();
+                        if let Ok(p) = port_str.parse::<u16>() {
+                            let _ = tx.send(p);
+                            return;
                         }
                     }
+                }
             }
         });
 
@@ -123,9 +124,10 @@ pub async fn discover_ws_url(port: u16) -> Result<String, CliError> {
         match reqwest::get(&url).await {
             Ok(resp) => {
                 if let Ok(json) = resp.json::<serde_json::Value>().await
-                    && let Some(ws) = json.get("webSocketDebuggerUrl").and_then(|v| v.as_str()) {
-                        return Ok(ws.to_string());
-                    }
+                    && let Some(ws) = json.get("webSocketDebuggerUrl").and_then(|v| v.as_str())
+                {
+                    return Ok(ws.to_string());
+                }
             }
             Err(_) => continue,
         }
