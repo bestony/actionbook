@@ -2773,10 +2773,12 @@ mod tests {
     // -----------------------------------------------------------------------
 
     #[tokio::test]
-    async fn storage_list_returns_keys() {
-        let mut backend = MockBackendSession::new(vec![Ok(OpResult::new(
-            json!({"result": {"value": ["key1", "key2"]}}),
-        ))]);
+    async fn storage_list_returns_items() {
+        let mut backend =
+            MockBackendSession::new(vec![Ok(OpResult::new(json!({"result": {"value": [
+                {"key": "key1", "value": "value1"},
+                {"key": "key2", "value": "value2"},
+            ]}})))]);
         let mut regs = make_regs_with_tab();
         let sid = SessionId::new_unchecked("local-1");
 
@@ -2795,9 +2797,10 @@ mod tests {
         assert!(result.is_ok());
         match result {
             ActionResult::Ok { data } => {
-                let keys = data["keys"].as_array().unwrap();
-                assert_eq!(keys.len(), 2);
-                assert_eq!(data["kind"], "local");
+                let items = data["items"].as_array().unwrap();
+                assert_eq!(items.len(), 2);
+                assert_eq!(items[0], json!({"key": "key1", "value": "value1"}));
+                assert_eq!(data["storage"], "local");
             }
             _ => panic!("expected Ok"),
         }
@@ -2827,9 +2830,14 @@ mod tests {
         assert!(result.is_ok());
         match result {
             ActionResult::Ok { data } => {
-                assert_eq!(data["key"], "mykey");
-                assert_eq!(data["value"], "stored_val");
-                assert_eq!(data["kind"], "session");
+                assert_eq!(
+                    data["item"],
+                    json!({
+                        "key": "mykey",
+                        "value": "stored_val",
+                    })
+                );
+                assert_eq!(data["storage"], "session");
             }
             _ => panic!("expected Ok"),
         }
@@ -2858,8 +2866,9 @@ mod tests {
         assert!(result.is_ok());
         match result {
             ActionResult::Ok { data } => {
-                assert_eq!(data["set"], "token");
-                assert_eq!(data["kind"], "local");
+                assert_eq!(data["storage"], "local");
+                assert_eq!(data["action"], "set");
+                assert_eq!(data["affected"], 1);
             }
             _ => panic!("expected Ok"),
         }
@@ -2868,7 +2877,8 @@ mod tests {
 
     #[tokio::test]
     async fn storage_delete_sends_evaluate() {
-        let mut backend = MockBackendSession::new(vec![Ok(OpResult::null())]);
+        let mut backend =
+            MockBackendSession::new(vec![Ok(OpResult::new(json!({"result": {"value": 1}})))]);
         let mut regs = make_regs_with_tab();
         let sid = SessionId::new_unchecked("local-1");
 
@@ -2888,7 +2898,9 @@ mod tests {
         assert!(result.is_ok());
         match result {
             ActionResult::Ok { data } => {
-                assert_eq!(data["deleted"], "token");
+                assert_eq!(data["storage"], "local");
+                assert_eq!(data["action"], "delete");
+                assert_eq!(data["affected"], 1);
             }
             _ => panic!("expected Ok"),
         }
@@ -2896,7 +2908,8 @@ mod tests {
 
     #[tokio::test]
     async fn storage_clear_sends_evaluate() {
-        let mut backend = MockBackendSession::new(vec![Ok(OpResult::null())]);
+        let mut backend =
+            MockBackendSession::new(vec![Ok(OpResult::new(json!({"result": {"value": 2}})))]);
         let mut regs = make_regs_with_tab();
         let sid = SessionId::new_unchecked("local-1");
 
@@ -2915,7 +2928,9 @@ mod tests {
         assert!(result.is_ok());
         match result {
             ActionResult::Ok { data } => {
-                assert_eq!(data["cleared"], "session");
+                assert_eq!(data["storage"], "session");
+                assert_eq!(data["action"], "clear");
+                assert_eq!(data["affected"], 2);
             }
             _ => panic!("expected Ok"),
         }
