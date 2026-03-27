@@ -70,7 +70,10 @@ fn tab_open_creates_new_tab() {
     assert_success(&out, "list-tabs");
     let v = parse_json(&out);
     assert_eq!(v["ok"], true, "list-tabs: ok should be true");
-    assert_eq!(v["command"], "browser.list-tabs", "list-tabs: command field");
+    assert_eq!(
+        v["command"], "browser.list-tabs",
+        "list-tabs: command field"
+    );
     assert_eq!(
         v["data"]["total_tabs"], 2,
         "list-tabs: total_tabs should be 2"
@@ -84,12 +87,15 @@ fn tab_open_creates_new_tab() {
         "list-tabs: context.tab_id should be absent (session-level), got: {}",
         v["context"]["tab_id"]
     );
-    let tabs = v["data"]["tabs"].as_array().expect("tabs should be an array");
-    assert_eq!(tabs.len(), 2, "list-tabs: tabs array should have 2 elements");
-    let tab_ids: Vec<&str> = tabs
-        .iter()
-        .filter_map(|t| t["tab_id"].as_str())
-        .collect();
+    let tabs = v["data"]["tabs"]
+        .as_array()
+        .expect("tabs should be an array");
+    assert_eq!(
+        tabs.len(),
+        2,
+        "list-tabs: tabs array should have 2 elements"
+    );
+    let tab_ids: Vec<&str> = tabs.iter().filter_map(|t| t["tab_id"].as_str()).collect();
     assert!(
         tab_ids.contains(&"t1"),
         "list-tabs: should contain t1, got: {:?}",
@@ -437,7 +443,10 @@ fn tab_pages_lists_all() {
     let out = headless_json(&["browser", "list-tabs", "-s", "local-1"], 10);
     assert_success(&out, "list-tabs");
     let v = parse_json(&out);
-    assert_eq!(v["data"]["total_tabs"], 2, "list-tabs: total_tabs should be 2");
+    assert_eq!(
+        v["data"]["total_tabs"], 2,
+        "list-tabs: total_tabs should be 2"
+    );
     let tabs = v["data"]["tabs"].as_array().expect("tabs array");
     let urls: Vec<&str> = tabs.iter().filter_map(|t| t["url"].as_str()).collect();
     assert!(

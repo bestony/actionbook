@@ -375,15 +375,7 @@ fn lifecycle_close_after_operations() {
 
     // Goto actionbook.dev — verify JSON response
     let out = headless_json(
-        &[
-            "browser",
-            "goto",
-            TEST_URL,
-            "-s",
-            "local-1",
-            "-t",
-            "t1",
-        ],
+        &["browser", "goto", TEST_URL, "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "goto");
@@ -451,10 +443,7 @@ fn lifecycle_close_s1t2_closes_all() {
     assert_success(&out, "start session");
 
     // Open a second tab in the same session
-    let out = headless(
-        &["browser", "open", TEST_URL, "-s", "local-1"],
-        30,
-    );
+    let out = headless(&["browser", "open", TEST_URL, "-s", "local-1"], 30);
     assert_success(&out, "open second tab");
 
     // Close the session — verify closed_tabs == 2 in JSON response
@@ -498,10 +487,7 @@ fn lifecycle_double_close() {
     assert_failure(&out, "second close should fail");
     let v = parse_json(&out);
     assert_eq!(v["ok"], false, "second close: ok should be false");
-    assert_eq!(
-        v["command"], "browser.close",
-        "second close: command field"
-    );
+    assert_eq!(v["command"], "browser.close", "second close: command field");
     assert!(
         !v["error"].is_null(),
         "second close: error should not be null"
@@ -696,10 +682,7 @@ fn lifecycle_set_session_id_conflict() {
     let v = parse_json(&out);
     assert_eq!(v["ok"], false, "conflict: ok should be false");
     assert_eq!(v["command"], "browser.start", "conflict: command field");
-    assert!(
-        !v["error"].is_null(),
-        "conflict: error should not be null"
-    );
+    assert!(!v["error"].is_null(), "conflict: error should not be null");
 
     // Close
     let out = headless(&["browser", "close", "-s", "my-session"], 30);
@@ -789,15 +772,7 @@ fn lifecycle_port_fallback_when_9222_occupied() {
 
     // Verify session is functional: goto
     let out = headless_json(
-        &[
-            "browser",
-            "goto",
-            TEST_URL,
-            "-s",
-            "local-1",
-            "-t",
-            "t1",
-        ],
+        &["browser", "goto", TEST_URL, "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "goto with fallback port");
