@@ -38,7 +38,7 @@ fn err_click_nonexistent() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -52,7 +52,7 @@ fn err_click_nonexistent() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -92,7 +92,7 @@ fn err_goto_invalid_url() {
     assert_success(&out, "start session");
 
     let out = headless(
-        &["browser", "goto", "://invalid", "-s", "local-1", "-t", "t0"],
+        &["browser", "goto", "://invalid", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_failure(&out, "goto invalid URL");
@@ -140,7 +140,7 @@ fn err_eval_syntax_error() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -154,7 +154,7 @@ fn err_eval_syntax_error() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -203,7 +203,7 @@ fn err_screenshot_bad_path() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -217,7 +217,7 @@ fn err_screenshot_bad_path() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -267,7 +267,7 @@ fn err_wait_timeout() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -282,7 +282,7 @@ fn err_wait_timeout() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "1000",
         ],
@@ -333,7 +333,7 @@ fn err_fill_nonexistent() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -348,7 +348,7 @@ fn err_fill_nonexistent() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );

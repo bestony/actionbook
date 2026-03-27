@@ -715,7 +715,7 @@ mod tests {
     fn goto_round_trip() {
         let action = Action::Goto {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(1),
+            tab: TabId(2),
             url: "https://example.com".into(),
         };
         let json = serde_json::to_string(&action).unwrap();
@@ -726,7 +726,7 @@ mod tests {
                 session, tab, url, ..
             } => {
                 assert_eq!(session, SessionId::new_unchecked("local-1"));
-                assert_eq!(tab, TabId(1));
+                assert_eq!(tab, TabId(2));
                 assert_eq!(url, "https://example.com");
             }
             _ => panic!("wrong variant"),
@@ -737,7 +737,7 @@ mod tests {
     fn click_round_trip() {
         let action = Action::Click {
             session: SessionId::new_unchecked("local-3"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#submit".into(),
             button: Some("right".into()),
             count: Some(2),
@@ -791,7 +791,7 @@ mod tests {
     fn eval_round_trip() {
         let action = Action::Eval {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             expression: "document.title".into(),
         };
         let json = serde_json::to_string(&action).unwrap();
@@ -806,7 +806,7 @@ mod tests {
     fn type_action_round_trip() {
         let action = Action::Type {
             session: SessionId::new_unchecked("local-2"),
-            tab: TabId(2),
+            tab: TabId(3),
             selector: "input[name=q]".into(),
             text: "hello world".into(),
         };
@@ -825,7 +825,7 @@ mod tests {
     fn wait_element_with_timeout() {
         let action = Action::WaitElement {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: ".loaded".into(),
             timeout_ms: Some(5000),
         };
@@ -862,7 +862,7 @@ mod tests {
     #[test]
     fn session_id_returns_some_for_session_actions() {
         let session = SessionId::new_unchecked("local-1");
-        let tab = TabId(0);
+        let tab = TabId(1);
 
         let goto = Action::Goto {
             session: session.clone(),
@@ -886,7 +886,7 @@ mod tests {
     fn screenshot_round_trip() {
         let action = Action::Screenshot {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             full_page: true,
         };
         let json = serde_json::to_string(&action).unwrap();
@@ -916,7 +916,7 @@ mod tests {
     #[test]
     fn session_id_for_all_tab_level_actions() {
         let s = SessionId::new_unchecked("local-5");
-        let tab = TabId(2);
+        let tab = TabId(3);
 
         let actions: Vec<Action> = vec![
             Action::Back {
@@ -1184,7 +1184,7 @@ mod tests {
     fn fill_round_trip() {
         let action = Action::Fill {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#email".into(),
             value: "test@example.com".into(),
         };
@@ -1235,7 +1235,7 @@ mod tests {
     fn scroll_with_container_round_trip() {
         let action = Action::Scroll {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             direction: "down".into(),
             amount: Some(300),
             selector: None,
@@ -1267,7 +1267,7 @@ mod tests {
     fn scroll_into_view_with_align_round_trip() {
         let action = Action::Scroll {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             direction: "into-view".into(),
             amount: None,
             selector: Some("#banner".into()),

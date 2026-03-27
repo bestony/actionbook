@@ -299,7 +299,7 @@ mod tests {
     #[test]
     fn tab_entry_serde_round_trip() {
         let entry = TabEntry {
-            id: TabId(0),
+            id: TabId(1),
             target_id: "ABC".into(),
             window: WindowId(0),
             url: "https://example.com".into(),
@@ -307,7 +307,7 @@ mod tests {
         };
         let json = serde_json::to_string(&entry).unwrap();
         let decoded: TabEntry = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded.id, TabId(0));
+        assert_eq!(decoded.id, TabId(1));
         assert_eq!(decoded.target_id, "ABC");
     }
 
@@ -321,12 +321,12 @@ mod tests {
         assert_eq!(actor.tab_count(), 2);
         assert_eq!(actor.window_count(), 1);
 
-        let t0 = actor.get_tab(TabId(0)).unwrap();
-        assert_eq!(t0.target_id, "ABC123");
-        assert_eq!(t0.url, "https://example.com");
-
         let t1 = actor.get_tab(TabId(1)).unwrap();
-        assert_eq!(t1.target_id, "DEF456");
+        assert_eq!(t1.target_id, "ABC123");
+        assert_eq!(t1.url, "https://example.com");
+
+        let t2 = actor.get_tab(TabId(2)).unwrap();
+        assert_eq!(t2.target_id, "DEF456");
     }
 
     #[test]
@@ -361,7 +361,7 @@ mod tests {
         if let Some(w) = actor.registries.windows.get_mut(&w1) {
             w.tabs.push(tab_id);
         }
-        assert_eq!(tab_id, TabId(0));
+        assert_eq!(tab_id, TabId(1));
         assert_eq!(actor.tab_count(), 1);
         assert_eq!(actor.registries.windows.get(&w1).unwrap().tabs.len(), 1);
 
@@ -456,7 +456,7 @@ mod tests {
         tx.send(ActionRequest {
             action: Action::Goto {
                 session: SessionId::new_unchecked("local-1"),
-                tab: TabId(0),
+                tab: TabId(1),
                 url: "https://new.com".into(),
             },
             response_tx: resp_tx,
@@ -550,7 +550,7 @@ mod tests {
         tx.send(ActionRequest {
             action: Action::CloseTab {
                 session: SessionId::new_unchecked("local-1"),
-                tab: TabId(0),
+                tab: TabId(1),
             },
             response_tx: resp_tx,
         })

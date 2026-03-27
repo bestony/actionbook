@@ -152,7 +152,7 @@ impl FromStr for SessionId {
 // TabId
 // ---------------------------------------------------------------------------
 
-/// Daemon-assigned short alias for a tab within a session (t0, t1, ...).
+/// Daemon-assigned short alias for a tab within a session (t1, t2, ...).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TabId(pub u32);
 

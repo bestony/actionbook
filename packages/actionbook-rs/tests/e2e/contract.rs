@@ -163,7 +163,7 @@ fn contract_non_lifecycle_error_json_envelope() {
             "-s",
             "definitely-does-not-exist-xyz",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -300,7 +300,7 @@ fn contract_error_element_not_found() {
             "-s",
             session_id,
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -316,7 +316,7 @@ fn contract_error_element_not_found() {
             "-s",
             session_id,
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "500",
         ],

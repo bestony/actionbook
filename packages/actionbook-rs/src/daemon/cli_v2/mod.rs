@@ -1981,7 +1981,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Goto {
             url: "https://example.com".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(1),
+            tab: TabId(2),
         })
         .unwrap();
         match action {
@@ -1989,7 +1989,7 @@ mod tests {
                 session, tab, url, ..
             } => {
                 assert_eq!(session, SessionId::new_unchecked("local-1"));
-                assert_eq!(tab, TabId(1));
+                assert_eq!(tab, TabId(2));
                 assert_eq!(url, "https://example.com");
             }
             _ => panic!("wrong variant"),
@@ -2001,7 +2001,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Goto {
             url: "arxiv.org".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
         match action {
@@ -2015,7 +2015,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Goto {
             url: "http://example.com".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
         match action {
@@ -2029,7 +2029,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Goto {
             url: "https://google.com".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
         match action {
@@ -2058,7 +2058,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Goto {
             url: "about:blank".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
         match action {
@@ -2072,7 +2072,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Goto {
             url: "data:text/html,<h1>hi</h1>".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
         match action {
@@ -2086,7 +2086,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Goto {
             url: "chrome://settings".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
         match action {
@@ -2099,7 +2099,7 @@ mod tests {
     fn build_snapshot_action() {
         let (action, _) = build_action(BrowserCmd::Snapshot {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             interactive: true,
             compact: false,
             cursor: false,
@@ -2139,7 +2139,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Click {
             target: "#btn".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             button: None,
             count: None,
             new_tab: false,
@@ -2165,7 +2165,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Click {
             target: "#btn".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             button: Some("right".into()),
             count: Some(2),
             new_tab: false,
@@ -2192,7 +2192,7 @@ mod tests {
             selector: "#input".into(),
             text: "hello".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
         match action {
@@ -2210,7 +2210,7 @@ mod tests {
             from: "#source".into(),
             to: "#target".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             button: Some("middle".into()),
         })
         .unwrap();
@@ -2250,7 +2250,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Click {
             target: "100,200".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             button: None,
             count: None,
             new_tab: false,
@@ -2276,7 +2276,7 @@ mod tests {
         let result = build_action(BrowserCmd::Click {
             target: "100,200".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             button: None,
             count: None,
             new_tab: true,
@@ -2292,7 +2292,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Click {
             target: "#link".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             button: None,
             count: None,
             new_tab: true,
@@ -2319,7 +2319,7 @@ mod tests {
             from: "#source".into(),
             to: "300,400".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             button: None,
         })
         .unwrap();
@@ -2343,7 +2343,7 @@ mod tests {
         let (action, _) = build_action(BrowserCmd::Eval {
             code: "document.title".into(),
             session: SessionId::new_unchecked("local-2"),
-            tab: TabId(2),
+            tab: TabId(3),
         })
         .unwrap();
         match action {
@@ -2432,37 +2432,37 @@ mod tests {
 
         let (action, _) = build_action(BrowserCmd::CloseTab {
             session: session.clone(),
-            tab: TabId(2),
+            tab: TabId(3),
         })
         .unwrap();
         assert!(matches!(
             action,
             Action::CloseTab {
                 session: s,
-                tab: TabId(2)
+                tab: TabId(3)
             } if s == session
         ));
 
         let (action, _) = build_action(BrowserCmd::Back {
             session: session.clone(),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
-        assert!(matches!(action, Action::Back { session: s, tab: TabId(0) } if s == session));
+        assert!(matches!(action, Action::Back { session: s, tab: TabId(1) } if s == session));
 
         let (action, _) = build_action(BrowserCmd::Forward {
             session: session.clone(),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
-        assert!(matches!(action, Action::Forward { session: s, tab: TabId(0) } if s == session));
+        assert!(matches!(action, Action::Forward { session: s, tab: TabId(1) } if s == session));
 
         let (action, _) = build_action(BrowserCmd::Reload {
             session: session.clone(),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap();
-        assert!(matches!(action, Action::Reload { session: s, tab: TabId(0) } if s == session));
+        assert!(matches!(action, Action::Reload { session: s, tab: TabId(1) } if s == session));
 
         let (action, _) = build_action(BrowserCmd::Restart { session }).unwrap();
         assert!(matches!(action, Action::RestartSession { .. }));
@@ -2471,7 +2471,7 @@ mod tests {
     #[test]
     fn build_observation_variants() {
         let session = SessionId::new_unchecked("local-1");
-        let tab = TabId(3);
+        let tab = TabId(4);
 
         let (action, path) = build_action(BrowserCmd::Screenshot {
             path: PathBuf::from("/tmp/out.png"),
@@ -2484,7 +2484,7 @@ mod tests {
             action,
             Action::Screenshot {
                 session: s,
-                tab: TabId(3),
+                tab: TabId(4),
                 full_page: false
             } if s == session
         ));
@@ -2499,7 +2499,7 @@ mod tests {
             action,
             Action::Pdf {
                 session: s,
-                tab: TabId(3),
+                tab: TabId(4),
                 path
             } if s == session && path == "/tmp/out.pdf"
         ));
@@ -2533,21 +2533,21 @@ mod tests {
                     "title",
                     Action::Title {
                         session: s,
-                        tab: TabId(3),
+                        tab: TabId(4),
                     },
                 ) => assert_eq!(s, session),
                 (
                     "url",
                     Action::Url {
                         session: s,
-                        tab: TabId(3),
+                        tab: TabId(4),
                     },
                 ) => assert_eq!(s, session),
                 (
                     "viewport",
                     Action::Viewport {
                         session: s,
-                        tab: TabId(3),
+                        tab: TabId(4),
                     },
                 ) => {
                     assert_eq!(s, session)
@@ -2673,7 +2673,7 @@ mod tests {
             action,
             Action::LogsConsole {
                 session: s,
-                tab: TabId(3),
+                tab: TabId(4),
                 ..
             } if s == session
         ));
@@ -2688,13 +2688,13 @@ mod tests {
             json: false,
         })
         .unwrap();
-        assert!(matches!(action, Action::LogsErrors { tab: TabId(3), .. }));
+        assert!(matches!(action, Action::LogsErrors { tab: TabId(4), .. }));
     }
 
     #[test]
     fn build_query_variants() {
         let session = SessionId::new_unchecked("local-1");
-        let tab = TabId(0);
+        let tab = TabId(1);
 
         let (action, _) = build_action(BrowserCmd::Query(QueryCmd::One {
             selector: "#one".into(),
@@ -2772,7 +2772,7 @@ mod tests {
     #[test]
     fn storage_subcommands_map_for_both_kinds() {
         let session = SessionId::new_unchecked("local-1");
-        let tab = TabId(1);
+        let tab = TabId(2);
 
         let local_list = storage_cmd_to_action(
             StorageSubCmd::List {
@@ -2846,7 +2846,7 @@ mod tests {
     #[test]
     fn build_interaction_and_wait_variants() {
         let session = SessionId::new_unchecked("local-1");
-        let tab = TabId(2);
+        let tab = TabId(3);
 
         let (action, _) = build_action(BrowserCmd::Select {
             value: "opt-1".into(),
@@ -3010,7 +3010,7 @@ mod tests {
                 selector: "#override".into(),
                 timeout_ms: Some(2500),
                 session: SessionId::new_unchecked("local-1"),
-                tab: TabId(0),
+                tab: TabId(1),
             }),
             Some(9000),
         )
@@ -3030,7 +3030,7 @@ mod tests {
             "--session",
             "local-1",
             "--tab",
-            "t0",
+            "t1",
             "--timeout",
             "1234",
         ])
@@ -3051,7 +3051,7 @@ mod tests {
             "--session",
             "local-1",
             "--tab",
-            "t0",
+            "t1",
         ])
         .unwrap();
 
@@ -3077,7 +3077,7 @@ mod tests {
             "--session",
             "local-1",
             "--tab",
-            "t0",
+            "t1",
             "--timeout",
             "8765",
         ])
@@ -3122,7 +3122,7 @@ mod tests {
             "--session",
             "local-1",
             "--tab",
-            "t0",
+            "t1",
             "--timeout",
             "3456",
         ])
@@ -3154,7 +3154,7 @@ mod tests {
         let err = build_action(BrowserCmd::MouseMove {
             coords: "oops".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap_err();
         assert!(err.contains("expected format 'x,y'"));
@@ -3163,7 +3163,7 @@ mod tests {
     #[test]
     fn build_scroll_all_directions() {
         let session = SessionId::new_unchecked("local-1");
-        let tab = TabId(0);
+        let tab = TabId(1);
 
         let (action, _) = build_action(BrowserCmd::Scroll(ScrollCmd::Up {
             amount: Some(100),
@@ -3222,7 +3222,7 @@ mod tests {
     #[test]
     fn build_logs_subcommand() {
         let session = SessionId::new_unchecked("local-1");
-        let tab = TabId(2);
+        let tab = TabId(3);
 
         let (action, _) = build_action(BrowserCmd::Logs(LogsCmd::Console {
             session: session.to_string(),
@@ -3302,7 +3302,7 @@ mod tests {
     #[test]
     fn build_type_and_fill_actions() {
         let session = SessionId::new_unchecked("local-1");
-        let tab = TabId(0);
+        let tab = TabId(1);
 
         let (action, _) = build_action(BrowserCmd::Type {
             text: "hello world".into(),
@@ -3333,7 +3333,7 @@ mod tests {
             coords: "not-valid".into(),
             parent_depth: None,
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap_err();
         assert!(err.contains("invalid coords"));
@@ -3345,7 +3345,7 @@ mod tests {
             coords: "abc,100".into(),
             parent_depth: None,
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap_err();
         assert!(err.contains("invalid x coordinate"));
@@ -3357,7 +3357,7 @@ mod tests {
             coords: "100,abc".into(),
             parent_depth: None,
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap_err();
         assert!(err.contains("invalid y coordinate"));
@@ -3368,7 +3368,7 @@ mod tests {
         let err = build_action(BrowserCmd::MouseMove {
             coords: "100".into(),
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         })
         .unwrap_err();
         assert!(err.contains("expected format 'x,y'"));

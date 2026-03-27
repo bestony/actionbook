@@ -47,9 +47,9 @@ fn start_session_at(url: &str) -> (String, String) {
             let json = parse_envelope(&out);
             if json["context"]["session_id"].as_str() == Some(session_id.as_str()) {
                 let goto_out =
-                    headless(&["browser", "goto", url, "-s", &session_id, "-t", "t0"], 30);
+                    headless(&["browser", "goto", url, "-s", &session_id, "-t", "t1"], 30);
                 assert_success(&goto_out, "goto url");
-                return (session_id, "t0".to_string());
+                return (session_id, "t1".to_string());
             }
         }
 
@@ -68,9 +68,9 @@ fn start_session_at(url: &str) -> (String, String) {
         .expect("session_id in start context")
         .to_string();
 
-    let goto_out = headless(&["browser", "goto", url, "-s", &session_id, "-t", "t0"], 30);
+    let goto_out = headless(&["browser", "goto", url, "-s", &session_id, "-t", "t1"], 30);
     assert_success(&goto_out, "goto url");
-    (session_id, "t0".to_string())
+    (session_id, "t1".to_string())
 }
 
 fn close_session(session_id: &str) {
@@ -97,7 +97,7 @@ fn contract_snapshot_json_data_shape() {
     let _guard = SessionGuard::new();
     let (sid, _tid) = start_session_at("https://example.com");
 
-    let out = headless_json(&["browser", "snapshot", "-s", &sid, "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", &sid, "-t", "t1"], 30);
     assert_success(&out, "snapshot --json");
     let json = parse_envelope(&out);
 
@@ -167,7 +167,7 @@ fn contract_snapshot_context_url_title() {
     let _guard = SessionGuard::new();
     let (sid, _tid) = start_session_at("https://example.com");
 
-    let out = headless_json(&["browser", "snapshot", "-s", &sid, "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", &sid, "-t", "t1"], 30);
     assert_success(&out, "snapshot --json for context url/title");
     let json = parse_envelope(&out);
 
@@ -221,7 +221,7 @@ fn contract_local_storage_command_name() {
     let (sid, _tid) = start_session_at("https://example.com");
 
     let out = headless_json(
-        &["browser", "local-storage", "list", "-s", &sid, "-t", "t0"],
+        &["browser", "local-storage", "list", "-s", &sid, "-t", "t1"],
         20,
     );
     assert_success(&out, "local-storage list --json");
@@ -252,7 +252,7 @@ fn contract_session_storage_command_name() {
     let (sid, _tid) = start_session_at("https://example.com");
 
     let out = headless_json(
-        &["browser", "session-storage", "list", "-s", &sid, "-t", "t0"],
+        &["browser", "session-storage", "list", "-s", &sid, "-t", "t1"],
         20,
     );
     assert_success(&out, "session-storage list --json");

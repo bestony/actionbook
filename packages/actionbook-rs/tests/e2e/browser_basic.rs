@@ -47,7 +47,7 @@ fn browser_basic_open_goto_snapshot_close() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -62,7 +62,7 @@ fn browser_basic_open_goto_snapshot_close() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -74,7 +74,7 @@ fn browser_basic_open_goto_snapshot_close() {
     );
 
     // Step 5: snapshot and verify arxiv content
-    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "snapshot");
 
     let output = stdout_str(&out);

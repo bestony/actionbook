@@ -94,11 +94,11 @@ fn start_session_on_test_url() {
         let out = headless(&["browser", "start", "--mode", "local", "--headless"], 30);
         if out.status.success() {
             let out = headless(
-                &["browser", "goto", TEST_URL, "-s", "local-1", "-t", "t0"],
+                &["browser", "goto", TEST_URL, "-s", "local-1", "-t", "t1"],
                 30,
             );
             assert_success(&out, "goto test url");
-            wait_for_ready_state_complete("local-1", "t0");
+            wait_for_ready_state_complete("local-1", "t1");
             return;
         }
 
@@ -126,13 +126,13 @@ fn contract_new_tab_json() {
 
     let out = headless_json(&["browser", "new-tab", TEST_URL, "-s", "local-1"], 30);
     assert_success(&out, "new-tab json");
-    wait_for_ready_state_complete("local-1", "t1");
+    wait_for_ready_state_complete("local-1", "t2");
 
     let v = parse_envelope(&out);
     assert_envelope(&v, true, "browser.new-tab");
 
-    let expected_url = current_url("local-1", "t1");
-    let expected_title = current_title("local-1", "t1");
+    let expected_url = current_url("local-1", "t2");
+    let expected_title = current_title("local-1", "t2");
     assert!(
         !expected_title.is_empty(),
         "expected title should not be empty for {expected_url}"
@@ -142,7 +142,7 @@ fn contract_new_tab_json() {
         v["context"],
         json!({
             "session_id": "local-1",
-            "tab_id": "t1",
+            "tab_id": "t2",
             "url": expected_url,
             "title": expected_title,
         })
@@ -152,7 +152,7 @@ fn contract_new_tab_json() {
         v["data"]["new_window"], false,
         "data.new_window should be false"
     );
-    assert_eq!(v["data"]["tab"]["tab_id"], "t1");
+    assert_eq!(v["data"]["tab"]["tab_id"], "t2");
     assert_eq!(v["data"]["tab"]["url"], expected_url);
     assert_eq!(v["data"]["tab"]["title"], expected_title);
     assert!(
@@ -180,11 +180,11 @@ fn contract_new_tab_text() {
 
     let out = headless(&["browser", "new-tab", TEST_URL, "-s", "local-1"], 30);
     assert_success(&out, "new-tab text");
-    wait_for_ready_state_complete("local-1", "t1");
+    wait_for_ready_state_complete("local-1", "t2");
 
     let text = stdout_str(&out);
-    let expected_url = current_url("local-1", "t1");
-    let expected_title = current_title("local-1", "t1");
+    let expected_url = current_url("local-1", "t2");
+    let expected_title = current_title("local-1", "t2");
     assert_eq!(
         text.trim(),
         format!("[local-1 t1] {expected_url}\nok browser.new-tab\ntitle: {expected_title}")
@@ -210,12 +210,12 @@ fn contract_open_alias_works() {
     // Use the "open" alias
     let out = headless_json(&["browser", "open", TEST_URL, "-s", "local-1"], 30);
     assert_success(&out, "open alias");
-    wait_for_ready_state_complete("local-1", "t1");
+    wait_for_ready_state_complete("local-1", "t2");
 
     let v = parse_envelope(&out);
     assert_envelope(&v, true, "browser.new-tab");
-    assert_eq!(v["data"]["tab"]["tab_id"], "t1");
-    assert_eq!(v["data"]["tab"]["url"], current_url("local-1", "t1"));
+    assert_eq!(v["data"]["tab"]["tab_id"], "t2");
+    assert_eq!(v["data"]["tab"]["url"], current_url("local-1", "t2"));
 
     let out = headless(&["browser", "close", "-s", "local-1"], 30);
     assert_success(&out, "close");
@@ -250,11 +250,11 @@ fn contract_list_tabs_json() {
     );
     assert_eq!(v["data"]["total_tabs"], 1);
     assert_eq!(v["data"]["tabs"].as_array().map(|tabs| tabs.len()), Some(1));
-    assert_eq!(v["data"]["tabs"][0]["tab_id"], "t0");
-    assert_eq!(v["data"]["tabs"][0]["url"], current_url("local-1", "t0"));
+    assert_eq!(v["data"]["tabs"][0]["tab_id"], "t1");
+    assert_eq!(v["data"]["tabs"][0]["url"], current_url("local-1", "t1"));
     assert_eq!(
         v["data"]["tabs"][0]["title"],
-        current_title("local-1", "t0")
+        current_title("local-1", "t1")
     );
     assert!(
         v["data"]["tabs"][0]["native_tab_id"].is_string(),
@@ -268,9 +268,9 @@ fn contract_list_tabs_json() {
     assert_eq!(
         text.trim(),
         format!(
-            "[local-1]\n1 tab\n[t0] {}\n{}",
-            current_title("local-1", "t0"),
-            current_url("local-1", "t0")
+            "[local-1]\n1 tab\n[t1] {}\n{}",
+            current_title("local-1", "t1"),
+            current_url("local-1", "t1")
         )
     );
 
@@ -307,7 +307,7 @@ fn contract_close_tab_json() {
     let out = headless(&["browser", "new-tab", "about:blank", "-s", "local-1"], 30);
     assert_success(&out, "new-tab");
 
-    let out = headless_json(&["browser", "close-tab", "-s", "local-1", "-t", "t1"], 30);
+    let out = headless_json(&["browser", "close-tab", "-s", "local-1", "-t", "t2"], 30);
     assert_success(&out, "close-tab json");
 
     let v = parse_envelope(&out);
@@ -351,7 +351,7 @@ fn contract_goto_json() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -360,7 +360,7 @@ fn contract_goto_json() {
     let v = parse_envelope(&out);
     assert_envelope(&v, true, "browser.goto");
     assert_eq!(v["context"]["session_id"], "local-1");
-    assert_eq!(v["context"]["tab_id"], "t0");
+    assert_eq!(v["context"]["tab_id"], "t1");
 
     // data should have navigation fields
     assert!(
@@ -413,7 +413,7 @@ fn contract_goto_text() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -467,7 +467,7 @@ fn contract_back_forward_json() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -481,33 +481,33 @@ fn contract_back_forward_json() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "goto page2");
 
     // Back
-    let out = headless_json(&["browser", "back", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "back", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "back json");
 
     let v = parse_envelope(&out);
     assert_envelope(&v, true, "browser.back");
     assert_eq!(v["context"]["session_id"], "local-1");
-    assert_eq!(v["context"]["tab_id"], "t0");
+    assert_eq!(v["context"]["tab_id"], "t1");
     assert!(
         v["data"]["kind"].is_string(),
         "data.kind should be a string"
     );
 
     // Forward
-    let out = headless_json(&["browser", "forward", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "forward", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "forward json");
 
     let v = parse_envelope(&out);
     assert_envelope(&v, true, "browser.forward");
     assert_eq!(v["context"]["session_id"], "local-1");
-    assert_eq!(v["context"]["tab_id"], "t0");
+    assert_eq!(v["context"]["tab_id"], "t1");
 
     let out = headless(&["browser", "close", "-s", "local-1"], 30);
     assert_success(&out, "close");
@@ -538,13 +538,13 @@ fn contract_reload_json() {
     );
     assert_success(&out, "start");
 
-    let out = headless_json(&["browser", "reload", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "reload", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "reload json");
 
     let v = parse_envelope(&out);
     assert_envelope(&v, true, "browser.reload");
     assert_eq!(v["context"]["session_id"], "local-1");
-    assert_eq!(v["context"]["tab_id"], "t0");
+    assert_eq!(v["context"]["tab_id"], "t1");
 
     let out = headless(&["browser", "close", "-s", "local-1"], 30);
     assert_success(&out, "close");

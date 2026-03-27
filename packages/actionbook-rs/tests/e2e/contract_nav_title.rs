@@ -40,7 +40,7 @@ fn contract_nav_goto_title_in_data() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -79,7 +79,7 @@ fn contract_nav_goto_context_title_and_url() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -123,7 +123,7 @@ fn contract_nav_goto_text_has_title_line() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -161,7 +161,7 @@ fn contract_nav_back_title_in_data() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -175,13 +175,13 @@ fn contract_nav_back_title_in_data() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "goto page2");
 
-    let out = headless_json(&["browser", "back", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "back", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "back json");
 
     let v = parse_envelope(&out);
@@ -217,7 +217,7 @@ fn contract_nav_back_context_url_changes() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -231,13 +231,13 @@ fn contract_nav_back_context_url_changes() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "goto page2");
 
-    let out = headless_json(&["browser", "back", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "back", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "back json");
 
     let v = parse_envelope(&out);
@@ -278,7 +278,7 @@ fn contract_nav_forward_title_in_data() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -292,16 +292,16 @@ fn contract_nav_forward_title_in_data() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "goto page2");
 
-    let out = headless(&["browser", "back", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless(&["browser", "back", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "back");
 
-    let out = headless_json(&["browser", "forward", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "forward", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "forward json");
 
     let v = parse_envelope(&out);
@@ -337,13 +337,13 @@ fn contract_nav_reload_title_preserved() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "goto");
 
-    let out = headless_json(&["browser", "reload", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "reload", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "reload json");
 
     let v = parse_envelope(&out);
@@ -379,7 +379,7 @@ fn contract_nav_back_text_has_title_line() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -393,13 +393,13 @@ fn contract_nav_back_text_has_title_line() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "goto page2");
 
-    let out = headless(&["browser", "back", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless(&["browser", "back", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "back text");
 
     let text = stdout_str(&out);

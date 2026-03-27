@@ -64,7 +64,7 @@ fn obs_snapshot_has_content() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -72,7 +72,7 @@ fn obs_snapshot_has_content() {
     );
     assert_success(&out, "wait for page load");
 
-    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "snapshot");
     let output = stdout_str(&out);
     assert!(
@@ -120,7 +120,7 @@ fn obs_snapshot_interactive() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -136,7 +136,7 @@ fn obs_snapshot_interactive() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -189,7 +189,7 @@ fn obs_snapshot_s1t2_different() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -214,13 +214,13 @@ fn obs_snapshot_s1t2_different() {
 
     // Snapshot t0 — extract only the snapshot content (not the full JSON envelope
     // which may differ by tab_id/url metadata).
-    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "snapshot t0");
     let raw_t0 = stdout_str(&out);
     let snap_t0 = extract_snapshot_content(&raw_t0);
 
     // Snapshot t1
-    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t1"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t2"], 30);
     assert_success(&out, "snapshot t1");
     let raw_t1 = stdout_str(&out);
     let snap_t1 = extract_snapshot_content(&raw_t1);
@@ -270,7 +270,7 @@ fn obs_snapshot_seq_reflects_goto() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -280,7 +280,7 @@ fn obs_snapshot_seq_reflects_goto() {
 
     // Snapshot after landing on example.com — extract only the snapshot
     // content to avoid false-negatives from envelope metadata differences.
-    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "snapshot A");
     let raw_a = stdout_str(&out);
     let snap_a = extract_snapshot_content(&raw_a);
@@ -296,14 +296,14 @@ fn obs_snapshot_seq_reflects_goto() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
     assert_success(&out, "goto B");
 
     // Snapshot again
-    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t0"], 30);
+    let out = headless_json(&["browser", "snapshot", "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "snapshot B");
     let raw_b = stdout_str(&out);
     let snap_b = extract_snapshot_content(&raw_b);
@@ -353,7 +353,7 @@ fn obs_screenshot_file() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -370,7 +370,7 @@ fn obs_screenshot_file() {
     drop(tmp);
 
     let out = headless(
-        &["browser", "screenshot", &path, "-s", "local-1", "-t", "t0"],
+        &["browser", "screenshot", &path, "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "screenshot");
@@ -424,7 +424,7 @@ fn obs_pdf_produces_file() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -437,7 +437,7 @@ fn obs_pdf_produces_file() {
     let path = tmp.path().to_string_lossy().to_string();
     drop(tmp);
 
-    let out = headless(&["browser", "pdf", &path, "-s", "local-1", "-t", "t0"], 30);
+    let out = headless(&["browser", "pdf", &path, "-s", "local-1", "-t", "t1"], 30);
     assert_success(&out, "pdf");
 
     let metadata = std::fs::metadata(&path);
@@ -485,7 +485,7 @@ fn obs_title() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -493,7 +493,7 @@ fn obs_title() {
     );
     assert_success(&out, "wait for page load");
 
-    let out = headless(&["browser", "title", "-s", "local-1", "-t", "t0"], 10);
+    let out = headless(&["browser", "title", "-s", "local-1", "-t", "t1"], 10);
     assert_success(&out, "title");
     let title = stdout_str(&out);
     assert!(
@@ -541,7 +541,7 @@ fn obs_url() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -549,7 +549,7 @@ fn obs_url() {
     );
     assert_success(&out, "wait for page load");
 
-    let out = headless(&["browser", "url", "-s", "local-1", "-t", "t0"], 10);
+    let out = headless(&["browser", "url", "-s", "local-1", "-t", "t1"], 10);
     assert_success(&out, "url");
     let url = stdout_str(&out);
     assert!(
@@ -597,7 +597,7 @@ fn obs_viewport() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -605,7 +605,7 @@ fn obs_viewport() {
     );
     assert_success(&out, "wait for page load");
 
-    let out = headless(&["browser", "viewport", "-s", "local-1", "-t", "t0"], 10);
+    let out = headless(&["browser", "viewport", "-s", "local-1", "-t", "t1"], 10);
     assert_success(&out, "viewport");
     let viewport = stdout_str(&out);
     // Viewport output should contain width/height numbers (e.g., "1440x900" or JSON with width/height)
@@ -654,7 +654,7 @@ fn obs_eval_arithmetic() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -662,7 +662,7 @@ fn obs_eval_arithmetic() {
     );
     assert_success(&out, "wait for page load");
 
-    let out = headless(&["browser", "eval", "1+1", "-s", "local-1", "-t", "t0"], 10);
+    let out = headless(&["browser", "eval", "1+1", "-s", "local-1", "-t", "t1"], 10);
     assert_success(&out, "eval 1+1");
     assert!(
         stdout_str(&out).contains('2'),
@@ -709,7 +709,7 @@ fn obs_eval_dom() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -723,7 +723,7 @@ fn obs_eval_dom() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -773,7 +773,7 @@ fn obs_html_element() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -782,7 +782,7 @@ fn obs_html_element() {
     assert_success(&out, "wait for page load");
 
     let out = headless(
-        &["browser", "html", "body", "-s", "local-1", "-t", "t0"],
+        &["browser", "html", "body", "-s", "local-1", "-t", "t1"],
         10,
     );
     assert_success(&out, "html body");
@@ -832,7 +832,7 @@ fn obs_text_element() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -841,7 +841,7 @@ fn obs_text_element() {
     assert_success(&out, "wait for page load");
 
     let out = headless(
-        &["browser", "text", "body", "-s", "local-1", "-t", "t0"],
+        &["browser", "text", "body", "-s", "local-1", "-t", "t1"],
         10,
     );
     assert_success(&out, "text body");
@@ -892,7 +892,7 @@ fn obs_value_input() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -909,7 +909,7 @@ fn obs_value_input() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -925,7 +925,7 @@ fn obs_value_input() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -940,7 +940,7 @@ fn obs_value_input() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -990,7 +990,7 @@ fn obs_attr_single() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1000,7 +1000,7 @@ fn obs_attr_single() {
 
     // example.com has an <a> element with href
     let out = headless(
-        &["browser", "attr", "a", "href", "-s", "local-1", "-t", "t0"],
+        &["browser", "attr", "a", "href", "-s", "local-1", "-t", "t1"],
         10,
     );
     assert_success(&out, "attr a href");
@@ -1050,7 +1050,7 @@ fn obs_attrs_all() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1067,7 +1067,7 @@ fn obs_attrs_all() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1081,7 +1081,7 @@ fn obs_attrs_all() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1132,7 +1132,7 @@ fn obs_box_position() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1140,7 +1140,7 @@ fn obs_box_position() {
     );
     assert_success(&out, "wait for page load");
 
-    let out = headless(&["browser", "box", "body", "-s", "local-1", "-t", "t0"], 10);
+    let out = headless(&["browser", "box", "body", "-s", "local-1", "-t", "t1"], 10);
     assert_success(&out, "box body");
     let box_output = stdout_str(&out);
     // Box output should contain position/size info (x, y, width, height)
@@ -1189,7 +1189,7 @@ fn obs_styles_computed() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1198,7 +1198,7 @@ fn obs_styles_computed() {
     assert_success(&out, "wait for page load");
 
     let out = headless(
-        &["browser", "styles", "body", "-s", "local-1", "-t", "t0"],
+        &["browser", "styles", "body", "-s", "local-1", "-t", "t1"],
         10,
     );
     assert_success(&out, "styles body");
@@ -1248,7 +1248,7 @@ fn obs_describe_element() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1258,7 +1258,7 @@ fn obs_describe_element() {
 
     // example.com has a link; describe it
     let out = headless(
-        &["browser", "describe", "a", "-s", "local-1", "-t", "t0"],
+        &["browser", "describe", "a", "-s", "local-1", "-t", "t1"],
         10,
     );
     assert_success(&out, "describe a");
@@ -1308,7 +1308,7 @@ fn obs_state_element() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1317,7 +1317,7 @@ fn obs_state_element() {
     assert_success(&out, "wait for page load");
 
     // Use the link element on example.com for state query
-    let out = headless(&["browser", "state", "a", "-s", "local-1", "-t", "t0"], 10);
+    let out = headless(&["browser", "state", "a", "-s", "local-1", "-t", "t1"], 10);
     assert_success(&out, "state a");
     let state = stdout_str(&out);
     assert!(
@@ -1365,7 +1365,7 @@ fn obs_inspect_point() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1381,7 +1381,7 @@ fn obs_inspect_point() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1438,7 +1438,7 @@ fn obs_query_one() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1448,7 +1448,7 @@ fn obs_query_one() {
 
     let out = headless(
         &[
-            "browser", "query", "one", "body", "-s", "local-1", "-t", "t0",
+            "browser", "query", "one", "body", "-s", "local-1", "-t", "t1",
         ],
         10,
     );
@@ -1500,7 +1500,7 @@ fn obs_query_all() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1510,7 +1510,7 @@ fn obs_query_all() {
 
     let out = headless(
         &[
-            "browser", "query", "all", "div", "-s", "local-1", "-t", "t0",
+            "browser", "query", "all", "div", "-s", "local-1", "-t", "t1",
         ],
         10,
     );
@@ -1562,7 +1562,7 @@ fn obs_query_count() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1572,7 +1572,7 @@ fn obs_query_count() {
 
     let out = headless(
         &[
-            "browser", "query", "count", "div", "-s", "local-1", "-t", "t0",
+            "browser", "query", "count", "div", "-s", "local-1", "-t", "t1",
         ],
         10,
     );
@@ -1633,7 +1633,7 @@ fn obs_query_nth() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -1643,7 +1643,7 @@ fn obs_query_nth() {
 
     let out = headless(
         &[
-            "browser", "query", "nth", "1", "div", "-s", "local-1", "-t", "t0",
+            "browser", "query", "nth", "1", "div", "-s", "local-1", "-t", "t1",
         ],
         10,
     );
@@ -1695,7 +1695,7 @@ fn obs_console_logs() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1708,7 +1708,7 @@ fn obs_console_logs() {
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
         let out = headless(
-            &["browser", "logs-console", "-s", "local-1", "-t", "t0"],
+            &["browser", "logs-console", "-s", "local-1", "-t", "t1"],
             10,
         );
         assert_success(&out, "logs console");
@@ -1762,7 +1762,7 @@ fn obs_error_logs() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         10,
     );
@@ -1774,7 +1774,7 @@ fn obs_error_logs() {
         if attempt > 0 {
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
-        let out = headless(&["browser", "logs-errors", "-s", "local-1", "-t", "t0"], 10);
+        let out = headless(&["browser", "logs-errors", "-s", "local-1", "-t", "t1"], 10);
         assert_success(&out, "logs errors");
         logs = stdout_str(&out);
         if logs.contains("actionbook-test-error-marker") {

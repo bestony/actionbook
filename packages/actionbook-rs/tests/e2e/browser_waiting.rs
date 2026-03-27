@@ -36,7 +36,7 @@ fn wait_element_exists() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -52,7 +52,7 @@ fn wait_element_exists() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],
@@ -96,7 +96,7 @@ fn wait_element_timeout() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -112,7 +112,7 @@ fn wait_element_timeout() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "2000",
         ],
@@ -156,7 +156,7 @@ fn wait_nav_after_click() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -171,7 +171,7 @@ fn wait_nav_after_click() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -187,7 +187,7 @@ fn wait_nav_after_click() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -195,7 +195,7 @@ fn wait_nav_after_click() {
 
     // Click the link to trigger navigation
     let out = headless(
-        &["browser", "click", "#nav-link", "-s", "local-1", "-t", "t0"],
+        &["browser", "click", "#nav-link", "-s", "local-1", "-t", "t1"],
         30,
     );
     assert_success(&out, "click nav link");
@@ -209,7 +209,7 @@ fn wait_nav_after_click() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "10000",
         ],
@@ -226,7 +226,7 @@ fn wait_nav_after_click() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -274,7 +274,7 @@ fn wait_network_idle() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -289,7 +289,7 @@ fn wait_network_idle() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "10000",
         ],
@@ -333,7 +333,7 @@ fn wait_condition_true() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
         ],
         30,
     );
@@ -349,7 +349,7 @@ fn wait_condition_true() {
             "-s",
             "local-1",
             "-t",
-            "t0",
+            "t1",
             "--timeout",
             "5000",
         ],

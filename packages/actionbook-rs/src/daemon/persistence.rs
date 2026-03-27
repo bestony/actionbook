@@ -208,13 +208,13 @@ mod tests {
                     profile: "default".into(),
                     tabs: vec![
                         PersistedTab {
-                            id: TabId(0),
+                            id: TabId(1),
                             stable_target_key: "ABC123".into(),
                             url: "https://example.com".into(),
                             title: "Example".into(),
                         },
                         PersistedTab {
-                            id: TabId(1),
+                            id: TabId(2),
                             stable_target_key: "DEF456".into(),
                             url: "https://rust-lang.org".into(),
                             title: "Rust".into(),
@@ -232,7 +232,7 @@ mod tests {
                     mode: Mode::Cloud,
                     profile: "work".into(),
                     tabs: vec![PersistedTab {
-                        id: TabId(0),
+                        id: TabId(1),
                         stable_target_key: "GHI789".into(),
                         url: "https://app.example.com".into(),
                         title: "App".into(),
@@ -368,7 +368,7 @@ mod tests {
     #[test]
     fn persisted_tab_serde() {
         let tab = PersistedTab {
-            id: TabId(3),
+            id: TabId(4),
             stable_target_key: "KEY".into(),
             url: "https://test.com".into(),
             title: "Test".into(),

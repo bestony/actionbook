@@ -591,7 +591,7 @@ fn format_lifecycle_text(action: &Action, result: &ActionResult) -> Option<Strin
                     .and_then(|s| s.get("tabs_count"))
                     .and_then(|v| v.as_u64())
                     .filter(|&c| c > 0)
-                    .map(|_| "t0");
+                    .map(|_| "t1");
                 let mut out = prefixed_header(&session.to_string(), tab_id, None);
                 out.push_str(&format!("\nok {command}\n"));
                 out.push_str("status: running");
@@ -2293,7 +2293,7 @@ mod tests {
                 "cdp_endpoint": null
             },
             "tab": {
-                "tab_id": "t0",
+                "tab_id": "t1",
                 "url": "https://example.com",
                 "title": "Example"
             },
@@ -2304,10 +2304,10 @@ mod tests {
         assert_eq!(decoded["ok"], true);
         assert_eq!(decoded["command"], "browser.start");
         assert_eq!(decoded["context"]["session_id"], "local-1");
-        assert_eq!(decoded["context"]["tab_id"], "t0");
+        assert_eq!(decoded["context"]["tab_id"], "t1");
         assert_eq!(decoded["context"]["url"], "https://example.com");
         assert_eq!(decoded["data"]["session"]["session_id"], "local-1");
-        assert_eq!(decoded["data"]["tab"]["tab_id"], "t0");
+        assert_eq!(decoded["data"]["tab"]["tab_id"], "t1");
         assert_eq!(decoded["data"]["reused"], false);
         assert_eq!(decoded["meta"]["duration_ms"], 42);
     }
@@ -2372,7 +2372,7 @@ mod tests {
                 "cdp_endpoint": null
             },
             "tab": {
-                "tab_id": "t0",
+                "tab_id": "t1",
                 "url": "https://example.com",
                 "title": "Example"
             },
@@ -2380,7 +2380,7 @@ mod tests {
         }));
         let out = format_cli_result(&action, &result);
         assert!(
-            out.starts_with("[local-1 t0] https://example.com"),
+            out.starts_with("[local-1 t1] https://example.com"),
             "expected [session tab] url prefix, got: {out}"
         );
         assert!(out.contains("ok browser.start"));
@@ -2460,7 +2460,7 @@ mod tests {
     fn non_lifecycle_json_errors_use_prd_envelope() {
         let action = Action::Click {
             session: SessionId::new_unchecked("local-1"),
-            tab: crate::daemon::types::TabId(0),
+            tab: crate::daemon::types::TabId(1),
             selector: "#missing".into(),
             button: None,
             count: None,
@@ -2477,7 +2477,7 @@ mod tests {
         assert_eq!(decoded["ok"], false);
         assert_eq!(decoded["command"], "browser.click");
         assert_eq!(decoded["context"]["session_id"], "local-1");
-        assert_eq!(decoded["context"]["tab_id"], "t0");
+        assert_eq!(decoded["context"]["tab_id"], "t1");
         assert_eq!(decoded["data"], Value::Null);
         assert_eq!(decoded["error"]["code"], "ELEMENT_NOT_FOUND");
         assert_eq!(decoded["error"]["message"], "element '#missing' not found");
@@ -2488,7 +2488,7 @@ mod tests {
     fn non_lifecycle_retryable_errors_map_to_timeout() {
         let action = Action::WaitCondition {
             session: SessionId::new_unchecked("local-1"),
-            tab: crate::daemon::types::TabId(0),
+            tab: crate::daemon::types::TabId(1),
             expression: "window.ready".into(),
             timeout_ms: Some(5000),
         };
@@ -2506,7 +2506,7 @@ mod tests {
     fn cli_side_artifact_errors_use_prd_envelope() {
         let action = Action::Screenshot {
             session: SessionId::new_unchecked("local-1"),
-            tab: crate::daemon::types::TabId(0),
+            tab: crate::daemon::types::TabId(1),
             full_page: false,
         };
         let out = format_cli_side_error_json(
@@ -2519,7 +2519,7 @@ mod tests {
         let decoded: Value = serde_json::from_str(&out).unwrap();
         assert_eq!(decoded["command"], "browser.screenshot");
         assert_eq!(decoded["context"]["session_id"], "local-1");
-        assert_eq!(decoded["context"]["tab_id"], "t0");
+        assert_eq!(decoded["context"]["tab_id"], "t1");
         assert_eq!(decoded["error"]["code"], "ARTIFACT_WRITE_FAILED");
         assert_eq!(decoded["error"]["details"]["path"], "/tmp/out.png");
     }
@@ -2528,7 +2528,7 @@ mod tests {
     fn cli_side_artifact_errors_use_text_contract() {
         let action = Action::Screenshot {
             session: SessionId::new_unchecked("local-1"),
-            tab: crate::daemon::types::TabId(0),
+            tab: crate::daemon::types::TabId(1),
             full_page: false,
         };
         let out = format_cli_side_error_text(
@@ -2538,7 +2538,7 @@ mod tests {
         );
         assert_eq!(
             out,
-            "[local-1 t0]\nerror ARTIFACT_WRITE_FAILED: failed to write screenshot to /tmp/out.png: permission denied"
+            "[local-1 t1]\nerror ARTIFACT_WRITE_FAILED: failed to write screenshot to /tmp/out.png: permission denied"
         );
     }
 
@@ -2603,14 +2603,14 @@ mod tests {
         assert_eq!(
             command_name(&Action::CloseTab {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
             }),
             "browser.close-tab"
         );
         assert_eq!(
             command_name(&Action::Open {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 url: "https://example.com".into(),
             }),
             "browser.open"
@@ -2618,7 +2618,7 @@ mod tests {
         assert_eq!(
             command_name(&Action::Snapshot {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 interactive: true,
                 compact: false,
                 cursor: false,
@@ -2630,7 +2630,7 @@ mod tests {
         assert_eq!(
             command_name(&Action::WaitElement {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 selector: "#ready".into(),
                 timeout_ms: Some(1000),
             }),
@@ -2639,7 +2639,7 @@ mod tests {
         assert_eq!(
             command_name(&Action::LogsConsole {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 level: None,
                 tail: None,
                 since: None,
@@ -2657,7 +2657,7 @@ mod tests {
         assert_eq!(
             command_name(&Action::StorageList {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 kind: crate::daemon::types::StorageKind::Local,
             }),
             "browser.local-storage.list"
@@ -2665,7 +2665,7 @@ mod tests {
         assert_eq!(
             command_name(&Action::StorageList {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 kind: crate::daemon::types::StorageKind::Session,
             }),
             "browser.session-storage.list"
@@ -2673,7 +2673,7 @@ mod tests {
         assert_eq!(
             command_name(&Action::WaitNetworkIdle {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 idle_time_ms: Some(500),
                 timeout_ms: Some(5000),
             }),
@@ -2682,7 +2682,7 @@ mod tests {
         assert_eq!(
             command_name(&Action::MouseMove {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 x: 10.0,
                 y: 20.0,
             }),
@@ -2691,14 +2691,14 @@ mod tests {
         assert_eq!(
             command_name(&Action::CursorPosition {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
             }),
             "browser.cursor-position"
         );
         assert_eq!(
             command_name(&Action::WaitNavigation {
                 session: SessionId::new_unchecked("local-1"),
-                tab: crate::daemon::types::TabId(0),
+                tab: crate::daemon::types::TabId(1),
                 timeout_ms: Some(1000),
             }),
             "browser.wait.navigation"
@@ -2717,13 +2717,13 @@ mod tests {
 
         let tab_action = Action::MouseMove {
             session: SessionId::new_unchecked("local-1"),
-            tab: crate::daemon::types::TabId(2),
+            tab: crate::daemon::types::TabId(3),
             x: 1.5,
             y: 3.5,
         };
         assert_eq!(
             prefix_for_action(&tab_action).as_deref(),
-            Some("[local-1 t2]")
+            Some("[local-1 t3]")
         );
 
         assert_eq!(prefix_for_action(&Action::ListSessions), None);
@@ -2753,14 +2753,14 @@ mod tests {
         assert_eq!(
             tab_nav_command(&Action::CloseTab {
                 session: SessionId::new_unchecked("s0"),
-                tab: TabId(1),
+                tab: TabId(2),
             }),
             Some("browser.close-tab")
         );
         assert_eq!(
             tab_nav_command(&Action::Goto {
                 session: SessionId::new_unchecked("s0"),
-                tab: TabId(0),
+                tab: TabId(1),
                 url: "https://actionbook.dev".into(),
             }),
             Some("browser.goto")
@@ -2768,21 +2768,21 @@ mod tests {
         assert_eq!(
             tab_nav_command(&Action::Back {
                 session: SessionId::new_unchecked("s0"),
-                tab: TabId(0),
+                tab: TabId(1),
             }),
             Some("browser.back")
         );
         assert_eq!(
             tab_nav_command(&Action::Forward {
                 session: SessionId::new_unchecked("s0"),
-                tab: TabId(0),
+                tab: TabId(1),
             }),
             Some("browser.forward")
         );
         assert_eq!(
             tab_nav_command(&Action::Reload {
                 session: SessionId::new_unchecked("s0"),
-                tab: TabId(0),
+                tab: TabId(1),
             }),
             Some("browser.reload")
         );
@@ -2796,8 +2796,8 @@ mod tests {
         let result = ActionResult::ok(json!({
             "total_tabs": 2,
             "tabs": [
-                {"tab_id": "t0", "url": "https://actionbook.dev", "title": "Home", "native_tab_id": "TARGET_0"},
-                {"tab_id": "t1", "url": "https://actionbook.dev/docs", "title": "Docs", "native_tab_id": "TARGET_1"}
+                {"tab_id": "t1", "url": "https://actionbook.dev", "title": "Home", "native_tab_id": "TARGET_0"},
+                {"tab_id": "t2", "url": "https://actionbook.dev/docs", "title": "Docs", "native_tab_id": "TARGET_1"}
             ]
         }));
         let out = format_cli_result_json(&action, &result, 5);
@@ -2807,7 +2807,7 @@ mod tests {
         assert_eq!(d["context"]["session_id"], "local-1");
         assert_eq!(d["context"]["tab_id"], Value::Null);
         assert_eq!(d["data"]["total_tabs"], 2);
-        assert_eq!(d["data"]["tabs"][0]["tab_id"], "t0");
+        assert_eq!(d["data"]["tabs"][0]["tab_id"], "t1");
         assert_eq!(d["data"]["tabs"][1]["url"], "https://actionbook.dev/docs");
         assert_eq!(d["data"]["tabs"][0]["native_tab_id"], "TARGET_0");
         assert_eq!(d["meta"]["duration_ms"], 5);
@@ -2821,14 +2821,14 @@ mod tests {
         let result = ActionResult::ok(json!({
             "total_tabs": 2,
             "tabs": [
-                {"tab_id": "t0", "url": "https://actionbook.dev", "title": "Home", "native_tab_id": "TARGET_0"},
-                {"tab_id": "t1", "url": "https://actionbook.dev/docs", "title": "Docs", "native_tab_id": "TARGET_1"}
+                {"tab_id": "t1", "url": "https://actionbook.dev", "title": "Home", "native_tab_id": "TARGET_0"},
+                {"tab_id": "t2", "url": "https://actionbook.dev/docs", "title": "Docs", "native_tab_id": "TARGET_1"}
             ]
         }));
         let out = format_cli_result(&action, &result);
         assert_eq!(
             out,
-            "[local-1]\n2 tabs\n[t0] Home\nhttps://actionbook.dev\n[t1] Docs\nhttps://actionbook.dev/docs"
+            "[local-1]\n2 tabs\n[t1] Home\nhttps://actionbook.dev\n[t2] Docs\nhttps://actionbook.dev/docs"
         );
     }
 
@@ -2899,7 +2899,7 @@ mod tests {
         };
         let result = ActionResult::ok(json!({
             "tab": {
-                "tab_id": "t2",
+                "tab_id": "t3",
                 "url": "https://actionbook.dev",
                 "title": "Actionbook",
                 "native_tab_id": "ABC"
@@ -2910,7 +2910,7 @@ mod tests {
         let out = format_cli_result(&action, &result);
         assert_eq!(
             out,
-            "[local-1 t2] https://actionbook.dev\nok browser.new-tab\ntitle: Actionbook"
+            "[local-1 t3] https://actionbook.dev\nok browser.new-tab\ntitle: Actionbook"
         );
     }
 
@@ -2934,11 +2934,11 @@ mod tests {
     fn tab_nav_text_close_tab() {
         let action = Action::CloseTab {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(3),
+            tab: TabId(4),
         };
         let result = ActionResult::ok(json!({"closed_tab_id": "t3"}));
         let out = format_cli_result(&action, &result);
-        assert!(out.starts_with("[local-1 t3]"));
+        assert!(out.starts_with("[local-1 t4]"));
         assert!(out.contains("ok browser.close-tab"));
     }
 
@@ -2946,7 +2946,7 @@ mod tests {
     fn tab_nav_json_goto() {
         let action = Action::Goto {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             url: "https://actionbook.dev/new".into(),
         };
         let result = ActionResult::ok(json!({
@@ -2960,7 +2960,7 @@ mod tests {
         assert_eq!(d["ok"], true);
         assert_eq!(d["command"], "browser.goto");
         assert_eq!(d["context"]["session_id"], "local-1");
-        assert_eq!(d["context"]["tab_id"], "t0");
+        assert_eq!(d["context"]["tab_id"], "t1");
         assert_eq!(d["context"]["url"], "https://actionbook.dev/new");
         assert_eq!(d["data"]["kind"], "goto");
         assert_eq!(d["data"]["requested_url"], "https://actionbook.dev/new");
@@ -2972,7 +2972,7 @@ mod tests {
     fn tab_nav_text_goto() {
         let action = Action::Goto {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             url: "https://actionbook.dev/new".into(),
         };
         let result = ActionResult::ok(json!({
@@ -2982,7 +2982,7 @@ mod tests {
             "to_url": "https://actionbook.dev/new"
         }));
         let out = format_cli_result(&action, &result);
-        assert!(out.starts_with("[local-1 t0] https://actionbook.dev/new"));
+        assert!(out.starts_with("[local-1 t1] https://actionbook.dev/new"));
         assert!(out.contains("ok browser.goto"));
         assert!(
             !out.contains('\u{2192}'),
@@ -2994,7 +2994,7 @@ mod tests {
     fn tab_nav_text_goto_same_url_no_arrow() {
         let action = Action::Goto {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             url: "https://actionbook.dev".into(),
         };
         let result = ActionResult::ok(json!({
@@ -3011,7 +3011,7 @@ mod tests {
     fn tab_nav_json_back() {
         let action = Action::Back {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({
             "kind": "back",
@@ -3032,7 +3032,7 @@ mod tests {
     fn tab_nav_text_back() {
         let action = Action::Back {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({
             "kind": "back",
@@ -3040,7 +3040,7 @@ mod tests {
             "to_url": "https://actionbook.dev/page1"
         }));
         let out = format_cli_result(&action, &result);
-        assert!(out.starts_with("[local-1 t0] https://actionbook.dev/page1"));
+        assert!(out.starts_with("[local-1 t1] https://actionbook.dev/page1"));
         assert!(out.contains("ok browser.back"));
         assert!(
             !out.contains('\u{2192}'),
@@ -3071,7 +3071,7 @@ mod tests {
     fn tab_nav_text_forward() {
         let action = Action::Forward {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(1),
+            tab: TabId(2),
         };
         let result = ActionResult::ok(json!({
             "kind": "forward",
@@ -3079,7 +3079,7 @@ mod tests {
             "to_url": "https://actionbook.dev/b"
         }));
         let out = format_cli_result(&action, &result);
-        assert!(out.contains("[local-1 t1] https://actionbook.dev/b"));
+        assert!(out.contains("[local-1 t2] https://actionbook.dev/b"));
         assert!(out.contains("ok browser.forward"));
     }
 
@@ -3087,7 +3087,7 @@ mod tests {
     fn tab_nav_json_reload() {
         let action = Action::Reload {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({
             "kind": "reload",
@@ -3108,7 +3108,7 @@ mod tests {
     fn tab_nav_text_reload_same_url() {
         let action = Action::Reload {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({
             "kind": "reload",
@@ -3116,7 +3116,7 @@ mod tests {
             "to_url": "https://actionbook.dev"
         }));
         let out = format_cli_result(&action, &result);
-        assert!(out.contains("[local-1 t0] https://actionbook.dev"));
+        assert!(out.contains("[local-1 t1] https://actionbook.dev"));
         assert!(out.contains("ok browser.reload"));
         // Same URL, no arrow
         assert!(!out.contains("\u{2192}"));
@@ -3126,7 +3126,7 @@ mod tests {
     fn tab_nav_text_reload_redirect() {
         let action = Action::Reload {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({
             "kind": "reload",
@@ -3135,7 +3135,7 @@ mod tests {
         }));
         let out = format_cli_result(&action, &result);
         // PRD §9.4 text output has no arrow line even when from/to URLs differ.
-        assert!(out.contains("[local-1 t0] https://actionbook.dev/new"));
+        assert!(out.contains("[local-1 t1] https://actionbook.dev/new"));
         assert!(out.contains("ok browser.reload"));
         assert!(
             !out.contains('\u{2192}'),
@@ -3147,7 +3147,7 @@ mod tests {
     fn tab_nav_error_uses_prd_envelope_json() {
         let action = Action::Goto {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             url: "https://actionbook.dev".into(),
         };
         let result = ActionResult::fatal(
@@ -3184,7 +3184,7 @@ mod tests {
     fn observation_json_envelope_wraps_title_result() {
         let action = Action::Title {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!("My Page Title"));
         let out = format_cli_result_json(&action, &result, 8);
@@ -3192,7 +3192,7 @@ mod tests {
         assert_eq!(d["ok"], true);
         assert_eq!(d["command"], "browser.title");
         assert_eq!(d["context"]["session_id"], "local-1");
-        assert_eq!(d["context"]["tab_id"], "t0");
+        assert_eq!(d["context"]["tab_id"], "t1");
         assert_eq!(d["data"]["value"], "My Page Title");
         assert_eq!(d["meta"]["duration_ms"], 8);
         assert!(d["error"].is_null());
@@ -3202,7 +3202,7 @@ mod tests {
     fn observation_json_envelope_wraps_viewport_result() {
         let action = Action::Viewport {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({"width": 1280, "height": 720}));
         let out = format_cli_result_json(&action, &result, 3);
@@ -3218,7 +3218,7 @@ mod tests {
     fn observation_json_envelope_wraps_query_result() {
         let action = Action::Query {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: ".item".into(),
             mode: crate::daemon::types::QueryMode::Css,
             cardinality: crate::daemon::types::QueryCardinality::All,
@@ -3301,7 +3301,7 @@ mod tests {
     fn observation_text_formats_title() {
         let action = Action::Title {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!("My Page Title"));
         let out = format_cli_result(&action, &result);
@@ -3312,7 +3312,7 @@ mod tests {
     fn observation_text_formats_viewport() {
         let action = Action::Viewport {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({"width": 1920, "height": 1080}));
         let out = format_cli_result(&action, &result);
@@ -3323,7 +3323,7 @@ mod tests {
     fn observation_json_logs_console_wraps_array() {
         let action = Action::LogsConsole {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             level: None,
             tail: None,
             since: None,
@@ -3346,7 +3346,7 @@ mod tests {
     fn observation_json_logs_console_cleared_true_when_flag_set() {
         let action = Action::LogsConsole {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             level: None,
             tail: None,
             since: None,
@@ -3365,7 +3365,7 @@ mod tests {
     fn observation_json_value_uses_selector() {
         let action = Action::Value {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#my-input".into(),
         };
         let result = ActionResult::ok(json!("hello world"));
@@ -3385,7 +3385,7 @@ mod tests {
     fn interaction_json_click() {
         let action = Action::Click {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#btn".into(),
             button: None,
             count: None,
@@ -3398,7 +3398,7 @@ mod tests {
         assert_eq!(d["ok"], true);
         assert_eq!(d["command"], "browser.click");
         assert_eq!(d["context"]["session_id"], "local-1");
-        assert_eq!(d["context"]["tab_id"], "t0");
+        assert_eq!(d["context"]["tab_id"], "t1");
         assert_eq!(d["data"]["action"], "click");
         assert_eq!(d["data"]["target"]["selector"], "#btn");
         assert_eq!(d["data"]["changed"]["url_changed"], false);
@@ -3409,7 +3409,7 @@ mod tests {
     fn interaction_text_click() {
         let action = Action::Click {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#btn".into(),
             button: None,
             count: None,
@@ -3418,7 +3418,7 @@ mod tests {
         };
         let result = ActionResult::ok(json!({"clicked": "#btn", "x": 100, "y": 200}));
         let out = format_cli_result(&action, &result);
-        assert!(out.contains("[local-1 t0]"));
+        assert!(out.contains("[local-1 t1]"));
         assert!(out.contains("ok browser.click"));
         assert!(out.contains("target: #btn"));
     }
@@ -3427,7 +3427,7 @@ mod tests {
     fn interaction_text_type() {
         let action = Action::Type {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#input".into(),
             text: "hello".into(),
         };
@@ -3442,7 +3442,7 @@ mod tests {
     fn interaction_text_fill() {
         let action = Action::Fill {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#email".into(),
             value: "test@example.com".into(),
         };
@@ -3457,7 +3457,7 @@ mod tests {
     fn interaction_text_select() {
         let action = Action::Select {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#dropdown".into(),
             value: "option-2".into(),
             by_text: false,
@@ -3473,7 +3473,7 @@ mod tests {
     fn interaction_text_hover() {
         let action = Action::Hover {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#menu".into(),
         };
         let result = ActionResult::ok(json!({"hovered": "#menu", "x": 50, "y": 60}));
@@ -3486,7 +3486,7 @@ mod tests {
     fn interaction_text_focus() {
         let action = Action::Focus {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#search".into(),
         };
         let result = ActionResult::ok(json!({"focused": "#search"}));
@@ -3499,7 +3499,7 @@ mod tests {
     fn interaction_text_drag() {
         let action = Action::Drag {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             from_selector: "#source".into(),
             to_selector: "#target".into(),
             button: None,
@@ -3520,7 +3520,7 @@ mod tests {
     fn interaction_text_upload() {
         let action = Action::Upload {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#file-input".into(),
             files: vec!["a.txt".into(), "b.txt".into()],
         };
@@ -3535,7 +3535,7 @@ mod tests {
     fn interaction_text_mouse_move() {
         let action = Action::MouseMove {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             x: 150.5,
             y: 250.0,
         };
@@ -3550,7 +3550,7 @@ mod tests {
     fn interaction_json_type() {
         let action = Action::Type {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#input".into(),
             text: "hello".into(),
         };
@@ -3568,7 +3568,7 @@ mod tests {
     fn interaction_json_fill() {
         let action = Action::Fill {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#email".into(),
             value: "test@example.com".into(),
         };
@@ -3586,7 +3586,7 @@ mod tests {
     fn interaction_json_select() {
         let action = Action::Select {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#dropdown".into(),
             value: "option-2".into(),
             by_text: false,
@@ -3606,7 +3606,7 @@ mod tests {
     fn interaction_json_hover() {
         let action = Action::Hover {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#menu".into(),
         };
         let result = ActionResult::ok(json!({"hovered": "#menu", "x": 50, "y": 60}));
@@ -3622,7 +3622,7 @@ mod tests {
     fn interaction_json_focus() {
         let action = Action::Focus {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#search".into(),
         };
         let result = ActionResult::ok(json!({"focused": "#search"}));
@@ -3638,7 +3638,7 @@ mod tests {
     fn interaction_json_press() {
         let action = Action::Press {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             key_or_chord: "Enter".into(),
         };
         let result = ActionResult::ok(json!({"pressed": "Enter"}));
@@ -3654,7 +3654,7 @@ mod tests {
     fn interaction_text_press() {
         let action = Action::Press {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             key_or_chord: "Control+c".into(),
         };
         let result = ActionResult::ok(json!({"pressed": "Control+c"}));
@@ -3667,7 +3667,7 @@ mod tests {
     fn interaction_json_drag() {
         let action = Action::Drag {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             from_selector: "#source".into(),
             to_selector: "#target".into(),
             button: None,
@@ -3691,7 +3691,7 @@ mod tests {
     fn interaction_json_upload() {
         let action = Action::Upload {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#file-input".into(),
             files: vec!["a.txt".into(), "b.txt".into()],
         };
@@ -3709,7 +3709,7 @@ mod tests {
     fn interaction_json_scroll() {
         let action = Action::Scroll {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             direction: "down".into(),
             amount: Some(300),
             selector: None,
@@ -3731,7 +3731,7 @@ mod tests {
     fn interaction_text_scroll_into_view() {
         let action = Action::Scroll {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             direction: "into-view".into(),
             amount: None,
             selector: Some("#footer".into()),
@@ -3749,7 +3749,7 @@ mod tests {
     fn interaction_json_mouse_move() {
         let action = Action::MouseMove {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             x: 150.5,
             y: 250.0,
         };
@@ -3767,7 +3767,7 @@ mod tests {
     fn interaction_json_cursor_position() {
         let action = Action::CursorPosition {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({"cursor": {"x": 42.0, "y": 99.0}}));
         let out = format_cli_result_json(&action, &result, 1);
@@ -3782,7 +3782,7 @@ mod tests {
     fn interaction_text_cursor_position() {
         let action = Action::CursorPosition {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
         };
         let result = ActionResult::ok(json!({"cursor": {"x": 42.0, "y": 99.0}}));
         let out = format_cli_result(&action, &result);
@@ -3795,7 +3795,7 @@ mod tests {
     fn interaction_json_eval() {
         let action = Action::Eval {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             expression: "1 + 1".into(),
         };
         let result = ActionResult::ok(json!(2));
@@ -3812,7 +3812,7 @@ mod tests {
     fn interaction_text_eval() {
         let action = Action::Eval {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             expression: "document.title".into(),
         };
         let result = ActionResult::ok(json!("My Page"));
@@ -3828,7 +3828,7 @@ mod tests {
     fn wait_json_element() {
         let action = Action::WaitElement {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#ready".into(),
             timeout_ms: Some(5000),
         };
@@ -3848,7 +3848,7 @@ mod tests {
     fn wait_text_element() {
         let action = Action::WaitElement {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#ready".into(),
             timeout_ms: Some(5000),
         };
@@ -3863,7 +3863,7 @@ mod tests {
     fn wait_json_navigation() {
         let action = Action::WaitNavigation {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             timeout_ms: Some(10000),
         };
         let result = ActionResult::ok(json!({
@@ -3890,7 +3890,7 @@ mod tests {
     fn wait_text_navigation() {
         let action = Action::WaitNavigation {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             timeout_ms: None,
         };
         let result = ActionResult::ok(json!({
@@ -3908,7 +3908,7 @@ mod tests {
     fn wait_json_network_idle() {
         let action = Action::WaitNetworkIdle {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             timeout_ms: Some(30000),
             idle_time_ms: Some(500),
         };
@@ -3927,7 +3927,7 @@ mod tests {
     fn wait_text_network_idle() {
         let action = Action::WaitNetworkIdle {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             timeout_ms: None,
             idle_time_ms: None,
         };
@@ -3941,7 +3941,7 @@ mod tests {
     fn wait_json_condition() {
         let action = Action::WaitCondition {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             expression: "document.readyState === 'complete'".into(),
             timeout_ms: Some(5000),
         };
@@ -3960,7 +3960,7 @@ mod tests {
     fn wait_text_condition() {
         let action = Action::WaitCondition {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             expression: "window.loaded".into(),
             timeout_ms: None,
         };
@@ -3975,7 +3975,7 @@ mod tests {
     fn interaction_json_error_envelope() {
         let action = Action::Click {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#missing".into(),
             button: None,
             count: None,
@@ -4001,7 +4001,7 @@ mod tests {
     fn interaction_text_error() {
         let action = Action::Click {
             session: SessionId::new_unchecked("local-1"),
-            tab: TabId(0),
+            tab: TabId(1),
             selector: "#missing".into(),
             button: None,
             count: None,
@@ -4038,7 +4038,7 @@ mod tests {
                 "cdp_endpoint": null
             },
             "tab": {
-                "tab_id": "t0",
+                "tab_id": "t1",
                 "url": "https://actionbook.dev",
                 "title": "Actionbook"
             },
@@ -4047,7 +4047,7 @@ mod tests {
         let out = format_cli_result_json(&action, &result, 10);
         let decoded: Value = serde_json::from_str(&out).unwrap();
         assert_eq!(decoded["context"]["session_id"], "research");
-        assert_eq!(decoded["context"]["tab_id"], "t0");
+        assert_eq!(decoded["context"]["tab_id"], "t1");
         assert_eq!(decoded["context"]["url"], "https://actionbook.dev");
         assert_eq!(decoded["context"]["title"], "Actionbook");
     }
@@ -4103,7 +4103,7 @@ mod tests {
                 "cdp_endpoint": null
             },
             "tab": {
-                "tab_id": "t0",
+                "tab_id": "t2",
                 "url": "about:blank",
                 "title": ""
             },
