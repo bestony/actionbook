@@ -4,11 +4,11 @@ use clap::{Parser, Subcommand, ValueEnum};
 #[command(name = "actionbook", about = "Actionbook CLI - Browser automation for AI agents", disable_version_flag = true)]
 pub struct Cli {
     /// JSON output (default is plain text)
-    #[arg(long, global = true, env = "ACTIONBOOK_JSON")]
+    #[arg(long, global = true)]
     pub json: bool,
 
     /// Timeout in milliseconds
-    #[arg(long, global = true, env = "ACTIONBOOK_TIMEOUT")]
+    #[arg(long, global = true)]
     pub timeout: Option<u64>,
 
     /// Print version
