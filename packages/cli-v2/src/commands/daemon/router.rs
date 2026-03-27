@@ -92,7 +92,7 @@ async fn handle_start(
     std::fs::create_dir_all(&user_data_dir).ok();
 
     // Chrome picks its own CDP port (--remote-debugging-port=0)
-    let (mut chrome, port) = match browser::launch_chrome(&executable, headless, &user_data_dir, open_url) {
+    let (mut chrome, port) = match browser::launch_chrome(&executable, headless, &user_data_dir, open_url).await {
         Ok(c) => c,
         Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
     };

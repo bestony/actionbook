@@ -37,7 +37,7 @@ pub fn find_chrome() -> Result<String, CliError> {
 /// Returns (Child, actual_cdp_port).
 /// Uses --remote-debugging-port=0 so Chrome picks a free port itself,
 /// then reads the actual port from stderr ("DevTools listening on ws://...").
-pub fn launch_chrome(
+pub async fn launch_chrome(
     executable: &str,
     headless: bool,
     user_data_dir: &str,
@@ -56,55 +56,62 @@ pub fn launch_chrome(
         args.push(ensure_scheme(url));
     }
 
-    let mut child = std::process::Command::new(executable)
-        .args(&args)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| CliError::BrowserLaunchFailed(e.to_string()))?;
+    let exe = executable.to_string();
+    // Spawn Chrome and read stderr in a blocking thread to avoid blocking tokio
+    let result = tokio::task::spawn_blocking(move || -> Result<(Child, u16), CliError> {
+        let mut child = std::process::Command::new(&exe)
+            .args(&args)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|e| CliError::BrowserLaunchFailed(e.to_string()))?;
 
-    // Read stderr to find the actual CDP port.
-    // Chrome prints: "DevTools listening on ws://127.0.0.1:PORT/devtools/browser/UUID"
-    let stderr = child.stderr.take().ok_or_else(|| {
-        CliError::BrowserLaunchFailed("failed to capture Chrome stderr".to_string())
-    })?;
+        let stderr = child.stderr.take().ok_or_else(|| {
+            CliError::BrowserLaunchFailed("failed to capture Chrome stderr".to_string())
+        })?;
 
-    let port = std::thread::spawn(move || -> Option<u16> {
-        let reader = BufReader::new(stderr);
-        for line in reader.lines() {
-            let line = match line {
-                Ok(l) => l,
-                Err(_) => break,
-            };
-            // Look for: "DevTools listening on ws://127.0.0.1:PORT/..."
-            if line.contains("DevTools listening on ws://") {
-                // Extract port from the URL
-                if let Some(start) = line.find("127.0.0.1:") {
-                    let after = &line[start + "127.0.0.1:".len()..];
-                    if let Some(end) = after.find('/') {
-                        if let Ok(p) = after[..end].parse::<u16>() {
-                            return Some(p);
+        // Read stderr to find "DevTools listening on ws://HOST:PORT/..."
+        let (tx, rx) = std::sync::mpsc::channel::<u16>();
+        std::thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let line = match line {
+                    Ok(l) => l,
+                    Err(_) => break,
+                };
+                if line.contains("DevTools listening on") {
+                    if let Some(ws_start) = line.find("ws://") {
+                        let after_ws = &line[ws_start + 5..];
+                        if let Some(colon) = after_ws.find(':') {
+                            let after_colon = &after_ws[colon + 1..];
+                            let port_str: String =
+                                after_colon.chars().take_while(|c| c.is_ascii_digit()).collect();
+                            if let Ok(p) = port_str.parse::<u16>() {
+                                let _ = tx.send(p);
+                                return;
+                            }
                         }
                     }
                 }
             }
-        }
-        None
-    });
+        });
 
-    let port = port
-        .join()
-        .ok()
-        .flatten()
-        .ok_or_else(|| {
-            let _ = child.kill();
-            CliError::CdpConnectionFailed(
-                "Chrome did not print DevTools listening URL".to_string(),
-            )
-        })?;
+        let port = rx
+            .recv_timeout(std::time::Duration::from_secs(15))
+            .map_err(|_| {
+                let _ = child.kill();
+                CliError::CdpConnectionFailed(
+                    "Chrome did not print DevTools listening URL within 15s".to_string(),
+                )
+            })?;
 
-    Ok((child, port))
+        Ok((child, port))
+    })
+    .await
+    .map_err(|e| CliError::Internal(format!("spawn_blocking failed: {e}")))?;
+
+    result
 }
 
 /// Discover the WebSocket debugger URL from Chrome's /json/version endpoint.
