@@ -134,8 +134,27 @@ pub async fn handle_action(
         Action::Open { url, .. } => {
             session::handle_new_tab(session_id, backend, regs, &url, false, None).await
         }
-        Action::Snapshot { tab, .. } => {
-            observation::handle_snapshot(session_id, backend, regs, tab).await
+        Action::Snapshot {
+            tab,
+            interactive,
+            compact,
+            cursor,
+            depth,
+            selector,
+            ..
+        } => {
+            observation::handle_snapshot(
+                session_id,
+                backend,
+                regs,
+                tab,
+                interactive,
+                compact,
+                cursor,
+                depth,
+                selector.as_deref(),
+            )
+            .await
         }
         Action::Screenshot { tab, full_page, .. } => {
             observation::handle_screenshot(session_id, backend, regs, tab, full_page).await
@@ -235,9 +254,12 @@ pub async fn handle_action(
         Action::Box_ { tab, selector, .. } => {
             observation::handle_box(session_id, backend, regs, tab, &selector).await
         }
-        Action::Styles { tab, selector, .. } => {
-            observation::handle_styles(session_id, backend, regs, tab, &selector).await
-        }
+        Action::Styles {
+            tab,
+            selector,
+            names,
+            ..
+        } => observation::handle_styles(session_id, backend, regs, tab, &selector, &names).await,
         Action::Viewport { tab, .. } => {
             observation::handle_viewport(session_id, backend, regs, tab).await
         }
@@ -264,11 +286,45 @@ pub async fn handle_action(
         Action::InspectPoint { tab, x, y, .. } => {
             observation::handle_inspect_point(session_id, backend, regs, tab, x, y).await
         }
-        Action::LogsConsole { tab, .. } => {
-            observation::handle_logs_console(session_id, backend, regs, tab).await
+        Action::LogsConsole {
+            tab,
+            level,
+            tail,
+            since,
+            clear,
+            ..
+        } => {
+            observation::handle_logs_console(
+                session_id,
+                backend,
+                regs,
+                tab,
+                level.as_deref(),
+                tail,
+                since.as_deref(),
+                clear,
+            )
+            .await
         }
-        Action::LogsErrors { tab, .. } => {
-            observation::handle_logs_errors(session_id, backend, regs, tab).await
+        Action::LogsErrors {
+            tab,
+            source,
+            tail,
+            since,
+            clear,
+            ..
+        } => {
+            observation::handle_logs_errors(
+                session_id,
+                backend,
+                regs,
+                tab,
+                source.as_deref(),
+                tail,
+                since.as_deref(),
+                clear,
+            )
+            .await
         }
 
         // -- Data commands (session-level cookies) --
@@ -859,6 +915,9 @@ mod tests {
                 tab: TabId(0),
                 interactive: false,
                 compact: false,
+                cursor: false,
+                depth: None,
+                selector: None,
             },
         )
         .await;
@@ -1347,6 +1406,7 @@ mod tests {
                 session: sid,
                 tab: TabId(0),
                 selector: Some("#missing".into()),
+                mode: None,
             },
         )
         .await;

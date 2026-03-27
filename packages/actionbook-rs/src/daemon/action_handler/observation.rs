@@ -66,11 +66,17 @@ async fn ensure_log_capture_initialized(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn handle_snapshot(
     session_id: SessionId,
     backend: &mut dyn BackendSession,
     regs: &Registries,
     tab: TabId,
+    interactive: bool,
+    compact: bool,
+    cursor: bool,
+    depth: Option<u32>,
+    selector: Option<&str>,
 ) -> ActionResult {
     let target_id = match resolve_tab(session_id, regs, tab) {
         Ok(t) => t,
@@ -82,7 +88,85 @@ pub(super) async fn handle_snapshot(
     };
 
     match backend.exec(op).await {
-        Ok(result) => ActionResult::ok(result.value),
+        Ok(result) => {
+            if !interactive && !compact && !cursor && depth.is_none() && selector.is_none() {
+                return ActionResult::ok(result.value);
+            }
+
+            // Extract the string content from the JSON value for filtering.
+            let text = match result.value {
+                serde_json::Value::String(ref s) => s.clone(),
+                ref other => other.to_string(),
+            };
+
+            let mut output = text;
+
+            if interactive {
+                // Filter to only lines that contain interactive element annotations
+                // (roles like button, link, textbox, checkbox, etc.)
+                let interactive_roles = [
+                    "button",
+                    "link",
+                    "textbox",
+                    "checkbox",
+                    "radio",
+                    "combobox",
+                    "menuitem",
+                    "tab",
+                    "switch",
+                    "slider",
+                    "spinbutton",
+                    "searchbox",
+                    "option",
+                    "menuitemcheckbox",
+                    "menuitemradio",
+                ];
+                let filtered: Vec<&str> = output
+                    .lines()
+                    .filter(|line| {
+                        let lower = line.to_lowercase();
+                        interactive_roles.iter().any(|role| lower.contains(role))
+                    })
+                    .collect();
+                output = filtered.join("\n");
+            }
+
+            if compact {
+                // Strip empty lines and collapse excessive whitespace
+                let compacted: Vec<&str> = output
+                    .lines()
+                    .filter(|line| !line.trim().is_empty())
+                    .collect();
+                output = compacted.join("\n");
+            }
+
+            if let Some(max_depth) = depth {
+                // Truncate tree to max depth by counting leading whitespace
+                let filtered: Vec<&str> = output
+                    .lines()
+                    .filter(|line| {
+                        let indent = line.len() - line.trim_start().len();
+                        indent / 2 <= max_depth as usize
+                    })
+                    .collect();
+                output = filtered.join("\n");
+            }
+
+            let mut data = json!(output);
+            if cursor {
+                // Wrap in object to carry cursor flag
+                data = json!({"tree": output, "cursor": true});
+            }
+            if selector.is_some() {
+                if let serde_json::Value::Object(ref mut map) = data {
+                    map.insert("selector".to_string(), json!(selector));
+                } else {
+                    data = json!({"tree": output, "selector": selector});
+                }
+            }
+
+            ActionResult::ok(data)
+        }
         Err(e) => cdp_error_to_result(e),
     }
 }
@@ -847,6 +931,7 @@ pub(super) async fn handle_styles(
     regs: &Registries,
     tab: TabId,
     selector: &str,
+    names: &[String],
 ) -> ActionResult {
     let target_id = match resolve_tab(session_id, regs, tab) {
         Ok(t) => t,
@@ -859,13 +944,20 @@ pub(super) async fn handle_styles(
         }
     };
 
+    // If names are specified, only retrieve those; otherwise use default set.
+    let props_js = if names.is_empty() {
+        "['display','visibility','opacity','color','backgroundColor','fontSize','fontWeight','fontFamily','margin','padding','border','position','zIndex','overflow','cursor','width','height']".to_string()
+    } else {
+        serde_json::to_string(names).unwrap_or_else(|_| "[]".to_string())
+    };
+
     let js = format!(
         r#"(function() {{
 {FIND_ELEMENT_JS}
 const el = __findElement({selector_json});
 if (!el) return null;
 const cs = window.getComputedStyle(el);
-const props = ['display','visibility','opacity','color','backgroundColor','fontSize','fontWeight','fontFamily','margin','padding','border','position','zIndex','overflow','cursor','width','height'];
+const props = {props_js};
 const result = {{}};
 for (const p of props) {{ result[p] = cs.getPropertyValue(p.replace(/([A-Z])/g, '-$1').toLowerCase()); }}
 return result;
@@ -952,11 +1044,16 @@ pub(super) async fn handle_inspect_point(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn handle_logs_console(
     session_id: SessionId,
     backend: &mut dyn BackendSession,
     regs: &Registries,
     tab: TabId,
+    level: Option<&str>,
+    tail: Option<u32>,
+    since: Option<&str>,
+    clear: bool,
 ) -> ActionResult {
     let target_id = match resolve_tab(session_id, regs, tab) {
         Ok(t) => t,
@@ -967,11 +1064,37 @@ pub(super) async fn handle_logs_console(
         return result;
     }
 
-    let js = r#"(function() { if (!window.__ab_console_logs) { return []; } const logs = window.__ab_console_logs.slice(-200); window.__ab_console_logs = []; return logs; })()"#;
+    let limit = tail.unwrap_or(200);
+    let clear_after = clear;
+
+    // Build JS to retrieve (and optionally filter) logs
+    let level_filter = match level {
+        Some(lvl) => format!(
+            ".filter(l => l.level === {lvl_json})",
+            lvl_json = serde_json::to_string(lvl).unwrap_or_else(|_| format!("\"{lvl}\""))
+        ),
+        None => String::new(),
+    };
+    let since_filter = match since {
+        Some(ts) => format!(
+            ".filter(l => l.timestamp >= {ts_json})",
+            ts_json = serde_json::to_string(ts).unwrap_or_else(|_| format!("\"{ts}\""))
+        ),
+        None => String::new(),
+    };
+    let clear_stmt = if clear_after {
+        "window.__ab_console_logs = [];"
+    } else {
+        ""
+    };
+
+    let js = format!(
+        r#"(function() {{ if (!window.__ab_console_logs) {{ return []; }} const logs = window.__ab_console_logs{level_filter}{since_filter}.slice(-{limit}); {clear_stmt} return logs; }})()"#
+    );
 
     let op = BackendOp::Evaluate {
         target_id: target_id.to_string(),
-        expression: js.to_string(),
+        expression: js,
         return_by_value: true,
     };
     match backend.exec(op).await {
@@ -983,11 +1106,16 @@ pub(super) async fn handle_logs_console(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(super) async fn handle_logs_errors(
     session_id: SessionId,
     backend: &mut dyn BackendSession,
     regs: &Registries,
     tab: TabId,
+    source: Option<&str>,
+    tail: Option<u32>,
+    since: Option<&str>,
+    clear: bool,
 ) -> ActionResult {
     let target_id = match resolve_tab(session_id, regs, tab) {
         Ok(t) => t,
@@ -998,11 +1126,36 @@ pub(super) async fn handle_logs_errors(
         return result;
     }
 
-    let js = r#"(function() { if (!window.__ab_error_logs) { return []; } const errors = window.__ab_error_logs.slice(-200); window.__ab_error_logs = []; return errors; })()"#;
+    let limit = tail.unwrap_or(200);
+    let clear_after = clear;
+
+    let source_filter = match source {
+        Some(src) => format!(
+            ".filter(e => e.source === {src_json})",
+            src_json = serde_json::to_string(src).unwrap_or_else(|_| format!("\"{src}\""))
+        ),
+        None => String::new(),
+    };
+    let since_filter = match since {
+        Some(ts) => format!(
+            ".filter(e => e.timestamp >= {ts_json})",
+            ts_json = serde_json::to_string(ts).unwrap_or_else(|_| format!("\"{ts}\""))
+        ),
+        None => String::new(),
+    };
+    let clear_stmt = if clear_after {
+        "window.__ab_error_logs = [];"
+    } else {
+        ""
+    };
+
+    let js = format!(
+        r#"(function() {{ if (!window.__ab_error_logs) {{ return []; }} const errors = window.__ab_error_logs{source_filter}{since_filter}.slice(-{limit}); {clear_stmt} return errors; }})()"#
+    );
 
     let op = BackendOp::Evaluate {
         target_id: target_id.to_string(),
-        expression: js.to_string(),
+        expression: js,
         return_by_value: true,
     };
     match backend.exec(op).await {
