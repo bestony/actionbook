@@ -78,6 +78,12 @@ async fn handle_start(
 
     let port = browser::find_available_port();
     let profile_name = profile.unwrap_or("actionbook");
+
+    // Fix #7: validate profile name — reject path traversal
+    if profile_name.contains('/') || profile_name.contains('\\') || profile_name.contains("..") {
+        return ActionResult::fatal("INVALID_ARGUMENT", format!("invalid profile name: {profile_name}"));
+    }
+
     let data_dir = std::env::var("XDG_DATA_HOME")
         .unwrap_or_else(|_| {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
@@ -86,14 +92,19 @@ async fn handle_start(
     let user_data_dir = format!("{data_dir}/actionbook/profiles/{profile_name}");
     std::fs::create_dir_all(&user_data_dir).ok();
 
-    let chrome = match browser::launch_chrome(&executable, port, headless, &user_data_dir, open_url) {
+    let mut chrome = match browser::launch_chrome(&executable, port, headless, &user_data_dir, open_url) {
         Ok(c) => c,
         Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
     };
 
+    // Fix #3: kill Chrome if subsequent setup fails
     let ws_url = match browser::discover_ws_url(port).await {
         Ok(ws) => ws,
-        Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
+        Err(e) => {
+            let _ = chrome.kill();
+            let _ = chrome.wait();
+            return ActionResult::fatal(e.error_code(), e.to_string());
+        }
     };
 
     let targets = browser::list_targets(port).await.unwrap_or_default();
@@ -150,7 +161,7 @@ async fn handle_start(
             "tab_id": first_tab.id.to_string(),
             "url": first_tab.url,
             "title": first_tab.title,
-            "native_tab_id": null,
+            "native_tab_id": serde_json::Value::Null,
         },
         "reused": false,
     }))
@@ -231,9 +242,10 @@ async fn handle_close(session_id: &str, registry: &SharedRegistry) -> ActionResu
     };
     let closed_tabs = entry.tabs_count();
 
-    if let Some(ref mut child) = entry.chrome_process {
+    if let Some(mut child) = entry.chrome_process.take() {
         let _ = child.kill();
-        let _ = child.wait();
+        // Avoid blocking async runtime — wait in a blocking thread
+        tokio::task::spawn_blocking(move || { let _ = child.wait(); });
     }
 
     ActionResult::ok(json!({
@@ -301,35 +313,46 @@ async fn handle_goto(
     url: &str,
     registry: &SharedRegistry,
 ) -> ActionResult {
-    let mut reg = registry.lock().await;
-    let entry = match reg.get_mut(session_id) {
-        Some(e) => e,
-        None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
-    };
-
-    let parsed_tab: TabId = match tab_id.parse() {
-        Ok(t) => t,
-        Err(e) => return ActionResult::fatal("INVALID_ARGUMENT", format!("invalid tab id: {e}")),
-    };
-
-    let tab = match entry.tabs.iter_mut().find(|t| t.id == parsed_tab) {
-        Some(t) => t,
-        None => return ActionResult::fatal("TAB_NOT_FOUND", format!("tab '{tab_id}' not found")),
-    };
-
-    // Navigate via CDP HTTP endpoint
     let final_url = ensure_scheme(url);
 
-    // Use WebSocket CDP to navigate properly
-    if !tab.target_id.is_empty() {
-        let ws_url = format!(
-            "ws://127.0.0.1:{}/devtools/page/{}",
-            entry.cdp_port, tab.target_id
-        );
-        let _ = cdp_navigate(&ws_url, &final_url).await;
+    // Extract data needed for CDP, then release lock
+    let ws_url = {
+        let reg = registry.lock().await;
+        let entry = match reg.get(session_id) {
+            Some(e) => e,
+            None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
+        };
+        let parsed_tab: TabId = match tab_id.parse() {
+            Ok(t) => t,
+            Err(e) => return ActionResult::fatal("INVALID_ARGUMENT", format!("invalid tab id: {e}")),
+        };
+        let tab = match entry.tabs.iter().find(|t| t.id == parsed_tab) {
+            Some(t) => t,
+            None => return ActionResult::fatal("TAB_NOT_FOUND", format!("tab '{tab_id}' not found")),
+        };
+        if tab.target_id.is_empty() {
+            None
+        } else {
+            Some(format!("ws://127.0.0.1:{}/devtools/page/{}", entry.cdp_port, tab.target_id))
+        }
+    }; // lock released
+
+    // CDP I/O without holding lock
+    if let Some(ref ws) = ws_url {
+        let _ = cdp_navigate(ws, &final_url).await;
     }
 
-    tab.url.clone_from(&final_url);
+    // Re-acquire lock to update tab URL
+    {
+        let mut reg = registry.lock().await;
+        if let Some(entry) = reg.get_mut(session_id) {
+            if let Ok(parsed_tab) = tab_id.parse::<TabId>() {
+                if let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == parsed_tab) {
+                    tab.url.clone_from(&final_url);
+                }
+            }
+        }
+    }
 
     ActionResult::ok(json!({
         "kind": "goto",
@@ -342,18 +365,22 @@ async fn handle_new_tab(
     url: &str,
     registry: &SharedRegistry,
 ) -> ActionResult {
-    let mut reg = registry.lock().await;
-    let entry = match reg.get_mut(session_id) {
-        Some(e) => e,
-        None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
-    };
-
     let final_url = ensure_scheme(url);
 
-    // Create new tab via CDP HTTP
+    // Extract port, release lock before HTTP I/O
+    let cdp_port = {
+        let reg = registry.lock().await;
+        match reg.get(session_id) {
+            Some(e) => e.cdp_port,
+            None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
+        }
+    }; // lock released
+
+    // Fix #10: URL-encode the target URL for /json/new
     let create_url = format!(
         "http://127.0.0.1:{}/json/new?{}",
-        entry.cdp_port, final_url
+        cdp_port,
+        urlencoding::encode(&final_url)
     );
     let target_id = match reqwest::get(&create_url).await {
         Ok(resp) => resp
@@ -365,14 +392,23 @@ async fn handle_new_tab(
         Err(_) => String::new(),
     };
 
-    let tab_id = TabId(entry.next_tab_id);
-    entry.next_tab_id += 1;
-    entry.tabs.push(TabEntry {
-        id: tab_id,
-        target_id,
-        url: final_url.clone(),
-        title: String::new(),
-    });
+    // Re-acquire lock to insert tab
+    let tab_id = {
+        let mut reg = registry.lock().await;
+        let entry = match reg.get_mut(session_id) {
+            Some(e) => e,
+            None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
+        };
+        let tid = TabId(entry.next_tab_id);
+        entry.next_tab_id += 1;
+        entry.tabs.push(TabEntry {
+            id: tid,
+            target_id,
+            url: final_url.clone(),
+            title: String::new(),
+        });
+        tid
+    };
 
     ActionResult::ok(json!({
         "tab_id": tab_id.to_string(),
@@ -380,37 +416,44 @@ async fn handle_new_tab(
     }))
 }
 
-/// Runtime.evaluate via CDP WebSocket — used to run JS expressions in a tab.
+/// Resolve WebSocket URL for a tab, releasing the lock.
+fn resolve_tab_ws_url(
+    session_id: &str,
+    tab_id: &str,
+    entry: &super::registry::SessionEntry,
+) -> Result<String, ActionResult> {
+    let parsed_tab: TabId = tab_id.parse().map_err(|e| {
+        ActionResult::fatal("INVALID_ARGUMENT", format!("invalid tab id: {e}"))
+    })?;
+    let tab = entry.tabs.iter().find(|t| t.id == parsed_tab).ok_or_else(|| {
+        ActionResult::fatal("TAB_NOT_FOUND", format!("tab '{tab_id}' not found"))
+    })?;
+    Ok(if !tab.target_id.is_empty() {
+        format!("ws://127.0.0.1:{}/devtools/page/{}", entry.cdp_port, tab.target_id)
+    } else {
+        entry.ws_url.clone()
+    })
+}
+
+/// Runtime.evaluate via CDP WebSocket.
 async fn handle_cdp_eval(
     session_id: &str,
     tab_id: &str,
     expression: &str,
     registry: &SharedRegistry,
 ) -> ActionResult {
-    let reg = registry.lock().await;
-    let entry = match reg.get(session_id) {
-        Some(e) => e,
-        None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
-    };
-
-    let parsed_tab: TabId = match tab_id.parse() {
-        Ok(t) => t,
-        Err(e) => return ActionResult::fatal("INVALID_ARGUMENT", format!("invalid tab id: {e}")),
-    };
-
-    let tab = match entry.tabs.iter().find(|t| t.id == parsed_tab) {
-        Some(t) => t,
-        None => return ActionResult::fatal("TAB_NOT_FOUND", format!("tab '{tab_id}' not found")),
-    };
-
-    let ws_url = if !tab.target_id.is_empty() {
-        format!(
-            "ws://127.0.0.1:{}/devtools/page/{}",
-            entry.cdp_port, tab.target_id
-        )
-    } else {
-        entry.ws_url.clone()
-    };
+    // Extract WS URL then release lock before CDP I/O
+    let ws_url = {
+        let reg = registry.lock().await;
+        let entry = match reg.get(session_id) {
+            Some(e) => e,
+            None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
+        };
+        match resolve_tab_ws_url(session_id, tab_id, entry) {
+            Ok(url) => url,
+            Err(err) => return err,
+        }
+    }; // lock released
 
     match cdp_runtime_evaluate(&ws_url, expression).await {
         Ok(value) => ActionResult::ok(json!({ "value": value })),
@@ -423,29 +466,17 @@ async fn handle_snapshot(
     tab_id: &str,
     registry: &SharedRegistry,
 ) -> ActionResult {
-    let reg = registry.lock().await;
-    let entry = match reg.get(session_id) {
-        Some(e) => e,
-        None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
-    };
-
-    let parsed_tab: TabId = match tab_id.parse() {
-        Ok(t) => t,
-        Err(e) => return ActionResult::fatal("INVALID_ARGUMENT", format!("invalid tab id: {e}")),
-    };
-
-    let tab = match entry.tabs.iter().find(|t| t.id == parsed_tab) {
-        Some(t) => t,
-        None => return ActionResult::fatal("TAB_NOT_FOUND", format!("tab '{tab_id}' not found")),
-    };
-
-    let ws_url = if !tab.target_id.is_empty() {
-        format!(
-            "ws://127.0.0.1:{}/devtools/page/{}",
-            entry.cdp_port, tab.target_id
-        )
-    } else {
-        entry.ws_url.clone()
+    // Extract WS URL then release lock before CDP I/O
+    let ws_url = {
+        let reg = registry.lock().await;
+        let entry = match reg.get(session_id) {
+            Some(e) => e,
+            None => return ActionResult::fatal("SESSION_NOT_FOUND", format!("session '{session_id}' not found")),
+        };
+        match resolve_tab_ws_url(session_id, tab_id, entry) {
+            Ok(url) => url,
+            Err(err) => return err,
+        }
     };
 
     match cdp_get_ax_tree(&ws_url).await {
@@ -550,7 +581,9 @@ async fn cdp_get_ax_tree(ws_url: &str) -> Result<String, CliError> {
 }
 
 fn ensure_scheme(url: &str) -> String {
-    if url.contains("://") || url.contains(':') {
+    if url.contains("://") {
+        url.to_string()
+    } else if url.starts_with("about:") || url.starts_with("data:") || url.starts_with("chrome:") || url.starts_with("javascript:") {
         url.to_string()
     } else {
         format!("https://{url}")

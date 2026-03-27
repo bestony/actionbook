@@ -65,19 +65,24 @@ impl JsonEnvelope {
         message: &str,
         retryable: bool,
         details: Value,
+        hint: &str,
         duration: Duration,
     ) -> Self {
+        let mut err = serde_json::json!({
+            "code": code,
+            "message": message,
+            "retryable": retryable,
+            "details": details,
+        });
+        if !hint.is_empty() {
+            err["hint"] = serde_json::json!(hint);
+        }
         JsonEnvelope {
             ok: false,
             command: command.to_string(),
             context,
             data: Value::Null,
-            error: serde_json::json!({
-                "code": code,
-                "message": message,
-                "retryable": retryable,
-                "details": details,
-            }),
+            error: err,
             meta: ResponseMeta {
                 duration_ms: duration.as_millis() as u64,
                 warnings: vec![],
@@ -100,8 +105,8 @@ impl JsonEnvelope {
             ActionResult::Fatal {
                 code,
                 message,
+                hint,
                 details,
-                ..
             } => Self::error(
                 command,
                 context,
@@ -109,24 +114,27 @@ impl JsonEnvelope {
                 message,
                 false,
                 details.clone().unwrap_or(Value::Null),
+                hint,
                 duration,
             ),
-            ActionResult::Retryable { reason, .. } => Self::error(
+            ActionResult::Retryable { reason, hint } => Self::error(
                 command,
                 context,
                 "RETRYABLE",
                 reason,
                 true,
                 Value::Null,
+                hint,
                 duration,
             ),
-            ActionResult::UserAction { action, .. } => Self::error(
+            ActionResult::UserAction { action, hint } => Self::error(
                 command,
                 context,
                 "USER_ACTION",
                 action,
                 false,
                 Value::Null,
+                hint,
                 duration,
             ),
         }

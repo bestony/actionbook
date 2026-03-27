@@ -119,7 +119,9 @@ pub async fn list_targets(port: u16) -> Result<Vec<serde_json::Value>, CliError>
 }
 
 fn ensure_scheme(url: &str) -> String {
-    if url.contains("://") || url.contains(':') {
+    if url.contains("://") {
+        url.to_string()
+    } else if url.starts_with("about:") || url.starts_with("data:") || url.starts_with("chrome:") || url.starts_with("javascript:") {
         url.to_string()
     } else {
         format!("https://{url}")

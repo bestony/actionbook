@@ -51,7 +51,7 @@ impl CliError {
             CliError::SessionAlreadyExists(_) => "SESSION_ALREADY_EXISTS",
             CliError::TabNotFound(_) => "TAB_NOT_FOUND",
             CliError::InvalidArgument(_) => "INVALID_ARGUMENT",
-            CliError::InvalidSessionId(_) => "INVALID_ARGUMENT",
+            CliError::InvalidSessionId(_) => "INVALID_SESSION_ID",
             CliError::BrowserNotFound => "BROWSER_NOT_FOUND",
             CliError::BrowserLaunchFailed(_) => "BROWSER_LAUNCH_FAILED",
             CliError::CdpConnectionFailed(_) => "CDP_CONNECTION_FAILED",

@@ -46,6 +46,7 @@ async fn main() {
                     &e.to_string(),
                     false,
                     serde_json::Value::Null,
+                    "",
                     std::time::Duration::ZERO,
                 );
                 println!(
@@ -431,15 +432,24 @@ async fn handle_daemon(command: DaemonCommands) -> Result<(), Box<dyn std::error
             actionbook_cli::commands::daemon::server::run_daemon().await?;
         }
         DaemonCommands::Stop => {
-            let path = actionbook_cli::commands::daemon::server::socket_path();
-            if path.exists() {
-                std::fs::remove_file(&path)?;
+            use actionbook_cli::commands::daemon::server;
+            // Kill daemon process via PID file
+            if let Some(pid) = server::read_daemon_pid() {
+                server::send_sigterm(pid);
+                // Wait for process to exit
+                for _ in 0..30 {
+                    if !server::is_daemon_running() {
+                        break;
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
             }
-            let ready = path.with_extension("ready");
-            if ready.exists() {
-                std::fs::remove_file(&ready)?;
-            }
-            println!("daemon stopped");
+            // Clean up files
+            let path = server::socket_path();
+            std::fs::remove_file(&path).ok();
+            std::fs::remove_file(path.with_extension("ready")).ok();
+            std::fs::remove_file(server::pid_path()).ok();
+            eprintln!("daemon stopped");
         }
     }
     Ok(())
