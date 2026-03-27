@@ -455,7 +455,7 @@ impl Router {
         let goto_title = if let Some(ref url) = open_url_for_registry {
             let goto = Action::Goto {
                 session: session_id.clone(),
-                tab: TabId(0),
+                tab: TabId(1),
                 url: url.clone(),
             };
             let _goto_result = self.forward_to_session(&session_id, goto).await;
@@ -463,7 +463,7 @@ impl Router {
             // Wait for navigation to complete (readyState === "complete").
             let wait = Action::WaitNavigation {
                 session: session_id.clone(),
-                tab: TabId(0),
+                tab: TabId(1),
                 timeout_ms: Some(10_000),
             };
             let _ = self.forward_to_session(&session_id, wait).await;
@@ -471,7 +471,7 @@ impl Router {
             // Now fetch the title after the page has fully loaded.
             let title_action = Action::Title {
                 session: session_id.clone(),
-                tab: TabId(0),
+                tab: TabId(1),
             };
             let title_result = self.forward_to_session(&session_id, title_action).await;
             match &title_result {
@@ -895,7 +895,7 @@ mod tests {
         let router = Router::new(registry);
         let action = Action::Goto {
             session: SessionId::new_unchecked("nonexistent"),
-            tab: TabId(0),
+            tab: TabId(1),
             url: "https://example.com".into(),
         };
         let result = router.route(action).await;

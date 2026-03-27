@@ -883,7 +883,7 @@ mod tests {
             &mut regs,
             Action::Goto {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 url: "https://rust-lang.org".into(),
             },
         )
@@ -958,7 +958,7 @@ mod tests {
             &mut regs,
             Action::Snapshot {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 interactive: false,
                 compact: false,
                 cursor: false,
@@ -997,7 +997,7 @@ mod tests {
             &mut regs,
             Action::Screenshot {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 full_page: true,
             },
         )
@@ -1029,7 +1029,7 @@ mod tests {
             &mut regs,
             Action::Click {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "#btn".into(),
                 button: None,
                 count: None,
@@ -1067,7 +1067,7 @@ mod tests {
             &mut regs,
             Action::Click {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "#nonexistent".into(),
                 button: None,
                 count: None,
@@ -1101,7 +1101,7 @@ mod tests {
             &mut regs,
             Action::Type {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "input".into(),
                 text: "hi".into(),
             },
@@ -1129,7 +1129,7 @@ mod tests {
             &mut regs,
             Action::Fill {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "input".into(),
                 value: "hello".into(),
             },
@@ -1162,7 +1162,7 @@ mod tests {
             &mut regs,
             Action::Eval {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 expression: "document.title".into(),
             },
         )
@@ -1200,7 +1200,7 @@ mod tests {
             ActionResult::Ok { data } => {
                 let tabs = data["tabs"].as_array().unwrap();
                 assert_eq!(tabs.len(), 1);
-                assert_eq!(tabs[0]["tab_id"], "t0");
+                assert_eq!(tabs[0]["tab_id"], "t1");
                 assert_eq!(tabs[0]["url"], "https://example.com/updated");
                 assert_eq!(tabs[0]["title"], "Example Title");
                 assert_eq!(tabs[0]["native_tab_id"], "TARGET_0");
@@ -1237,13 +1237,13 @@ mod tests {
 
         assert!(result.is_ok());
         assert_eq!(regs.tabs.len(), 2);
-        let new_tab = regs.tabs.get(&TabId(1)).unwrap();
+        let new_tab = regs.tabs.get(&TabId(2)).unwrap();
         assert_eq!(new_tab.target_id, "NEW_TARGET_1");
         assert_eq!(new_tab.url, "https://new-page.com");
         assert_eq!(new_tab.title, "New Page");
         match result {
             ActionResult::Ok { data } => {
-                assert_eq!(data["tab"]["tab_id"], "t1");
+                assert_eq!(data["tab"]["tab_id"], "t2");
                 assert_eq!(data["tab"]["url"], "https://new-page.com");
                 assert_eq!(data["tab"]["title"], "New Page");
                 assert_eq!(data["tab"]["native_tab_id"], "NEW_TARGET_1");
@@ -1267,7 +1267,7 @@ mod tests {
             &mut regs,
             Action::CloseTab {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
             },
         )
         .await;
@@ -1291,7 +1291,7 @@ mod tests {
             &mut regs,
             Action::Goto {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 url: "https://example.com".into(),
             },
         )
@@ -1319,7 +1319,7 @@ mod tests {
             &mut regs,
             Action::Goto {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 url: "https://example.com".into(),
             },
         )
@@ -1465,7 +1465,7 @@ mod tests {
             &mut regs,
             Action::Html {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: None,
             },
         )
@@ -1487,7 +1487,7 @@ mod tests {
             &mut regs,
             Action::Text {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: Some("#missing".into()),
                 mode: None,
             },
@@ -1550,7 +1550,7 @@ mod tests {
                 assert_eq!(windows[0]["id"], "w0");
                 let tabs = windows[0]["tabs"].as_array().unwrap();
                 assert_eq!(tabs.len(), 1);
-                assert_eq!(tabs[0], "t0");
+                assert_eq!(tabs[0], "t1");
             }
             _ => panic!("expected Ok"),
         }
@@ -1609,7 +1609,7 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(regs.windows.len(), 2);
         assert_eq!(regs.tabs.len(), 2);
-        let new_tab = regs.tabs.get(&TabId(1)).unwrap();
+        let new_tab = regs.tabs.get(&TabId(2)).unwrap();
         assert_eq!(new_tab.window, WindowId(1));
         match &backend.ops()[0] {
             BackendOp::CreateTarget { new_window, .. } => assert!(new_window),
@@ -1645,7 +1645,7 @@ mod tests {
         assert!(result.is_ok());
         assert_eq!(regs.windows.len(), 1);
         assert_eq!(regs.tabs.len(), 2);
-        let new_tab = regs.tabs.get(&TabId(1)).unwrap();
+        let new_tab = regs.tabs.get(&TabId(2)).unwrap();
         assert_eq!(new_tab.window, WindowId(0));
         assert_eq!(regs.windows.get(&WindowId(0)).unwrap().tabs.len(), 2);
         match &backend.ops()[0] {
@@ -1754,7 +1754,7 @@ mod tests {
             &mut regs,
             Action::Back {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
             },
         )
         .await;
@@ -1790,7 +1790,7 @@ mod tests {
             &mut regs,
             Action::Forward {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
             },
         )
         .await;
@@ -1824,7 +1824,7 @@ mod tests {
             &mut regs,
             Action::Reload {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
             },
         )
         .await;
@@ -1857,14 +1857,14 @@ mod tests {
             &mut regs,
             Action::Goto {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 url: "https://new-page.com".into(),
             },
         )
         .await;
 
         assert!(result.is_ok());
-        let tab = regs.tabs.get(&TabId(0)).unwrap();
+        let tab = regs.tabs.get(&TabId(1)).unwrap();
         assert_eq!(tab.url, "https://new-page.com");
         assert_eq!(tab.title, "New Title");
         match result {
@@ -1895,7 +1895,7 @@ mod tests {
             &mut regs,
             Action::Goto {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 url: "https://new-page.com".into(),
             },
         )
@@ -1978,7 +1978,7 @@ mod tests {
             &mut regs,
             Action::Hover {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "#menu".into(),
             },
         )
@@ -2011,7 +2011,7 @@ mod tests {
             &mut regs,
             Action::Focus {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "input#email".into(),
             },
         )
@@ -2041,7 +2041,7 @@ mod tests {
             &mut regs,
             Action::Press {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 key_or_chord: "enter".into(),
             },
         )
@@ -2077,7 +2077,7 @@ mod tests {
             &mut regs,
             Action::Press {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 key_or_chord: "Control+A".into(),
             },
         )
@@ -2116,7 +2116,7 @@ mod tests {
             &mut regs,
             Action::Select {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "select#country".into(),
                 value: "opt2".into(),
                 by_text: false,
@@ -2147,7 +2147,7 @@ mod tests {
             &mut regs,
             Action::Select {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "#missing-select".into(),
                 value: "val".into(),
                 by_text: false,
@@ -2173,7 +2173,7 @@ mod tests {
             &mut regs,
             Action::MouseMove {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 x: 120.0,
                 y: 240.0,
             },
@@ -2212,7 +2212,7 @@ mod tests {
             &mut regs,
             Action::CursorPosition {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
             },
         )
         .await;
@@ -2252,7 +2252,7 @@ mod tests {
             &mut regs,
             Action::Drag {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 from_selector: "#source".into(),
                 to_selector: "#target".into(),
                 button: None,
@@ -2285,7 +2285,7 @@ mod tests {
             &mut regs,
             Action::Scroll {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 direction: "down".into(),
                 amount: Some(500),
                 selector: None,
@@ -2317,7 +2317,7 @@ mod tests {
             &mut regs,
             Action::Scroll {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 direction: "diagonal".into(),
                 amount: None,
                 selector: None,
@@ -2345,7 +2345,7 @@ mod tests {
             &mut regs,
             Action::Scroll {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 direction: "into-view".into(),
                 amount: None,
                 selector: None,
@@ -2374,7 +2374,7 @@ mod tests {
             &mut regs,
             Action::Scroll {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 direction: "down".into(),
                 amount: Some(200),
                 selector: None,
@@ -2407,7 +2407,7 @@ mod tests {
             &mut regs,
             Action::Scroll {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 direction: "into-view".into(),
                 amount: None,
                 selector: Some("#hero".into()),
@@ -2446,7 +2446,7 @@ mod tests {
             &mut regs,
             Action::Upload {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "input[type=file]".into(),
                 files: vec!["/tmp/test.txt".into()],
             },
@@ -2482,7 +2482,7 @@ mod tests {
             &mut regs,
             Action::Upload {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 selector: "input#missing".into(),
                 files: vec!["/tmp/test.txt".into()],
             },
@@ -2514,7 +2514,7 @@ mod tests {
             &mut regs,
             Action::WaitNavigation {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 timeout_ms: Some(50),
             },
         )
@@ -2548,7 +2548,7 @@ mod tests {
             &mut regs,
             Action::WaitNavigation {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 timeout_ms: Some(50),
             },
         )
@@ -2582,7 +2582,7 @@ mod tests {
             &mut regs,
             Action::WaitNavigation {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 timeout_ms: Some(0),
             },
         )
@@ -2616,7 +2616,7 @@ mod tests {
             &mut regs,
             Action::WaitNetworkIdle {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 timeout_ms: Some(250),
                 idle_time_ms: Some(100),
             },
@@ -2643,7 +2643,7 @@ mod tests {
             &mut regs,
             Action::WaitNetworkIdle {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 timeout_ms: Some(0),
                 idle_time_ms: Some(100),
             },
@@ -2673,7 +2673,7 @@ mod tests {
             &mut regs,
             Action::WaitCondition {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 expression: "window.__ready".into(),
                 timeout_ms: Some(50),
             },
@@ -2702,7 +2702,7 @@ mod tests {
             &mut regs,
             Action::WaitCondition {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 expression: "window.__ready".into(),
                 timeout_ms: Some(0),
             },
@@ -2736,7 +2736,7 @@ mod tests {
             &mut regs,
             Action::Title {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
             },
         )
         .await;
@@ -2762,7 +2762,7 @@ mod tests {
             &mut regs,
             Action::Url {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
             },
         )
         .await;
@@ -2796,7 +2796,7 @@ mod tests {
             &mut regs,
             Action::Eval {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 expression: "foo.bar".into(),
             },
         )
@@ -2828,7 +2828,7 @@ mod tests {
             &mut regs,
             Action::StorageList {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 kind: StorageKind::Local,
             },
         )
@@ -2860,7 +2860,7 @@ mod tests {
             &mut regs,
             Action::StorageGet {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 kind: StorageKind::Session,
                 key: "mykey".into(),
             },
@@ -2895,7 +2895,7 @@ mod tests {
             &mut regs,
             Action::StorageSet {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 kind: StorageKind::Local,
                 key: "token".into(),
                 value: "abc123".into(),
@@ -2928,7 +2928,7 @@ mod tests {
             &mut regs,
             Action::StorageDelete {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 kind: StorageKind::Local,
                 key: "token".into(),
             },
@@ -2959,7 +2959,7 @@ mod tests {
             &mut regs,
             Action::StorageClear {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 kind: StorageKind::Session,
             },
         )
@@ -3137,7 +3137,7 @@ mod tests {
             &mut regs,
             Action::Open {
                 session: sid,
-                tab: TabId(0),
+                tab: TabId(1),
                 url: "https://via-open.com".into(),
             },
         )

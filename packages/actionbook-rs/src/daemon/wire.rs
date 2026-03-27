@@ -122,7 +122,7 @@ mod tests {
             1,
             Action::Goto {
                 session: SessionId::new_unchecked("local-1"),
-                tab: TabId(1),
+                tab: TabId(2),
                 url: "https://example.com".into(),
             },
         );
