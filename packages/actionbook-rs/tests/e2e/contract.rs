@@ -926,3 +926,251 @@ fn contract_restart_prd_text_output() {
     // Cleanup — session is still running after restart
     let _ = headless(&["browser", "close", "-s", session_id], 30);
 }
+
+// ---------------------------------------------------------------------------
+// Group 9: PRD 10.1 browser.snapshot — real nodes/stats
+// ---------------------------------------------------------------------------
+
+/// Verify that `browser snapshot --json` returns real parsed nodes from the
+/// accessibility tree, not empty arrays or fabricated stats.
+/// PRD 10.1: data.nodes is [{ref, role, name, value}], data.stats has real counts.
+#[test]
+fn contract_snapshot_prd_real_nodes() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    // Start session and navigate to a real page
+    let out = headless_json(
+        &[
+            "browser",
+            "start",
+            "--mode",
+            "local",
+            "--headless",
+            "--open-url",
+            "https://actionbook.dev/",
+        ],
+        30,
+    );
+    assert_success(&out, "start --open-url --json");
+    let start_json: serde_json::Value =
+        serde_json::from_str(&stdout_str(&out)).expect("valid JSON from start");
+    let session_id = start_json["data"]["session"]["session_id"]
+        .as_str()
+        .unwrap();
+    let tab_id = start_json["data"]["tab"]["tab_id"].as_str().unwrap();
+
+    // Take a snapshot
+    let out = headless_json(
+        &[
+            "browser", "snapshot", "-s", session_id, "-t", tab_id, "--json",
+        ],
+        30,
+    );
+    assert_success(&out, "snapshot --json");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout_str(&out)).expect("valid JSON from snapshot");
+
+    assert_eq!(
+        json["command"], "browser.snapshot",
+        "command must be browser.snapshot"
+    );
+
+    let data = &json["data"];
+
+    // format must be "snapshot"
+    assert_eq!(
+        data["format"], "snapshot",
+        "data.format must be 'snapshot', got: {}",
+        data
+    );
+
+    // content must be a non-empty string with [ref=eN] patterns
+    let content = data["content"]
+        .as_str()
+        .expect("data.content must be a string");
+    assert!(!content.is_empty(), "data.content must be non-empty");
+    assert!(
+        content.contains("[ref=e"),
+        "data.content must contain [ref=eN] references, got:\n{}",
+        &content[..content.len().min(500)]
+    );
+
+    // nodes must be a non-empty array
+    let nodes = data["nodes"]
+        .as_array()
+        .expect("data.nodes must be an array");
+    assert!(
+        !nodes.is_empty(),
+        "data.nodes must be non-empty (real parsed nodes), got empty array"
+    );
+
+    // Each node must have ref, role, name, value fields per PRD
+    for (i, node) in nodes.iter().enumerate() {
+        assert!(
+            node.get("ref").is_some(),
+            "nodes[{}] must have 'ref' field, got: {}",
+            i,
+            node
+        );
+        assert!(
+            node.get("role").and_then(|v| v.as_str()).is_some(),
+            "nodes[{}] must have 'role' as string, got: {}",
+            i,
+            node
+        );
+        assert!(
+            node.get("name").is_some(),
+            "nodes[{}] must have 'name' field, got: {}",
+            i,
+            node
+        );
+        assert!(
+            node.get("value").is_some(),
+            "nodes[{}] must have 'value' field, got: {}",
+            i,
+            node
+        );
+    }
+
+    // stats must have real counts
+    let stats = &data["stats"];
+    let node_count = stats["node_count"]
+        .as_u64()
+        .expect("stats.node_count must be an integer");
+    let interactive_count = stats["interactive_count"]
+        .as_u64()
+        .expect("stats.interactive_count must be an integer");
+
+    // node_count must match the actual nodes array length
+    assert_eq!(
+        node_count,
+        nodes.len() as u64,
+        "stats.node_count ({}) must match nodes.len() ({})",
+        node_count,
+        nodes.len()
+    );
+
+    // Derive expected interactive_count from the actual nodes' roles
+    let interactive_roles: std::collections::HashSet<&str> = [
+        "button",
+        "link",
+        "textbox",
+        "checkbox",
+        "radio",
+        "combobox",
+        "menuitem",
+        "tab",
+        "switch",
+        "slider",
+        "spinbutton",
+        "searchbox",
+        "option",
+        "menuitemcheckbox",
+        "menuitemradio",
+    ]
+    .into_iter()
+    .collect();
+
+    let expected_interactive: u64 = nodes
+        .iter()
+        .filter(|n| {
+            n.get("role")
+                .and_then(|v| v.as_str())
+                .map(|r| interactive_roles.contains(r))
+                .unwrap_or(false)
+        })
+        .count() as u64;
+
+    assert_eq!(
+        interactive_count, expected_interactive,
+        "stats.interactive_count ({}) must exactly match count derived from nodes roles ({})",
+        interactive_count, expected_interactive
+    );
+
+    // A real page like actionbook.dev should have at least 1 interactive element
+    assert!(
+        interactive_count >= 1,
+        "actionbook.dev should have at least 1 interactive element, got: {}",
+        interactive_count
+    );
+
+    // Cleanup
+    let _ = headless(&["browser", "close", "-s", session_id], 30);
+}
+
+/// Verify that `browser snapshot` text output contains the tree content directly
+/// (not JSON wrapper objects). PRD 10.1 text: tree text prefixed with
+/// [session tab] url header.
+#[test]
+fn contract_snapshot_prd_text_output() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    let out = headless_json(
+        &[
+            "browser",
+            "start",
+            "--mode",
+            "local",
+            "--headless",
+            "--open-url",
+            "https://actionbook.dev/",
+        ],
+        30,
+    );
+    assert_success(&out, "start --open-url --json");
+    let start_json: serde_json::Value =
+        serde_json::from_str(&stdout_str(&out)).expect("valid JSON from start");
+    let session_id = start_json["data"]["session"]["session_id"]
+        .as_str()
+        .unwrap();
+    let tab_id = start_json["data"]["tab"]["tab_id"].as_str().unwrap();
+
+    // Take a snapshot in text mode (no --json)
+    let out = headless(&["browser", "snapshot", "-s", session_id, "-t", tab_id], 30);
+    assert_success(&out, "snapshot text");
+    let text = stdout_str(&out);
+
+    // PRD 10.1: text output must start with "[session tab] url" header
+    let header_pattern = format!("[{session_id} {tab_id}]");
+    assert!(
+        text.starts_with(&header_pattern),
+        "text output must start with PRD header '[session tab] url', got:\n{}",
+        &text[..text.len().min(500)]
+    );
+
+    // Header line should contain the URL
+    let first_line = text.lines().next().unwrap_or("");
+    assert!(
+        first_line.contains("actionbook.dev"),
+        "header line must contain the page URL, got: {}",
+        first_line
+    );
+
+    // Text output must contain tree content with ref patterns
+    assert!(
+        text.contains("[ref=e"),
+        "text output must contain [ref=eN] references, got:\n{}",
+        &text[..text.len().min(500)]
+    );
+
+    // Must NOT contain JSON wrapper keys like __tree, __ctx_url
+    assert!(
+        !text.contains("__tree"),
+        "text output must not contain __tree wrapper key, got:\n{}",
+        &text[..text.len().min(500)]
+    );
+    assert!(
+        !text.contains("__ctx_"),
+        "text output must not contain __ctx_ wrapper keys, got:\n{}",
+        &text[..text.len().min(500)]
+    );
+
+    // Cleanup
+    let _ = headless(&["browser", "close", "-s", session_id], 30);
+}
