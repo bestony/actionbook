@@ -58,6 +58,7 @@ impl ActionResult {
     }
 
     /// Create a user-action-required result.
+    #[allow(dead_code)]
     pub fn user_action(action: impl Into<String>, hint: impl Into<String>) -> Self {
         ActionResult::UserAction {
             action: action.into(),

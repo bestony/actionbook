@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 // ---------------------------------------------------------------------------
 
 /// Identifies which backend implementation is in use.
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BackendKind {
@@ -37,6 +38,7 @@ impl std::fmt::Display for BackendKind {
 
 /// Declares what a backend can and cannot do.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Capabilities {
     /// Backend can launch a new browser process.
     pub can_launch: bool,
@@ -87,6 +89,7 @@ pub struct AttachSpec {
 /// Each backend produces its own checkpoint; the daemon persists it and
 /// hands it back via `BackendFactory::resume()` after a restart.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Checkpoint {
     /// Which backend produced this checkpoint.
     pub kind: BackendKind,
@@ -116,14 +119,24 @@ pub enum BackendEvent {
     /// The WebSocket connection to the browser was lost.
     Disconnected {
         /// Human-readable reason.
+        #[allow(dead_code)]
         reason: String,
     },
     /// A new target (tab) was created.
-    TargetCreated { target_id: String },
+    TargetCreated {
+        #[allow(dead_code)]
+        target_id: String,
+    },
     /// A target (tab) was destroyed.
-    TargetDestroyed { target_id: String },
+    TargetDestroyed {
+        #[allow(dead_code)]
+        target_id: String,
+    },
     /// A JavaScript dialog appeared.
-    Dialog { message: String },
+    Dialog {
+        #[allow(dead_code)]
+        message: String,
+    },
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +161,7 @@ impl OpResult {
     }
 
     /// Create a null (empty) result.
+    #[allow(dead_code)]
     pub fn null() -> Self {
         Self {
             value: serde_json::Value::Null,
@@ -180,6 +194,7 @@ pub struct TargetInfo {
 
 /// Health status returned by `BackendSession::health()`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Health {
     /// Whether the backend connection is alive.
     pub connected: bool,
@@ -201,6 +216,7 @@ pub enum ShutdownPolicy {
     /// Send `Browser.close` and wait for graceful exit.
     Graceful,
     /// Kill the process immediately (Local only, no-op for Cloud/Extension).
+    #[allow(dead_code)]
     ForceKill,
 }
 

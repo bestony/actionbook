@@ -166,6 +166,7 @@ impl BrowserLauncher {
             .join(profile_name)
     }
 
+    #[allow(dead_code)]
     fn resolve_user_data_dir(profile_name: &str, configured_dir: Option<&str>) -> PathBuf {
         configured_dir
             .map(|dir| PathBuf::from(shellexpand::tilde(dir).to_string()))
@@ -195,6 +196,7 @@ impl BrowserLauncher {
     }
 
     /// Create a launcher with a specific browser path
+    #[allow(dead_code)]
     pub fn with_browser_path(path: PathBuf) -> Result<Self> {
         if !path.exists() {
             return Err(ActionbookError::BrowserLaunchFailed(format!(
@@ -228,6 +230,7 @@ impl BrowserLauncher {
     }
 
     /// Create a launcher from profile configuration
+    #[allow(dead_code)]
     pub fn from_profile(profile_name: &str, profile: &ProfileConfig) -> Result<Self> {
         let mut launcher = if let Some(ref path) = profile.browser_path {
             Self::with_browser_path(PathBuf::from(path))?
@@ -245,6 +248,7 @@ impl BrowserLauncher {
     }
 
     /// Enable stealth mode (anti-detection Chrome flags)
+    #[allow(dead_code)]
     pub fn with_stealth(mut self, stealth: bool) -> Self {
         self.stealth = stealth;
         self

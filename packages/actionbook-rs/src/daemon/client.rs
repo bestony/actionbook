@@ -54,6 +54,7 @@ impl DaemonClient {
     }
 
     /// Override the default timeout.
+    #[allow(dead_code)]
     pub fn with_timeout(mut self, timeout: Duration) -> Self {
         self.timeout = timeout;
         self

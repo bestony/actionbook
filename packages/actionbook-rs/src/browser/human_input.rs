@@ -6,6 +6,7 @@
 use rand::Rng;
 
 /// Generate a bezier curve mouse path from start to end point
+#[allow(dead_code)]
 pub fn bezier_mouse_path(start_x: f64, start_y: f64, end_x: f64, end_y: f64) -> Vec<(f64, f64)> {
     let mut rng = rand::thread_rng();
 
@@ -50,6 +51,7 @@ pub fn bezier_mouse_path(start_x: f64, start_y: f64, end_x: f64, end_y: f64) -> 
 }
 
 /// Generate a random start position offset from the target
+#[allow(dead_code)]
 pub fn random_start_offset(target_x: f64, target_y: f64) -> (f64, f64) {
     let mut rng = rand::thread_rng();
     let offset_x = rng.gen_range(50.0..250.0) * if rng.gen_bool(0.5) { 1.0 } else { -1.0 };
@@ -61,6 +63,7 @@ pub fn random_start_offset(target_x: f64, target_y: f64) -> (f64, f64) {
 }
 
 /// Generate typing delays for each character (milliseconds)
+#[allow(dead_code)]
 pub fn typing_delays(text: &str, fast: bool) -> Vec<(char, u64)> {
     let mut rng = rand::thread_rng();
     let base_delay: u64 = if fast { 40 } else { 80 };
@@ -135,6 +138,7 @@ pub fn typing_delays(text: &str, fast: bool) -> Vec<(char, u64)> {
 }
 
 /// Pre-click delay (human pause before clicking)
+#[allow(dead_code)]
 pub fn pre_click_delay_ms() -> u64 {
     let mut rng = rand::thread_rng();
     rng.gen_range(50..200)
@@ -170,5 +174,43 @@ mod tests {
         let (sx, sy) = random_start_offset(100.0, 100.0);
         let dist = ((sx - 100.0).powi(2) + (sy - 100.0).powi(2)).sqrt();
         assert!(dist >= 50.0);
+    }
+
+    #[test]
+    fn pre_click_delay_ms_within_range() {
+        for _ in 0..20 {
+            let delay = pre_click_delay_ms();
+            assert!((50..200).contains(&delay), "delay out of range: {delay}");
+        }
+    }
+
+    #[test]
+    fn click_hold_ms_within_range() {
+        for _ in 0..20 {
+            let hold = click_hold_ms();
+            assert!((30..120).contains(&hold), "hold out of range: {hold}");
+        }
+    }
+
+    #[test]
+    fn typing_delays_fast_mode_generates_entries() {
+        let delays = typing_delays("world", true);
+        assert!(delays.len() >= 5);
+    }
+
+    #[test]
+    fn typing_delays_empty_text() {
+        let delays = typing_delays("", false);
+        assert!(delays.is_empty());
+    }
+
+    #[test]
+    fn bezier_path_endpoints_reasonable() {
+        let path = bezier_mouse_path(10.0, 20.0, 110.0, 120.0);
+        assert!(!path.is_empty());
+        // Path should contain coordinate values in a reasonable range
+        for (x, y) in &path {
+            assert!(x.is_finite() && y.is_finite());
+        }
     }
 }

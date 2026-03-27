@@ -171,16 +171,19 @@ impl SessionActor {
     }
 
     /// Get a tab entry by ID.
+    #[allow(dead_code)]
     pub fn get_tab(&self, id: TabId) -> Option<&TabEntry> {
         self.registries.tabs.get(&id)
     }
 
     /// Number of tabs in this session.
+    #[allow(dead_code)]
     pub fn tab_count(&self) -> usize {
         self.registries.tabs.len()
     }
 
     /// Number of windows in this session.
+    #[allow(dead_code)]
     pub fn window_count(&self) -> usize {
         self.registries.windows.len()
     }
