@@ -102,57 +102,55 @@ pub(crate) async fn configure_api_key(
     }
 
     // Interactive input — leave blank to skip
-    loop {
-        let key: String = Input::with_theme(&setup_theme())
-            .with_prompt(" Enter your API key (leave blank to skip)")
-            .allow_empty(true)
-            .report(false)
-            .interact_text()
-            .map_err(|e| CliError::Internal(format!("Prompt failed: {}", e)))?;
+    let key: String = Input::with_theme(&setup_theme())
+        .with_prompt(" Enter your API key (leave blank to skip)")
+        .allow_empty(true)
+        .report(false)
+        .interact_text()
+        .map_err(|e| CliError::Internal(format!("Prompt failed: {}", e)))?;
 
-        let key = key.trim().to_string();
+    let key = key.trim().to_string();
 
-        if key.is_empty() {
-            if json {
-                println!(
-                    "{}",
-                    serde_json::json!({
-                        "step": "api_key",
-                        "status": "skipped",
-                    })
-                );
-            } else {
-                println!(
-                    "  {}  Skipped. You can configure it later with:",
-                    "◇".dimmed()
-                );
-                println!(
-                    "  {}  {}",
-                    "│".dimmed(),
-                    "actionbook config set api.api_key <your-key>".cyan()
-                );
-            }
-            return Ok(());
-        }
-
-        // TODO: Validate the API key via ApiClient when available
-        // For now, accept any non-empty key without server-side validation.
+    if key.is_empty() {
         if json {
             println!(
                 "{}",
                 serde_json::json!({
                     "step": "api_key",
-                    "status": "configured",
-                    "api_key": key,
+                    "status": "skipped",
                 })
             );
         } else {
-            println!("  {}  API key saved: {}", "◇".green(), mask_key(&key).dimmed());
+            println!(
+                "  {}  Skipped. You can configure it later with:",
+                "◇".dimmed()
+            );
+            println!(
+                "  {}  {}",
+                "│".dimmed(),
+                "actionbook config set api.api_key <your-key>".cyan()
+            );
         }
-
-        config.api.api_key = Some(key);
         return Ok(());
     }
+
+    // TODO: Validate the API key via ApiClient when available.
+    // When validation is added, wrap this in a loop to retry on invalid keys.
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "step": "api_key",
+                "status": "configured",
+                "api_key": key,
+            })
+        );
+    } else {
+        println!("  {}  API key saved: {}", "◇".green(), mask_key(&key).dimmed());
+    }
+
+    config.api.api_key = Some(key);
+    Ok(())
 }
 
 /// Resolve the best available key and its source name.
