@@ -20,6 +20,12 @@ pub struct Cmd {
 pub const COMMAND_NAME: &str = "browser.reload";
 
 pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
+    // SESSION_NOT_FOUND: context must be null per §3.1
+    if let ActionResult::Fatal { code, .. } = result {
+        if code == "SESSION_NOT_FOUND" {
+            return None;
+        }
+    }
     let (url, title) = match result {
         ActionResult::Ok { data } => (
             data.get("to_url").and_then(|v| v.as_str()).map(String::from),
