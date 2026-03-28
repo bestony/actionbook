@@ -237,7 +237,7 @@ fn parse_browser_flag(value: Option<&str>) -> Result<Option<Mode>, CliError> {
     };
 
     match value.trim().to_ascii_lowercase().as_str() {
-        "isolated" | "local" => Ok(Some(Mode::Local)),
+        "local" => Ok(Some(Mode::Local)),
         "extension" => Ok(Some(Mode::Extension)),
         "cloud" => Ok(Some(Mode::Cloud)),
         other => Err(CliError::InvalidArgument(format!(
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn parse_browser_flag_accepts_aliases() {
-        assert_eq!(parse_browser_flag(Some("isolated")).unwrap(), Some(Mode::Local));
+        assert_eq!(parse_browser_flag(Some("local")).unwrap(), Some(Mode::Local));
         assert_eq!(parse_browser_flag(Some("local")).unwrap(), Some(Mode::Local));
         assert_eq!(
             parse_browser_flag(Some("extension")).unwrap(),

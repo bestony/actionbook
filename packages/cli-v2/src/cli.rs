@@ -226,7 +226,7 @@ mod tests {
             "--api-key",
             "sk-test",
             "--browser",
-            "isolated",
+            "local",
             "--non-interactive",
             "--reset",
         ])
@@ -236,7 +236,7 @@ mod tests {
             Some(Commands::Setup(cmd)) => {
                 assert_eq!(cmd.target.as_deref(), Some("codex"));
                 assert_eq!(cmd.api_key.as_deref(), Some("sk-test"));
-                assert_eq!(cmd.browser.as_deref(), Some("isolated"));
+                assert_eq!(cmd.browser.as_deref(), Some("local"));
                 assert!(cmd.non_interactive);
                 assert!(cmd.reset);
             }
