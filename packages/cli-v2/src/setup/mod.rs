@@ -41,7 +41,7 @@ const TOTAL_STEPS: u8 = 4;
 
 /// Run the setup wizard. Orchestrates all steps in order.
 pub async fn execute(cmd: &Cmd, json: bool) -> Result<(), CliError> {
-    let non_interactive = cmd.non_interactive;
+    let non_interactive = cmd.non_interactive || json;
 
     // Handle existing config (re-run protection)
     let mut config = handle_existing_config(json, non_interactive, cmd.reset)?;

@@ -48,6 +48,71 @@ fn setup_json_non_interactive_writes_config_without_daemon_side_effects() {
 }
 
 #[test]
+fn setup_json_existing_config_does_not_require_tty() {
+    let tmp = tempfile::tempdir().expect("tmpdir");
+    let home = tmp.path().join("actionbook-home");
+    std::fs::create_dir_all(&home).expect("create actionbook home");
+    std::fs::write(
+        home.join("config.toml"),
+        r#"[api]
+api_key = "sk-config"
+
+[browser]
+mode = "local"
+headless = false
+profile_name = "actionbook"
+"#,
+    )
+    .expect("seed config");
+
+    let output = Command::cargo_bin("actionbook")
+        .expect("binary exists")
+        .env("ACTIONBOOK_HOME", &home)
+        .args(["--json", "setup"])
+        .output()
+        .expect("run setup");
+
+    assert!(
+        output.status.success(),
+        "expected json setup rerun success\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert!(
+        !String::from_utf8_lossy(&output.stderr).contains("Prompt failed"),
+        "json setup should not try to prompt on rerun"
+    );
+}
+
+#[test]
+fn setup_json_with_env_api_key_does_not_persist_env_value() {
+    let tmp = tempfile::tempdir().expect("tmpdir");
+    let home = tmp.path().join("actionbook-home");
+
+    let output = Command::cargo_bin("actionbook")
+        .expect("binary exists")
+        .env("ACTIONBOOK_HOME", &home)
+        .env("ACTIONBOOK_API_KEY", "sk-env")
+        .args(["--json", "setup"])
+        .output()
+        .expect("run setup");
+
+    assert!(
+        output.status.success(),
+        "expected json setup success with env api key\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+
+    let config = read_config(&home);
+    assert!(config.contains("[api]"));
+    assert!(
+        !config.contains("api_key = \"sk-env\""),
+        "env-sourced api key should not be written into config without confirmation"
+    );
+}
+
+#[test]
 fn setup_reset_recreates_default_config() {
     let tmp = tempfile::tempdir().expect("tmpdir");
     let home = tmp.path().join("actionbook-home");

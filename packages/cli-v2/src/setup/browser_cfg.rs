@@ -203,8 +203,6 @@ fn browser_options(
             choices.push(ExecutableChoice::Path(current.clone()));
             labels.push(format!("configured path ({current})"));
         }
-    } else if !env.browsers.is_empty() {
-        default = 1;
     }
 
     (choices, labels, default)
@@ -409,5 +407,20 @@ mod tests {
             choices[default],
             ExecutableChoice::Path("/custom/chrome".to_string())
         );
+    }
+
+    #[test]
+    fn test_browser_options_keep_auto_detect_as_default_when_current_is_none() {
+        let browser = BrowserInfo {
+            name: "Google Chrome".to_string(),
+            path: PathBuf::from("/usr/bin/chrome"),
+            version: Some("131.0".to_string()),
+        };
+        let env = make_env_with_browsers(vec![browser]);
+
+        let (choices, _labels, default) = browser_options(&env, None);
+
+        assert_eq!(default, 0);
+        assert_eq!(choices[default], ExecutableChoice::AutoDetect);
     }
 }
