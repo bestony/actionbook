@@ -226,6 +226,28 @@ fn snap_json_data_fields() {
     assert_snapshot_data(&v);
     assert_content_has_refs(&v);
 
+    // §10.1 strict: data must only contain {format, content, nodes, stats}
+    // No internal fields (__ctx_*, snapshot, etc.) should leak into public data
+    let data_keys: Vec<&str> = v["data"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(|k| k.as_str())
+        .collect();
+    let allowed = ["format", "content", "nodes", "stats"];
+    for key in &data_keys {
+        assert!(
+            allowed.contains(key),
+            "data must only contain §10.1 fields, found unexpected key: '{key}'"
+        );
+    }
+    for key in &allowed {
+        assert!(
+            data_keys.contains(key),
+            "data must contain §10.1 field: '{key}'"
+        );
+    }
+
     close_session(&sid);
 }
 
