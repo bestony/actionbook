@@ -1219,7 +1219,7 @@ fn lifecycle_start_concurrent_same_profile_rejects_second_json() {
     let failure = parse_json(failures[0]);
     assert_eq!(failure["ok"], false);
     assert_eq!(failure["command"], "browser.start");
-    assert_eq!(failure["error"]["code"], "SESSION_ALREADY_EXISTS");
+    assert_eq!(failure["error"]["code"], "SESSION_STARTING");
 
     let out = headless_json(&["browser", "list-sessions"], 10);
     assert_success(&out, "list-sessions after concurrent start");

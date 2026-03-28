@@ -114,8 +114,8 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                 }),
                 SessionState::Starting => {
                     return ActionResult::fatal(
-                        "SESSION_ALREADY_EXISTS",
-                        format!("session already exists: {}", existing.id.as_str()),
+                        "SESSION_STARTING",
+                        format!("session for profile '{profile_name}' is starting, please wait"),
                     );
                 }
                 SessionState::Closed => unreachable!("closed sessions are excluded from lookup"),
