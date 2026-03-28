@@ -168,7 +168,10 @@ fn title_text_happy_path() {
     assert_success(&json_out, "title json (for text comparison)");
     let jv = parse_json(&json_out);
     let expected_title = jv["data"]["value"].as_str().unwrap_or("").to_string();
-    assert!(!expected_title.is_empty(), "title must not be empty for actionbook.dev");
+    assert!(
+        !expected_title.is_empty(),
+        "title must not be empty for actionbook.dev"
+    );
 
     let out = headless(&["browser", "title", "--session", &sid, "--tab", &tid], 10);
     assert_success(&out, "title text");
