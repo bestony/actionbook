@@ -300,14 +300,15 @@ pub async fn get_cdp_and_target(
 }
 
 /// Convert a CliError from CDP operations into an ActionResult,
-/// preserving CloudConnectionLost as a retryable error with hint.
+/// preserving CloudConnectionLost with its specific error code.
 pub fn cdp_error_to_result(e: CliError, default_code: &str) -> crate::action_result::ActionResult {
     match &e {
         CliError::CloudConnectionLost(_) => {
-            crate::action_result::ActionResult::Retryable {
-                reason: e.to_string(),
-                hint: "cloud connection lost — retry or run `actionbook browser start --mode cloud ...` to reconnect".to_string(),
-            }
+            crate::action_result::ActionResult::fatal_with_hint(
+                "CLOUD_CONNECTION_LOST",
+                e.to_string(),
+                "cloud connection lost — retry or run `actionbook browser start --mode cloud ...` to reconnect",
+            )
         }
         _ => crate::action_result::ActionResult::fatal(default_code, e.to_string()),
     }
