@@ -3,26 +3,7 @@
 //! All three commands are Tab-level: require `--session <SID> --tab <TID>`.
 //! Tests are strict per api-reference.md §10.4 / §10.5 / §10.6.
 //!
-//! ## TDD status (current impl = NOT_IMPLEMENTED stub)
-//!
-//! **Expected to FAIL until implementation lands:**
-//! - `title_json_happy_path`
-//! - `title_text_happy_path` (also runs JSON internally to pin body value)
-//! - `url_json_happy_path`
-//! - `url_text_happy_path` (also runs JSON internally to pin body value)
-//! - `viewport_json_happy_path`
-//! - `viewport_text_happy_path`
-//!
-//! **Expected to PASS against stub (error paths handled before command logic):**
-//! - `title_session_not_found_json` / `title_session_not_found_text`
-//! - `title_tab_not_found_json`
-//! - `title_missing_session_arg` / `title_missing_tab_arg`
-//! - `url_session_not_found_json` / `url_session_not_found_text`
-//! - `url_tab_not_found_json`
-//! - `url_missing_session_arg` / `url_missing_tab_arg`
-//! - `viewport_session_not_found_json` / `viewport_session_not_found_text`
-//! - `viewport_tab_not_found_json`
-//! - `viewport_missing_session_arg` / `viewport_missing_tab_arg`
+//! All 21 tests must pass against the production implementation.
 
 use crate::harness::{
     SessionGuard, assert_failure, assert_success, headless, headless_json, parse_json, skip,
@@ -73,7 +54,11 @@ fn assert_error_envelope(v: &serde_json::Value, expected_code: &str) {
     assert_meta(v);
 }
 
-/// Start a headless session, return (session_id, tab_id).
+/// Start a headless session and navigate to url, return (session_id, tab_id).
+///
+/// Uses an explicit `browser goto` after `browser start` so the tab has a
+/// confirmed real URL in CI environments where `--open-url` may resolve to
+/// `chrome-error://chromewebdata/` on network hiccups.
 fn start_session(url: &str) -> (String, String) {
     let out = headless_json(
         &[
