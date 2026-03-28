@@ -146,7 +146,11 @@ pub(crate) async fn configure_api_key(
             })
         );
     } else {
-        println!("  {}  API key saved: {}", "◇".green(), mask_key(&key).dimmed());
+        println!(
+            "  {}  API key saved: {}",
+            "◇".green(),
+            mask_key(&key).dimmed()
+        );
     }
 
     config.api.api_key = Some(key);

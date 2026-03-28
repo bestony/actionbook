@@ -44,11 +44,7 @@ pub(crate) async fn configure_browser(
                         })
                     );
                 } else {
-                    println!(
-                        "  {}  Using local mode with: {}",
-                        "◇".green(),
-                        browser.name
-                    );
+                    println!("  {}  Using local mode with: {}", "◇".green(), browser.name);
                 }
             } else {
                 if json {
@@ -160,7 +156,11 @@ fn select_browser_mode(json: bool) -> Result<Mode, CliError> {
 }
 
 /// Configure local mode: select browser executable + headless/visible.
-fn configure_local(json: bool, env: &EnvironmentInfo, config: &mut ConfigFile) -> Result<(), CliError> {
+fn configure_local(
+    json: bool,
+    env: &EnvironmentInfo,
+    config: &mut ConfigFile,
+) -> Result<(), CliError> {
     if env.browsers.is_empty() {
         if !json {
             println!("  {}  No Chromium-based browsers detected.", "■".yellow());
@@ -259,11 +259,7 @@ fn apply_browser_mode(
                     config.browser.executable_path = Some(browser.path.display().to_string());
                 }
                 if !json {
-                    println!(
-                        "  {}  Using local mode with: {}",
-                        "◇".green(),
-                        browser.name
-                    );
+                    println!("  {}  Using local mode with: {}", "◇".green(), browser.name);
                 }
             } else if !json {
                 println!("  {}  Using local mode", "◇".green());
@@ -381,8 +377,7 @@ mod tests {
         let env = make_env_with_browsers(vec![]);
         let mut config = ConfigFile::default();
 
-        let result =
-            configure_browser(false, &env, Some(Mode::Local), false, &mut config).await;
+        let result = configure_browser(false, &env, Some(Mode::Local), false, &mut config).await;
         assert!(result.is_ok());
         assert_eq!(config.browser.mode, Mode::Local);
     }

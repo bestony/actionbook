@@ -94,7 +94,11 @@ pub async fn execute(cmd: &Cmd, json: bool) -> Result<(), CliError> {
         let api_display = config.api.api_key.as_deref().unwrap_or("not configured");
         let mode_display = match config.browser.mode {
             Mode::Local => {
-                let browser_name = config.browser.executable_path.as_deref().unwrap_or("built-in");
+                let browser_name = config
+                    .browser
+                    .executable_path
+                    .as_deref()
+                    .unwrap_or("built-in");
                 let headless_label = if config.browser.headless {
                     "headless"
                 } else {
@@ -394,13 +398,22 @@ mod tests {
 
     #[test]
     fn parse_browser_flag_accepts_aliases() {
-        assert_eq!(parse_browser_flag(Some("local")).unwrap(), Some(Mode::Local));
-        assert_eq!(parse_browser_flag(Some("local")).unwrap(), Some(Mode::Local));
+        assert_eq!(
+            parse_browser_flag(Some("local")).unwrap(),
+            Some(Mode::Local)
+        );
+        assert_eq!(
+            parse_browser_flag(Some("local")).unwrap(),
+            Some(Mode::Local)
+        );
         assert_eq!(
             parse_browser_flag(Some("extension")).unwrap(),
             Some(Mode::Extension)
         );
-        assert_eq!(parse_browser_flag(Some("cloud")).unwrap(), Some(Mode::Cloud));
+        assert_eq!(
+            parse_browser_flag(Some("cloud")).unwrap(),
+            Some(Mode::Cloud)
+        );
     }
 
     #[test]
