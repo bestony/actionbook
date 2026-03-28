@@ -274,21 +274,28 @@ async fn detect_cursor_elements(
     cdp: &CdpSession,
     target_id: &str,
 ) -> Result<std::collections::HashMap<i64, CursorInfo>, crate::error::CliError> {
-    // JS evaluation: find all cursor-interactive elements, tag them with data-__ab-ci
-    let js = r#"
-(function() {
+    // Generate a run-unique nonce to avoid colliding with page-owned data-__ab-ci attributes.
+    // The nonce is prepended to the index value so cleanup only removes our markers.
+    let nonce: u32 = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.subsec_nanos())
+        .unwrap_or(42);
+    let js = format!(
+        r#"
+(function() {{
     var results = [];
+    var nonce = '{nonce}';
     if (!document.body) return results;
-    var interactiveRoles = {
+    var interactiveRoles = {{
         'button':1,'link':1,'textbox':1,'checkbox':1,'radio':1,'combobox':1,'listbox':1,
         'menuitem':1,'menuitemcheckbox':1,'menuitemradio':1,'option':1,'searchbox':1,
         'slider':1,'spinbutton':1,'switch':1,'tab':1,'treeitem':1
-    };
-    var interactiveTags = {
+    }};
+    var interactiveTags = {{
         'a':1,'button':1,'input':1,'select':1,'textarea':1,'details':1,'summary':1,'iframe':1
-    };
+    }};
     var allElements = document.body.querySelectorAll('*');
-    for (var i = 0; i < allElements.length; i++) {
+    for (var i = 0; i < allElements.length; i++) {{
         var el = allElements[i];
         if (el.closest && el.closest('[hidden], [aria-hidden="true"]')) continue;
         var tagName = el.tagName.toLowerCase();
@@ -303,23 +310,24 @@ async fn detect_cursor_elements(
         var ce = el.getAttribute('contenteditable');
         var isEditable = ce === '' || ce === 'true';
         if (!hasCursorPointer && !hasOnClick && !hasTabIndex && !isEditable) continue;
-        if (hasCursorPointer && !hasOnClick && !hasTabIndex && !isEditable) {
+        if (hasCursorPointer && !hasOnClick && !hasTabIndex && !isEditable) {{
             var parent = el.parentElement;
             if (parent && getComputedStyle(parent).cursor === 'pointer') continue;
-        }
+        }}
         var rect = el.getBoundingClientRect();
         if (rect.width === 0 || rect.height === 0) continue;
-        el.setAttribute('data-__ab-ci', String(results.length));
-        results.push({
+        el.setAttribute('data-__ab-ci', nonce + ':' + String(results.length));
+        results.push({{
             hasOnClick: hasOnClick,
             hasCursorPointer: hasCursorPointer,
             hasTabIndex: hasTabIndex,
             isEditable: isEditable
-        });
-    }
+        }});
+    }}
     return results;
-})()
-"#;
+}})()
+"#
+    );
 
     let eval_result = cdp
         .execute_on_tab(
@@ -338,15 +346,19 @@ async fn detect_cursor_elements(
         return Ok(std::collections::HashMap::new());
     }
 
-    // Resolve backendNodeIds — always clean up data-__ab-ci afterwards
-    let resolve_result = resolve_cursor_backend_ids(cdp, target_id).await;
+    // Resolve backendNodeIds — always clean up our nonce-tagged attributes afterwards
+    let nonce_str = nonce.to_string();
+    let resolve_result = resolve_cursor_backend_ids(cdp, target_id, &nonce_str).await;
 
-    // Always clean up data-__ab-ci attributes, even if resolve failed
+    // Always clean up data-__ab-ci attributes tagged by THIS run (nonce prefix match)
+    let cleanup_js = format!(
+        "(function(){{var n='{nonce}:';var els=document.querySelectorAll('[data-__ab-ci]');var c=0;for(var i=0;i<els.length;i++){{if(els[i].getAttribute('data-__ab-ci').indexOf(n)===0){{els[i].removeAttribute('data-__ab-ci');c++}}}}return c}})()"
+    );
     let _ = cdp
         .execute_on_tab(
             target_id,
             "Runtime.evaluate",
-            json!({"expression": "(function(){var els=document.querySelectorAll('[data-__ab-ci]');for(var i=0;i<els.length;i++)els[i].removeAttribute('data-__ab-ci');return els.length;})()", "returnByValue": true}),
+            json!({"expression": cleanup_js, "returnByValue": true}),
         )
         .await;
 
@@ -397,20 +409,24 @@ async fn detect_cursor_elements(
 }
 
 /// Resolve data-__ab-ci tagged elements to backendNodeIds via CDP DOM queries.
+/// Only matches attributes with our nonce prefix to avoid colliding with page-owned attrs.
 async fn resolve_cursor_backend_ids(
     cdp: &CdpSession,
     target_id: &str,
+    nonce: &str,
 ) -> Result<std::collections::HashMap<usize, i64>, crate::error::CliError> {
     let doc = cdp
         .execute_on_tab(target_id, "DOM.getDocument", json!({"depth": 0}))
         .await?;
     let root_node_id = doc["result"]["root"]["nodeId"].as_i64().unwrap_or(0);
 
+    // Query all elements with our nonce-prefixed attribute value
+    let selector = format!("[data-__ab-ci^=\"{nonce}:\"]");
     let query = cdp
         .execute_on_tab(
             target_id,
             "DOM.querySelectorAll",
-            json!({"nodeId": root_node_id, "selector": "[data-__ab-ci]"}),
+            json!({"nodeId": root_node_id, "selector": selector}),
         )
         .await?;
     let node_ids: Vec<i64> = query["result"]["nodeIds"]
@@ -418,6 +434,7 @@ async fn resolve_cursor_backend_ids(
         .map(|arr| arr.iter().filter_map(|v| v.as_i64()).collect())
         .unwrap_or_default();
 
+    let nonce_prefix = format!("{nonce}:");
     let mut idx_to_backend = std::collections::HashMap::new();
     for &dom_node_id in &node_ids {
         if let Ok(desc) = cdp
@@ -438,6 +455,8 @@ async fn resolve_cursor_backend_ids(
                         .find(|(_, v)| v.as_str() == Some("data-__ab-ci"))
                         .and_then(|(i, _)| attrs.get(i + 1))
                         .and_then(|v| v.as_str())
+                        // Strip nonce prefix to get the index
+                        .and_then(|s| s.strip_prefix(&nonce_prefix))
                         .and_then(|s| s.parse::<usize>().ok())
                 });
             if let (Some(bid), Some(idx)) = (backend_id, ci_idx) {
