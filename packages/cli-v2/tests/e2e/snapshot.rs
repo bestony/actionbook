@@ -594,14 +594,9 @@ fn snap_json_content_no_noise_roles() {
 
     let content = v["data"]["content"].as_str().unwrap_or("");
 
-    // Noise roles must be filtered out of content per snapshot algorithm
-    let noise_roles = [
-        "RootWebArea",
-        "InlineTextBox",
-        "StaticText",
-        "LineBreak",
-        "ListMarker",
-    ];
+    // Noise roles must be filtered out of content per snapshot algorithm.
+    // Note: StaticText is NOT noise — it carries visible text content.
+    let noise_roles = ["RootWebArea", "InlineTextBox", "LineBreak", "ListMarker"];
     for role in &noise_roles {
         // Check that these roles don't appear as `- RoleName` in the content lines
         let pattern = format!("- {role} ");
