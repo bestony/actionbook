@@ -5,12 +5,12 @@ use tracing::{info, warn};
 
 use super::registry::{SharedRegistry, new_shared_registry};
 use super::router;
-use crate::runtime_config;
+use crate::config;
 use crate::utils::wire;
 
 /// Get daemon socket path.
 pub fn socket_path() -> PathBuf {
-    let dir = runtime_config::actionbook_home();
+    let dir = config::actionbook_home();
     // Create directory with restrictive permissions (0700)
     std::fs::create_dir_all(&dir).ok();
     #[cfg(unix)]

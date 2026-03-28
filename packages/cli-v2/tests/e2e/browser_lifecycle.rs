@@ -1021,7 +1021,7 @@ fn lifecycle_start_bootstraps_default_config() {
     );
     let text = std::fs::read_to_string(&path).expect("read config");
     assert!(text.contains("[browser]"));
-    assert!(text.contains("profile = \"default\""));
+    assert!(text.contains("default_profile = \"default\""));
 
     close_session(session_id);
 }
@@ -1047,8 +1047,8 @@ headless = false
         &["browser", "start"],
         &[
             ("ACTIONBOOK_BROWSER_MODE", "local"),
-            ("ACTIONBOOK_PROFILE", "env-profile"),
-            ("ACTIONBOOK_HEADLESS", "true"),
+            ("ACTIONBOOK_BROWSER_PROFILE", "env-profile"),
+            ("ACTIONBOOK_BROWSER_HEADLESS", "true"),
         ],
         30,
     );
@@ -1091,8 +1091,8 @@ fn lifecycle_start_cli_over_env_json() {
         ],
         &[
             ("ACTIONBOOK_BROWSER_MODE", "extension"),
-            ("ACTIONBOOK_PROFILE", "env-profile"),
-            ("ACTIONBOOK_HEADLESS", "false"),
+            ("ACTIONBOOK_BROWSER_PROFILE", "env-profile"),
+            ("ACTIONBOOK_BROWSER_HEADLESS", "false"),
         ],
         30,
     );

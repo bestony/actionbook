@@ -5,8 +5,8 @@ use serde_json::json;
 
 use actionbook_cli::action_result::ActionResult;
 use actionbook_cli::cli::{BrowserCommands, Cli, Commands};
+use actionbook_cli::config;
 use actionbook_cli::output::{self, JsonEnvelope};
-use actionbook_cli::runtime_config;
 use actionbook_cli::utils::client::DaemonClient;
 
 #[tokio::main]
@@ -86,7 +86,7 @@ async fn handle_browser(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let command = match command {
-        BrowserCommands::Start(cmd) => match runtime_config::resolve_start_command(cmd) {
+        BrowserCommands::Start(cmd) => match config::resolve_start_command(cmd) {
             Ok(cmd) => BrowserCommands::Start(cmd),
             Err(err) => {
                 let failed_command =

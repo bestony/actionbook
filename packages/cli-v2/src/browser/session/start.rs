@@ -3,12 +3,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 
 use crate::action_result::ActionResult;
+use crate::config;
 use crate::daemon::browser;
 use crate::daemon::cdp::ensure_scheme;
 use crate::daemon::cdp_session::CdpSession;
 use crate::daemon::registry::{SessionEntry, SharedRegistry, TabEntry};
 use crate::output::ResponseContext;
-use crate::runtime_config;
 use crate::types::{Mode, TabId};
 
 /// Start or attach a browser session
@@ -186,7 +186,7 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         );
     }
 
-    let profiles_dir = runtime_config::profiles_dir();
+    let profiles_dir = config::profiles_dir();
     std::fs::create_dir_all(&profiles_dir).ok();
     let user_data_dir = profiles_dir.join(profile_name);
     std::fs::create_dir_all(&user_data_dir).ok();
