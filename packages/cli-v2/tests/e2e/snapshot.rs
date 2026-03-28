@@ -1,0 +1,656 @@
+//! Browser snapshot E2E tests: `browser.snapshot`.
+//!
+//! All tests are Tab-level: require `--session <SID> --tab <TID>`.
+//! Tests are strict per api-reference.md §10.1.
+//!
+//! Current implementation is a stub (raw CDP dump). These tests define the
+//! correct §10.1 contract and are expected to fail until implementation lands.
+//!
+//! Exception: error-path tests (SESSION_NOT_FOUND, TAB_NOT_FOUND, missing args)
+//! may pass even against the stub since those paths are handled before the
+//! snapshot logic.
+
+use crate::harness::{
+    SessionGuard, assert_failure, assert_success, headless, headless_json, parse_json, skip,
+    stdout_str,
+};
+
+const URL_A: &str = "https://actionbook.dev";
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+/// Assert full §2.4 meta structure.
+fn assert_meta(v: &serde_json::Value) {
+    assert!(
+        v["meta"]["duration_ms"].is_number(),
+        "meta.duration_ms must be a number"
+    );
+    assert!(
+        v["meta"]["warnings"].is_array(),
+        "meta.warnings must be an array"
+    );
+    assert!(
+        v["meta"]["pagination"].is_null(),
+        "meta.pagination must be null"
+    );
+    assert!(
+        v["meta"]["truncated"].is_boolean(),
+        "meta.truncated must be a boolean"
+    );
+}
+
+/// Assert full §3.1 error envelope.
+fn assert_error_envelope(v: &serde_json::Value, expected_code: &str) {
+    assert_eq!(v["ok"], false, "ok must be false on error");
+    assert!(v["data"].is_null(), "data must be null on failure");
+    assert_eq!(v["error"]["code"], expected_code);
+    assert!(
+        v["error"]["message"].is_string(),
+        "error.message must be a string"
+    );
+    assert!(
+        v["error"]["retryable"].is_boolean(),
+        "error.retryable must be a boolean"
+    );
+    assert!(
+        v["error"]["details"].is_object() || v["error"]["details"].is_null(),
+        "error.details must be object or null"
+    );
+    assert_meta(v);
+}
+
+/// Assert §10.1 snapshot data fields.
+fn assert_snapshot_data(v: &serde_json::Value) {
+    let data = &v["data"];
+    assert_eq!(data["format"], "snapshot", "data.format must be 'snapshot'");
+    assert!(data["content"].is_string(), "data.content must be a string");
+    assert!(
+        !data["content"].as_str().unwrap_or("").is_empty(),
+        "data.content must not be empty"
+    );
+    assert!(data["nodes"].is_array(), "data.nodes must be an array");
+    assert!(
+        !data["nodes"].as_array().unwrap().is_empty(),
+        "data.nodes must not be empty"
+    );
+    // Each node must have ref, role, name
+    for node in data["nodes"].as_array().unwrap() {
+        assert!(
+            node["ref"].is_string(),
+            "node.ref must be a string, got: {node:?}"
+        );
+        assert!(
+            node["role"].is_string(),
+            "node.role must be a string, got: {node:?}"
+        );
+        assert!(
+            node["name"].is_string(),
+            "node.name must be a string (may be empty), got: {node:?}"
+        );
+    }
+    // stats
+    assert!(
+        data["stats"]["node_count"].is_number(),
+        "data.stats.node_count must be a number"
+    );
+    assert!(
+        data["stats"]["interactive_count"].is_number(),
+        "data.stats.interactive_count must be a number"
+    );
+    let node_count = data["stats"]["node_count"].as_u64().unwrap_or(0);
+    assert!(
+        node_count > 0,
+        "data.stats.node_count must be > 0 for a loaded page"
+    );
+}
+
+/// Assert content contains [ref=eN] labels.
+fn assert_content_has_refs(v: &serde_json::Value) {
+    let content = v["data"]["content"].as_str().unwrap_or("");
+    assert!(
+        content.contains("[ref="),
+        "content must contain [ref=eN] labels, got: {content:.100}"
+    );
+}
+
+/// Start a headless session, return (session_id, tab_id).
+fn start_session(url: &str) -> (String, String) {
+    let out = headless_json(
+        &[
+            "browser",
+            "start",
+            "--mode",
+            "local",
+            "--headless",
+            "--open-url",
+            url,
+        ],
+        30,
+    );
+    assert_success(&out, "start session");
+    let v = parse_json(&out);
+    let sid = v["data"]["session"]["session_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let tid = v["data"]["tab"]["tab_id"].as_str().unwrap().to_string();
+    (sid, tid)
+}
+
+/// Close a session.
+fn close_session(session_id: &str) {
+    let out = headless(&["browser", "close", "--session", session_id], 30);
+    assert_success(&out, &format!("close {session_id}"));
+}
+
+// ===========================================================================
+// Group 1: snapshot — Happy Path JSON (§10.1)
+// ===========================================================================
+
+#[test]
+fn snap_json_envelope() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    let out = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out, "snapshot json");
+    let v = parse_json(&out);
+
+    // §2.4 envelope
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["command"], "browser.snapshot");
+    assert!(v["error"].is_null());
+
+    // context — tab-level
+    assert!(v["context"].is_object(), "context must be present");
+    assert_eq!(v["context"]["session_id"], sid);
+    assert_eq!(v["context"]["tab_id"], tid);
+    assert!(
+        v["context"]["url"].is_string(),
+        "context.url must be present"
+    );
+    assert!(
+        v["context"]["title"].is_string(),
+        "context.title must be present"
+    );
+
+    assert_meta(&v);
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_json_data_fields() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    let out = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out, "snapshot data fields");
+    let v = parse_json(&out);
+
+    // §10.1 data contract
+    assert_snapshot_data(&v);
+    assert_content_has_refs(&v);
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_json_meta_truncated_false() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    let out = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out, "snapshot meta.truncated");
+    let v = parse_json(&out);
+
+    // For a normal page, truncated should be false
+    assert_eq!(
+        v["meta"]["truncated"], false,
+        "meta.truncated must be false for a non-truncated snapshot"
+    );
+
+    close_session(&sid);
+}
+
+// ===========================================================================
+// Group 2: snapshot — Text Output (§2.5)
+// ===========================================================================
+
+#[test]
+fn snap_text_output() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    let out = headless(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out, "snapshot text");
+    let text = stdout_str(&out);
+
+    // §2.5: prefix is `[sid tid] url`
+    assert!(
+        text.contains(&format!("[{sid} {tid}]")),
+        "text must contain [session_id tab_id]: got {text:.200}"
+    );
+
+    // Body: snapshot content directly — must contain [ref=eN] labels
+    assert!(
+        text.contains("[ref="),
+        "text output must contain [ref=eN] labels: got {text:.200}"
+    );
+
+    // Must NOT contain "ok browser.snapshot" (observation commands don't use action format)
+    assert!(
+        !text.contains("ok browser.snapshot"),
+        "text output must not contain 'ok browser.snapshot' — content is output directly"
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_text_no_extra_prefix() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    let out = headless(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out, "snapshot text no prefix");
+    let text = stdout_str(&out);
+
+    // Must NOT have descriptive prefix like "Snapshot:", "snapshot:", etc.
+    assert!(
+        !text.contains("Snapshot:"),
+        "must not contain 'Snapshot:' prefix"
+    );
+    assert!(
+        !text.contains("snapshot:"),
+        "must not contain 'snapshot:' prefix"
+    );
+
+    close_session(&sid);
+}
+
+// ===========================================================================
+// Group 3: snapshot — Optional Flags (§10.1)
+// ===========================================================================
+
+#[test]
+fn snap_interactive_flag_reduces_nodes() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    // Full snapshot
+    let out_full = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out_full, "snapshot full");
+    let v_full = parse_json(&out_full);
+    let full_count = v_full["data"]["stats"]["node_count"].as_u64().unwrap_or(0);
+
+    // Interactive-only snapshot
+    let out_interactive = headless_json(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+            "--interactive",
+        ],
+        30,
+    );
+    assert_success(&out_interactive, "snapshot interactive");
+    let v_interactive = parse_json(&out_interactive);
+    assert_snapshot_data(&v_interactive);
+
+    let interactive_count = v_interactive["data"]["stats"]["node_count"]
+        .as_u64()
+        .unwrap_or(0);
+
+    // Interactive mode must return fewer or equal nodes than full snapshot
+    assert!(
+        interactive_count <= full_count,
+        "interactive snapshot must have <= nodes than full snapshot: {interactive_count} > {full_count}"
+    );
+
+    // All nodes in interactive snapshot must be interactive
+    // (node_count should equal interactive_count)
+    let interactive_interactive_count = v_interactive["data"]["stats"]["interactive_count"]
+        .as_u64()
+        .unwrap_or(0);
+    assert_eq!(
+        interactive_count, interactive_interactive_count,
+        "in --interactive mode, node_count must equal interactive_count"
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_compact_flag_reduces_nodes() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    // Full snapshot
+    let out_full = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out_full, "snapshot full");
+    let v_full = parse_json(&out_full);
+    let full_count = v_full["data"]["stats"]["node_count"].as_u64().unwrap_or(0);
+
+    // Compact snapshot
+    let out_compact = headless_json(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+            "--compact",
+        ],
+        30,
+    );
+    assert_success(&out_compact, "snapshot compact");
+    let v_compact = parse_json(&out_compact);
+    assert_snapshot_data(&v_compact);
+
+    let compact_count = v_compact["data"]["stats"]["node_count"]
+        .as_u64()
+        .unwrap_or(0);
+
+    // Compact must remove empty structural nodes — fewer or equal nodes
+    assert!(
+        compact_count <= full_count,
+        "--compact snapshot must have <= nodes than full: {compact_count} > {full_count}"
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_depth_flag_limits_nodes() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    // Full snapshot
+    let out_full = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out_full, "snapshot full");
+    let v_full = parse_json(&out_full);
+    let full_count = v_full["data"]["stats"]["node_count"].as_u64().unwrap_or(0);
+
+    // Depth-limited snapshot (depth=1 = top-level only)
+    let out_depth = headless_json(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+            "--depth",
+            "1",
+        ],
+        30,
+    );
+    assert_success(&out_depth, "snapshot depth 1");
+    let v_depth = parse_json(&out_depth);
+    assert_snapshot_data(&v_depth);
+
+    let depth_count = v_depth["data"]["stats"]["node_count"].as_u64().unwrap_or(0);
+
+    // depth=1 must return strictly fewer nodes than full tree
+    assert!(
+        depth_count < full_count,
+        "--depth 1 must return fewer nodes than full snapshot: {depth_count} >= {full_count}"
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_selector_flag_limits_subtree() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    // Full snapshot
+    let out_full = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out_full, "snapshot full");
+    let v_full = parse_json(&out_full);
+    let full_count = v_full["data"]["stats"]["node_count"].as_u64().unwrap_or(0);
+
+    // Selector-limited snapshot (body = top-level container)
+    let out_sel = headless_json(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+            "--selector",
+            "body",
+        ],
+        30,
+    );
+    assert_success(&out_sel, "snapshot selector body");
+    let v_sel = parse_json(&out_sel);
+    assert_snapshot_data(&v_sel);
+
+    let sel_count = v_sel["data"]["stats"]["node_count"].as_u64().unwrap_or(0);
+
+    // Selector snapshot must return fewer or equal nodes (body is a subtree of page)
+    assert!(
+        sel_count <= full_count,
+        "--selector body must return <= nodes than full snapshot: {sel_count} > {full_count}"
+    );
+
+    close_session(&sid);
+}
+
+// TODO: --cursor flag test skipped — requires implementation to distinguish
+// cursor:pointer / onclick / tabindex elements from standard interactive elements.
+// Contract: --cursor includes cursor-interactive elements on top of --interactive.
+// Add test when implementation lands.
+
+// ===========================================================================
+// Group 4: snapshot — Error Paths (§3.1)
+// ===========================================================================
+
+#[test]
+fn snap_session_not_found_json() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    let out = headless_json(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            "nonexistent-sid",
+            "--tab",
+            "any-tab",
+        ],
+        10,
+    );
+    assert_failure(&out, "snapshot nonexistent session");
+    let v = parse_json(&out);
+
+    assert_eq!(v["command"], "browser.snapshot");
+    assert_error_envelope(&v, "SESSION_NOT_FOUND");
+    // §3.1: context must be null when session not found
+    assert!(
+        v["context"].is_null(),
+        "context must be null when session not found"
+    );
+}
+
+#[test]
+fn snap_session_not_found_text() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    let out = headless(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            "nonexistent-sid",
+            "--tab",
+            "any-tab",
+        ],
+        10,
+    );
+    assert_failure(&out, "snapshot nonexistent session text");
+    let text = stdout_str(&out);
+    assert!(
+        text.contains("error SESSION_NOT_FOUND:"),
+        "text must contain error SESSION_NOT_FOUND: got {text}"
+    );
+}
+
+#[test]
+fn snap_tab_not_found_json() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, _tid) = start_session(URL_A);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            &sid,
+            "--tab",
+            "nonexistent-tab-id",
+        ],
+        10,
+    );
+    assert_failure(&out, "snapshot nonexistent tab");
+    let v = parse_json(&out);
+
+    assert_eq!(v["command"], "browser.snapshot");
+    assert_error_envelope(&v, "TAB_NOT_FOUND");
+    // context must include session_id when session found
+    assert!(
+        v["context"].is_object(),
+        "context must be present when session found"
+    );
+    assert_eq!(v["context"]["session_id"], sid);
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_tab_not_found_text() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, _tid) = start_session(URL_A);
+
+    let out = headless(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            &sid,
+            "--tab",
+            "nonexistent-tab-id",
+        ],
+        10,
+    );
+    assert_failure(&out, "snapshot nonexistent tab text");
+    let text = stdout_str(&out);
+    assert!(
+        text.contains("error TAB_NOT_FOUND:"),
+        "text must contain error TAB_NOT_FOUND: got {text}"
+    );
+
+    close_session(&sid);
+}
+
+// ===========================================================================
+// Group 5: Missing Args (§10.1 — --session and --tab required)
+// ===========================================================================
+
+#[test]
+fn snap_missing_session_arg() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    // Missing --session
+    let out = headless_json(&["browser", "snapshot", "--tab", "some-tab"], 10);
+    assert_failure(&out, "snapshot missing --session");
+}
+
+#[test]
+fn snap_missing_tab_arg() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    // Missing --tab
+    let out = headless_json(&["browser", "snapshot", "--session", "some-session"], 10);
+    assert_failure(&out, "snapshot missing --tab");
+}
