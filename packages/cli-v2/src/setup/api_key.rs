@@ -1,16 +1,11 @@
-use colored::Colorize;
-use dialoguer::{Confirm, Input};
+use dialoguer::Password;
 
 use super::detect::EnvironmentInfo;
 use super::theme::setup_theme;
 use crate::config::ConfigFile;
 use crate::error::CliError;
 
-/// Configure the API key with priority: flag > env > config > interactive input.
-///
-/// In non-interactive mode without a key, skips gracefully.
-/// When a key already exists, prompts the user to keep or replace it.
-/// Supports skipping — users can configure the key later.
+/// Configure the API key with priority: flag > env > config > interactive prompt.
 pub(crate) async fn configure_api_key(
     json: bool,
     env: &EnvironmentInfo,
@@ -18,11 +13,11 @@ pub(crate) async fn configure_api_key(
     non_interactive: bool,
     config: &mut ConfigFile,
 ) -> Result<(), CliError> {
-    // Priority: flag > env > existing config
     let (existing_key, source) = resolve_existing_key(api_key_flag, env, config);
 
-    if let Some(ref key) = existing_key {
-        let masked = mask_key(key);
+    if let Some(key) = existing_key {
+        let key = validate_api_key(&key)?;
+        let masked = mask_key(&key);
 
         if json {
             println!(
@@ -35,126 +30,91 @@ pub(crate) async fn configure_api_key(
                 })
             );
         } else {
+            println!("  - API key: {} ({masked})", source);
+        }
+
+        config.api.api_key = Some(key);
+        return Ok(());
+    }
+
+    if non_interactive {
+        if json {
             println!(
-                "  {}  API key detected (from {}): {}",
-                "◇".green(),
-                source,
-                masked.dimmed()
+                "{}",
+                serde_json::json!({
+                    "step": "api_key",
+                    "status": "skipped",
+                })
             );
+        } else {
+            println!("  - API key: skipped");
         }
+        return Ok(());
+    }
 
-        // If from flag or non-interactive, just use it directly
-        if api_key_flag.is_some() || non_interactive {
-            config.api.api_key = existing_key;
-            return Ok(());
-        }
-
-        // Interactive: ask if they want to change
-        let keep = Confirm::with_theme(&setup_theme())
-            .with_prompt(" Keep this API key?")
-            .default(true)
-            .report(false)
+    loop {
+        let key = Password::with_theme(&setup_theme())
+            .with_prompt("API key (leave blank to skip)")
+            .allow_empty_password(true)
             .interact()
-            .map_err(|e| CliError::Internal(format!("Prompt failed: {}", e)))?;
+            .map_err(|e| CliError::Internal(format!("Prompt failed: {e}")))?;
 
-        if keep {
-            config.api.api_key = existing_key;
+        if key.trim().is_empty() {
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "step": "api_key",
+                        "status": "skipped",
+                    })
+                );
+            } else {
+                println!("  - API key: skipped");
+            }
+            config.api.api_key = None;
             return Ok(());
         }
 
-        // User rejected the key — clear it so it won't persist if they skip
-        config.api.api_key = None;
-    } else if non_interactive {
-        // No key in non-interactive mode — skip gracefully
-        if json {
-            println!(
-                "{}",
-                serde_json::json!({
-                    "step": "api_key",
-                    "status": "skipped",
-                })
-            );
-        } else {
-            println!(
-                "  {}  No API key configured. Use {} or set {} later.",
-                "◇".dimmed(),
-                "--api-key".cyan(),
-                "ACTIONBOOK_API_KEY".cyan()
-            );
-        }
-        return Ok(());
-    } else {
-        // No key — show helpful context before prompting
-        if !json {
-            let bar = "│".dimmed();
-            println!(
-                "  {}  {}",
-                bar,
-                "Actionbook uses an API key to look up selectors and actions for you.".dimmed()
-            );
-            println!(
-                "  {}  Don't have one yet? Grab it here: {}",
-                bar,
-                "https://actionbook.dev/dashboard".cyan().underline()
-            );
-            println!("  {}", bar);
+        match validate_api_key(&key) {
+            Ok(validated) => {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({
+                            "step": "api_key",
+                            "status": "configured",
+                            "masked_key": mask_key(&validated),
+                        })
+                    );
+                } else {
+                    println!("  - API key: captured ({})", mask_key(&validated));
+                }
+                config.api.api_key = Some(validated);
+                return Ok(());
+            }
+            Err(err) => {
+                if json {
+                    return Err(err);
+                }
+                println!("  - {err}");
+            }
         }
     }
+}
 
-    // Interactive input — leave blank to skip
-    let key: String = Input::with_theme(&setup_theme())
-        .with_prompt(" Enter your API key (leave blank to skip)")
-        .allow_empty(true)
-        .report(false)
-        .interact_text()
-        .map_err(|e| CliError::Internal(format!("Prompt failed: {}", e)))?;
-
-    let key = key.trim().to_string();
-
-    if key.is_empty() {
-        if json {
-            println!(
-                "{}",
-                serde_json::json!({
-                    "step": "api_key",
-                    "status": "skipped",
-                })
-            );
-        } else {
-            println!(
-                "  {}  Skipped. You can configure it later with:",
-                "◇".dimmed()
-            );
-            println!(
-                "  {}  {}",
-                "│".dimmed(),
-                "actionbook config set api.api_key <your-key>".cyan()
-            );
-        }
-        return Ok(());
+fn validate_api_key(key: &str) -> Result<String, CliError> {
+    let trimmed = key.trim();
+    if trimmed.is_empty() {
+        return Err(CliError::InvalidArgument(
+            "api key cannot be empty".to_string(),
+        ));
     }
-
-    // TODO: Validate the API key via ApiClient when available.
-    // When validation is added, wrap this in a loop to retry on invalid keys.
-    if json {
-        println!(
-            "{}",
-            serde_json::json!({
-                "step": "api_key",
-                "status": "configured",
-                "api_key": key,
-            })
-        );
-    } else {
-        println!(
-            "  {}  API key saved: {}",
-            "◇".green(),
-            mask_key(&key).dimmed()
-        );
+    if trimmed.chars().any(char::is_whitespace) {
+        return Err(CliError::InvalidArgument(
+            "api key must not contain whitespace".to_string(),
+        ));
     }
-
-    config.api.api_key = Some(key);
-    Ok(())
+    Ok(trimmed.to_string())
 }
 
 /// Resolve the best available key and its source name.
@@ -183,7 +143,7 @@ pub(super) fn mask_key(key: &str) -> String {
     }
     let prefix: String = chars[..4].iter().collect();
     let suffix: String = chars[chars.len() - 4..].iter().collect();
-    format!("{}...{}", prefix, suffix)
+    format!("{prefix}...{suffix}")
 }
 
 #[cfg(test)]
@@ -203,6 +163,12 @@ mod tests {
     #[test]
     fn test_mask_key_exactly_8() {
         assert_eq!(mask_key("abcdefgh"), "********");
+    }
+
+    #[test]
+    fn test_validate_api_key_rejects_whitespace() {
+        let err = validate_api_key("sk test").expect_err("whitespace should fail");
+        assert_eq!(err.error_code(), "INVALID_ARGUMENT");
     }
 
     #[test]

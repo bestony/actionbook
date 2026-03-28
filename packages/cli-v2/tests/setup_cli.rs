@@ -19,7 +19,7 @@ fn setup_json_non_interactive_writes_config_without_daemon_side_effects() {
             "--api-key",
             "sk-test",
             "--browser",
-            "local",
+            "isolated",
         ])
         .output()
         .expect("run setup");
