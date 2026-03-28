@@ -23,6 +23,9 @@ pub struct Cmd {
     /// Profile name
     #[arg(long)]
     pub profile: Option<String>,
+    #[arg(skip = None)]
+    #[serde(default)]
+    pub executable: Option<String>,
     /// Open this URL on start
     #[arg(long)]
     pub open_url: Option<String>,
@@ -35,21 +38,6 @@ pub struct Cmd {
     /// Specify a semantic session ID
     #[arg(long)]
     pub set_session_id: Option<String>,
-    #[arg(skip = None)]
-    #[serde(default)]
-    pub effective_mode: Option<Mode>,
-    #[arg(skip = None)]
-    #[serde(default)]
-    pub effective_headless: Option<bool>,
-    #[arg(skip = None)]
-    #[serde(default)]
-    pub effective_profile: Option<String>,
-    #[arg(skip = None)]
-    #[serde(default)]
-    pub effective_executable: Option<String>,
-    #[arg(skip = None)]
-    #[serde(default)]
-    pub effective_cdp_endpoint: Option<String>,
 }
 
 pub const COMMAND_NAME: &str = "browser.start";
@@ -72,21 +60,10 @@ pub fn context(_cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 }
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
-    let mode = cmd
-        .effective_mode
-        .unwrap_or(cmd.mode.unwrap_or(Mode::Local));
-    let headless = cmd
-        .effective_headless
-        .unwrap_or(cmd.headless.unwrap_or(false));
-    let profile_name = cmd
-        .effective_profile
-        .as_deref()
-        .or(cmd.profile.as_deref())
-        .unwrap_or("default");
-    let cdp_endpoint = cmd
-        .effective_cdp_endpoint
-        .as_deref()
-        .or(cmd.cdp_endpoint.as_deref());
+    let mode = cmd.mode.unwrap_or(Mode::Local);
+    let headless = cmd.headless.unwrap_or(false);
+    let profile_name = cmd.profile.as_deref().unwrap_or("default");
+    let cdp_endpoint = cmd.cdp_endpoint.as_deref();
 
     let mut reg = registry.lock().await;
 
@@ -238,7 +215,7 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
 
         (None, port, ws_url, targets)
     } else {
-        let executable = if let Some(executable) = cmd.effective_executable.as_deref() {
+        let executable = if let Some(executable) = cmd.executable.as_deref() {
             executable.to_string()
         } else {
             match browser::find_chrome() {
