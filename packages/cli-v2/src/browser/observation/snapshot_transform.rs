@@ -614,6 +614,65 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_ax_tree_depth_filter() {
+        // TDD: defines the expected contract after real depth computation from parentId
+        // chains is implemented.
+        //
+        // Current stub assigns depth=0 to all nodes, so apply_depth(_, 0) keeps all
+        // nodes (0 <= 0). This test asserts the CONTRACT: with depth=Some(0) only the
+        // root-level node should survive. It currently FAILS — that is intentional and
+        // makes the placeholder gap visible for the implementer.
+        let response = serde_json::json!({
+            "result": {
+                "nodes": [
+                    { "nodeId": "1", "role": {"value": "generic"}, "name": {"value": "root"} },
+                    { "nodeId": "2", "role": {"value": "button"}, "name": {"value": "OK"} },
+                    { "nodeId": "3", "role": {"value": "link"}, "name": {"value": "Home"} },
+                ]
+            }
+        });
+        let opts = SnapshotOptions {
+            depth: Some(0),
+            ..Default::default()
+        };
+        let nodes = parse_ax_tree(&response, &opts);
+        // After real depth impl: only root (depth=0) survives → 1 node.
+        // With placeholder (all depth=0): all 3 pass (0 <= 0) → returns 3.
+        assert_eq!(
+            nodes.len(),
+            1,
+            "depth=0 must return only root node; got {} (stub assigns all depth=0)",
+            nodes.len()
+        );
+    }
+
+    #[test]
+    fn test_parse_ax_tree_selector_option_accepted() {
+        // selector filtering requires real DOM context (nodeId → DOM node mapping)
+        // and cannot be tested as a pure unit. This UT verifies parse_ax_tree accepts
+        // the selector option without panicking.
+        // The actual subtree-limiting behavior is covered by E2E snap_selector_flag_limits_subtree.
+        let response = serde_json::json!({
+            "result": {
+                "nodes": [
+                    { "nodeId": "1", "role": {"value": "button"}, "name": {"value": "OK"} },
+                    { "nodeId": "2", "role": {"value": "link"}, "name": {"value": "Home"} },
+                ]
+            }
+        });
+        let opts = SnapshotOptions {
+            selector: Some("body".to_string()),
+            ..Default::default()
+        };
+        // Must not panic; actual subtree filtering handled in execute() via CDP node lookup
+        let nodes = parse_ax_tree(&response, &opts);
+        assert!(
+            nodes.len() <= 2,
+            "selector option must not expand node list"
+        );
+    }
+
+    #[test]
     fn test_parse_ax_tree_assigns_sequential_refs() {
         let response = serde_json::json!({
             "result": {
