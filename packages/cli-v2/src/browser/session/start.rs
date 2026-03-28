@@ -101,12 +101,7 @@ async fn execute_cloud(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
             }
         }
 
-        // Update headers silently if they changed
-        if let Some(entry) = reg.get_mut(&session_id) {
-            if entry.headers != headers {
-                entry.headers = headers.clone();
-            }
-        }
+        // Headers update deferred to after health check (avoid redundant pre-update)
 
         let entry = reg.get(&session_id).unwrap();
         let first_tab_id = entry.tabs.first().map(|t| t.id.0.clone()).unwrap_or_default();
@@ -143,6 +138,13 @@ async fn execute_cloud(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
             };
             let first_tab_id = entry.tabs.first().map(|t| t.id.0.clone()).unwrap_or_default();
 
+            // Ensure first tab is attached (may have been lost after reconnect)
+            if !first_tab_id.is_empty() {
+                let cdp_clone = cdp.clone();
+                // Re-attach if not already in tab_sessions (idempotent)
+                let _ = cdp_clone.attach(&first_tab_id).await;
+            }
+
             // If --open-url, navigate the first tab
             if let Some(url) = &cmd.open_url {
                 let final_url = match ensure_scheme_or_fatal(url) {
@@ -150,32 +152,39 @@ async fn execute_cloud(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                     Err(e) => return e,
                 };
                 if !first_tab_id.is_empty() {
-                    if let Some(ref cdp) = entry.cdp {
-                        let cdp = cdp.clone();
-                        drop(reg);
-                        if let Err(e) = cdp
-                            .execute_on_tab(&first_tab_id, "Page.navigate", json!({ "url": final_url }))
-                            .await
-                        {
-                            return ActionResult::fatal(
-                                "NAVIGATION_FAILED",
-                                format!("cloud reuse navigate failed: {e}"),
-                            );
-                        }
-                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                        let reg = registry.lock().await;
-                        if let Some(entry) = reg.get(&session_id) {
-                            return make_session_response(entry, &first_tab_id, "", "", true);
-                        }
+                    let cdp_clone = cdp.clone();
+                    drop(reg);
+                    if let Err(e) = cdp_clone
+                        .execute_on_tab(&first_tab_id, "Page.navigate", json!({ "url": final_url }))
+                        .await
+                    {
                         return ActionResult::fatal(
-                            "SESSION_NOT_FOUND",
-                            format!("session '{session_id}' was closed during reuse"),
+                            "NAVIGATION_FAILED",
+                            format!("cloud reuse navigate failed: {e}"),
                         );
                     }
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    let reg = registry.lock().await;
+                    if let Some(entry) = reg.get(&session_id) {
+                        return make_session_response(entry, &first_tab_id, "", "", true);
+                    }
+                    return ActionResult::fatal(
+                        "SESSION_NOT_FOUND",
+                        format!("session '{session_id}' was closed during reuse"),
+                    );
                 }
             }
 
-            return make_session_response(entry, &first_tab_id, "", "", true);
+            drop(reg);
+            let reg = registry.lock().await;
+            if let Some(entry) = reg.get(&session_id) {
+                let first_tab_id = entry.tabs.first().map(|t| t.id.0.clone()).unwrap_or_default();
+                return make_session_response(entry, &first_tab_id, "", "", true);
+            }
+            return ActionResult::fatal(
+                "SESSION_NOT_FOUND",
+                format!("session '{session_id}' was closed during reuse"),
+            );
         }
 
         // No CDP connection — this should not happen for running sessions

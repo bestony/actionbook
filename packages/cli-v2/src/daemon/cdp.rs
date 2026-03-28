@@ -152,8 +152,9 @@ pub async fn cdp_get_ax_tree(ws_url: &str) -> Result<String, CliError> {
 
 /// Ensure a URL has a scheme prefix. Rejects dangerous protocols.
 pub fn ensure_scheme(url: &str) -> Result<String, crate::error::CliError> {
-    // Block dangerous protocols (L3 CDP security level)
-    if url.starts_with("javascript:") || url.starts_with("data:text/html") {
+    // Block dangerous protocols (L3 CDP security level, case-insensitive)
+    let lower = url.to_ascii_lowercase();
+    if lower.starts_with("javascript:") || lower.starts_with("data:text/html") {
         return Err(crate::error::CliError::InvalidArgument(format!(
             "dangerous URL protocol blocked: {}",
             &url[..url.len().min(30)]

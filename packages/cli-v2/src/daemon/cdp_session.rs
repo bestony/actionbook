@@ -57,7 +57,7 @@ impl CdpSession {
             let header_value = http::HeaderValue::from_str(value).map_err(|e| {
                 CliError::InvalidArgument(format!("invalid header value for '{key}': {e}"))
             })?;
-            request.headers_mut().insert(header_name, header_value);
+            request.headers_mut().append(header_name, header_value);
         }
 
         let (ws, _) = connect_async(request)
