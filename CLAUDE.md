@@ -217,6 +217,16 @@ git commit -m "[scope]feat: description"
 - Extension `package.json` → `manifest.json`
 - Dify plugin `package.json` → `manifest.yaml` + `pyproject.toml`
 
+## Git Branch Naming Convention
+
+Branch names MUST follow these formats:
+
+- `feature/xxx` — new features
+- `bugfix/xxx` — bug fixes
+- `release/x.x.x` — release branches
+
+When creating worktrees, the branch name should match the convention (e.g., `feature/cli-v2-package-json`).
+
 ## Git Commit Message Convention
 
 **IMPORTANT**: This is a monorepo. All commit messages MUST follow this format:
