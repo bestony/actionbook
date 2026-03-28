@@ -8,7 +8,7 @@ use crate::browser::session::start::Cmd as StartCmd;
 use crate::error::CliError;
 use crate::types::Mode;
 
-const DEFAULT_PROFILE: &str = "default";
+pub(crate) const DEFAULT_PROFILE: &str = "actionbook";
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -259,7 +259,7 @@ mod tests {
 
         assert!(path.exists(), "config should be bootstrapped");
         assert!(text.contains("[browser]"));
-        assert!(text.contains("default_profile = \"default\""));
+        assert!(text.contains("default_profile = \"actionbook\""));
         assert_eq!(resolved.mode, Some(Mode::Local));
         assert_eq!(resolved.headless, Some(false));
         assert!(

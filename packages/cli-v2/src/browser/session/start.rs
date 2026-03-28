@@ -4,6 +4,7 @@ use serde_json::json;
 
 use crate::action_result::ActionResult;
 use crate::config;
+use crate::config::DEFAULT_PROFILE;
 use crate::daemon::browser;
 use crate::daemon::cdp::{cdp_navigate, ensure_scheme};
 use crate::daemon::cdp_session::CdpSession;
@@ -62,7 +63,7 @@ pub fn context(_cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     let mode = cmd.mode.unwrap_or(Mode::Local);
     let headless = cmd.headless.unwrap_or(false);
-    let profile_name = cmd.profile.as_deref().unwrap_or("default");
+    let profile_name = cmd.profile.as_deref().unwrap_or(DEFAULT_PROFILE);
     let cdp_endpoint = cmd.cdp_endpoint.as_deref();
 
     let mut reg = registry.lock().await;
