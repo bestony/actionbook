@@ -127,18 +127,30 @@ pub fn apply_selector(nodes: Vec<AXNode>, allowed_ref_ids: &[String]) -> Vec<AXN
         .collect()
 }
 
-/// Render a flat node list to `content` string with `[ref=eN]` labels.
-/// Format per §10.1: `- role "name" [ref=eN]` with depth-based indentation.
+/// Render a flat node list to `content` string per §10.1.
+/// Format: `- role "name" [ref=eN]` with depth-based indentation.
+/// Nodes without a ref omit the `[...]` bracket.
+/// Quotes and newlines in names are escaped to prevent tree injection.
 pub fn render_content(nodes: &[AXNode]) -> String {
     let mut lines = Vec::new();
     for node in nodes {
         let indent = "  ".repeat(node.depth);
-        let mut line = format!(
-            "{indent}- {} \"{}\" [ref={}]",
-            node.role, node.name, node.ref_id
-        );
-        if !node.value.is_empty() {
-            line.push_str(&format!(" value=\"{}\"", node.value));
+        // Escape quotes, newlines, and control chars to prevent injection
+        let escaped_name: String = node
+            .name
+            .chars()
+            .flat_map(|c| match c {
+                '\\' => vec!['\\', '\\'],
+                '"' => vec!['\\', '"'],
+                '\n' => vec!['\\', 'n'],
+                '\r' => vec!['\\', 'r'],
+                c if c.is_control() => vec![], // strip other control chars (ESC, etc.)
+                c => vec![c],
+            })
+            .collect();
+        let mut line = format!("{indent}- {} \"{}\"", node.role, escaped_name);
+        if !node.ref_id.is_empty() {
+            line.push_str(&format!(" [ref={}]", node.ref_id));
         }
         lines.push(line);
     }
@@ -152,73 +164,226 @@ pub fn build_stats(nodes: &[AXNode]) -> (usize, usize) {
     (node_count, interactive_count)
 }
 
+/// Extract a string from a CDP AXValue `{"type":"...","value":"..."}`.
+/// Handles string, integer, float, and boolean value types.
+fn extract_ax_string(ax_value: &Value) -> String {
+    let val = &ax_value["value"];
+    if let Some(s) = val.as_str() {
+        return s.to_string();
+    }
+    if let Some(n) = val.as_i64() {
+        return n.to_string();
+    }
+    if let Some(f) = val.as_f64() {
+        if f.fract() == 0.0 && f.abs() < 1e10 {
+            return format!("{:.0}", f);
+        }
+        return f.to_string();
+    }
+    if let Some(b) = val.as_bool() {
+        return b.to_string();
+    }
+    String::new()
+}
+
 /// Parse CDP Accessibility.getFullAXTree response into a flat AXNode list.
 ///
-/// The CDP response has shape:
-/// ```json
-/// { "result": { "nodes": [ { "nodeId": "1", "role": {"value":"button"}, "name": {"value":"Submit"}, ... } ] } }
-/// ```
-pub fn parse_ax_tree(response: &Value, options: &SnapshotOptions) -> Vec<AXNode> {
+/// Builds a proper tree from CDP childIds, then renders recursively.
+/// Ignored nodes' children are promoted. RootWebArea/WebArea are unwrapped.
+/// Only interactive roles and named content roles get refs (eN).
+///
+/// `ref_cache`: tab-scoped cache for stable refs across repeated snapshots.
+pub fn parse_ax_tree(
+    response: &Value,
+    options: &SnapshotOptions,
+    ref_cache: &mut RefCache,
+) -> Vec<AXNode> {
     let nodes_json = response["result"]["nodes"].as_array();
     let Some(nodes_json) = nodes_json else {
         return vec![];
     };
+    if nodes_json.is_empty() {
+        return vec![];
+    }
 
-    let mut counter = 0usize;
+    // Build index: nodeId → array index
+    let mut id_to_idx: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for (i, node) in nodes_json.iter().enumerate() {
+        if let Some(id) = node["nodeId"].as_str() {
+            id_to_idx.insert(id, i);
+        }
+    }
+
+    // Build children map from childIds
+    let mut children_map: std::collections::HashMap<usize, Vec<usize>> =
+        std::collections::HashMap::new();
+    let mut is_child = vec![false; nodes_json.len()];
+    for (i, node) in nodes_json.iter().enumerate() {
+        if let Some(child_ids) = node["childIds"].as_array() {
+            let mut children = Vec::new();
+            for cid in child_ids {
+                if let Some(cid_str) = cid.as_str()
+                    && let Some(&child_idx) = id_to_idx.get(cid_str)
+                {
+                    children.push(child_idx);
+                    is_child[child_idx] = true;
+                }
+            }
+            if !children.is_empty() {
+                children_map.insert(i, children);
+            }
+        }
+    }
+
+    // Find root nodes (not referenced as children)
+    let root_indices: Vec<usize> = (0..nodes_json.len()).filter(|&i| !is_child[i]).collect();
+
+    // Recursive render
     let mut result = Vec::new();
 
-    // Build a flat list — CDP provides nodes in tree order
-    for node_json in nodes_json {
-        let role = node_json["role"]["value"]
-            .as_str()
-            .unwrap_or("generic")
-            .to_string();
-        let name = node_json["name"]["value"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
-        let value = node_json["value"]["value"]
-            .as_str()
-            .unwrap_or("")
-            .to_string();
-        let interactive = is_interactive_role(&role);
+    #[allow(clippy::too_many_arguments)]
+    fn render(
+        nodes_json: &[Value],
+        children_map: &std::collections::HashMap<usize, Vec<usize>>,
+        idx: usize,
+        depth: usize,
+        options: &SnapshotOptions,
+        result: &mut Vec<AXNode>,
+        ref_cache: &mut RefCache,
+    ) {
+        let node = &nodes_json[idx];
+        let role = extract_ax_string(&node["role"]);
+        let name = strip_invisible_chars(&extract_ax_string(&node["name"]));
+        let ignored = node["ignored"].as_bool().unwrap_or(false);
 
-        // Depth from parent chain would require tree traversal;
-        // use CDP-provided implicit depth via ignored/hidden flags for now.
-        // Implementation will compute actual depth from parentId chain.
-        let depth = 0; // placeholder — implementation fills real depth
+        // Helper: render all children at the given depth
+        let render_children = |depth: usize, result: &mut Vec<AXNode>, ref_cache: &mut RefCache| {
+            if let Some(children) = children_map.get(&idx) {
+                for &child_idx in children {
+                    render(
+                        nodes_json,
+                        children_map,
+                        child_idx,
+                        depth,
+                        options,
+                        result,
+                        ref_cache,
+                    );
+                }
+            }
+        };
 
-        counter += 1;
+        // Skip ignored nodes (promote children to same depth)
+        if ignored && role != "RootWebArea" {
+            render_children(depth, result, ref_cache);
+            return;
+        }
+
+        // Unwrap RootWebArea / WebArea (promote children)
+        if role == "RootWebArea" || role == "WebArea" {
+            render_children(depth, result, ref_cache);
+            return;
+        }
+
+        // Skip noise roles (promote children)
+        if is_skip_role(&role) {
+            render_children(depth, result, ref_cache);
+            return;
+        }
+
+        // Depth limit
+        if let Some(max) = options.depth
+            && depth > max
+        {
+            return;
+        }
+
+        // Interactive filter: skip non-interactive self but render children
+        let is_interactive = is_interactive_role(&role);
+        if options.interactive && !is_interactive {
+            render_children(depth, result, ref_cache);
+            return;
+        }
+
+        // Extract value (handles string, number, bool)
+        let value = extract_ax_string(&node["value"]);
+
+        // Assign ref only for interactive + named content nodes
+        let backend_node_id = node["backendDOMNodeId"].as_i64().unwrap_or(0);
+        let ref_id = if should_assign_ref(&role, &name) {
+            if backend_node_id > 0 {
+                ref_cache.get_or_assign(backend_node_id)
+            } else {
+                // No backendNodeId — use AX nodeId hash as stable fallback key.
+                // nodeId is stable within a page load, unlike array index.
+                let node_id_str = node["nodeId"].as_str().unwrap_or("");
+                use std::hash::{Hash, Hasher};
+                let mut hasher = std::collections::hash_map::DefaultHasher::new();
+                node_id_str.hash(&mut hasher);
+                let hash_key = -(hasher.finish() as i64).abs() - 1; // always negative
+                ref_cache.get_or_assign(hash_key)
+            }
+        } else {
+            String::new()
+        };
+
         result.push(AXNode {
-            ref_id: format!("e{counter}"),
+            ref_id,
             role,
             name,
             value,
-            interactive,
+            interactive: is_interactive,
             depth,
             children: vec![],
         });
+
+        // Recurse children at depth + 1
+        if let Some(children) = children_map.get(&idx) {
+            for &child_idx in children {
+                render(
+                    nodes_json,
+                    children_map,
+                    child_idx,
+                    depth + 1,
+                    options,
+                    result,
+                    ref_cache,
+                );
+            }
+        }
     }
 
-    // Apply options
-    if options.interactive {
-        result = filter_interactive(result);
+    for &root_idx in &root_indices {
+        render(
+            nodes_json,
+            &children_map,
+            root_idx,
+            0,
+            options,
+            &mut result,
+            ref_cache,
+        );
     }
+
+    // Apply compact: remove empty structural leaves, then keep only ref/value
+    // nodes with their ancestor chain for maximum compression.
     if options.compact {
-        result = filter_compact(result);
-    }
-    if let Some(max_depth) = options.depth {
-        result = apply_depth(result, max_depth);
+        result = remove_empty_leaves(result);
+        result = compact_tree_nodes(&result);
     }
 
     result
 }
 
 /// Build the full SnapshotOutput from a flat node list.
+/// `data.nodes` only contains nodes that have a ref (interactive + named content).
 pub fn build_output(nodes: Vec<AXNode>) -> SnapshotOutput {
     let content = render_content(&nodes);
-    let (node_count, interactive_count) = build_stats(&nodes);
-    let entries = nodes
+    // Stats count all nodes with refs
+    let ref_nodes: Vec<&AXNode> = nodes.iter().filter(|n| !n.ref_id.is_empty()).collect();
+    let node_count = ref_nodes.len();
+    let interactive_count = ref_nodes.iter().filter(|n| n.interactive).count();
+    let entries = ref_nodes
         .iter()
         .map(|n| NodeEntry {
             r#ref: n.ref_id.clone(),
@@ -233,6 +398,290 @@ pub fn build_output(nodes: Vec<AXNode>) -> SnapshotOutput {
         node_count,
         interactive_count,
     }
+}
+
+// ── P0: Role & noise classification ──────────────────────────────────
+
+/// Noise roles to skip entirely during tree traversal.
+/// Children of skipped nodes are promoted to the parent level.
+const SKIP_ROLES: &[&str] = &[
+    "InlineTextBox",
+    "StaticText",
+    "LineBreak",
+    "ListMarker",
+    "strong",
+    "emphasis",
+    "subscript",
+    "superscript",
+    "mark",
+];
+
+/// Content roles — get refs only when they have a non-empty accessible name.
+const CONTENT_ROLES: &[&str] = &[
+    "heading",
+    "cell",
+    "gridcell",
+    "columnheader",
+    "rowheader",
+    "listitem",
+    "article",
+    "region",
+    "main",
+    "navigation",
+];
+
+/// Structural roles — candidates for removal during compact/empty-leaf filtering.
+const STRUCTURAL_ROLES: &[&str] = &[
+    "generic",
+    "group",
+    "list",
+    "table",
+    "row",
+    "rowgroup",
+    "grid",
+    "treegrid",
+    "menu",
+    "menubar",
+    "toolbar",
+    "tablist",
+    "tree",
+    "directory",
+    "document",
+    "application",
+    "presentation",
+    "none",
+    "WebArea",
+    "RootWebArea",
+];
+
+/// Check if a role is a noise role that should be skipped.
+pub fn is_skip_role(role: &str) -> bool {
+    SKIP_ROLES.contains(&role)
+}
+
+/// Check if a role is a content role.
+pub fn is_content_role(role: &str) -> bool {
+    CONTENT_ROLES.contains(&role)
+}
+
+/// Check if a role is a structural role.
+pub fn is_structural_role(role: &str) -> bool {
+    STRUCTURAL_ROLES.contains(&role)
+}
+
+/// Whether a node should receive a ref based on its role and name.
+/// Interactive roles always get refs. Content roles get refs only with non-empty name.
+pub fn should_assign_ref(role: &str, name: &str) -> bool {
+    is_interactive_role(role) || (is_content_role(role) && !name.is_empty())
+}
+
+// ── P1: Invisible character filtering ────────────────────────────────
+
+/// Normalize invisible/zero-width characters in accessible names.
+/// Removes truly invisible chars (BOM, ZWS, ZWNJ, ZWJ, WJ).
+/// Replaces NBSP with regular space (preserves word boundaries).
+pub fn strip_invisible_chars(s: &str) -> String {
+    s.chars()
+        .filter_map(|c| match c {
+            '\u{FEFF}' | '\u{200B}' | '\u{200C}' | '\u{200D}' | '\u{2060}' => None,
+            '\u{00A0}' => Some(' '), // NBSP → regular space
+            _ => Some(c),
+        })
+        .collect()
+}
+
+// ── P1: Duplicate ref tracking ───────────────────────────────────────
+
+/// Tracks occurrences of role:name pairs to detect duplicates.
+/// When multiple elements share the same role and name, each gets an `nth` index
+/// for disambiguation (e.g., the 2nd "button:Submit" → nth=2).
+#[derive(Debug, Default)]
+pub struct RoleNameTracker {
+    counts: std::collections::HashMap<String, usize>,
+}
+
+impl RoleNameTracker {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    fn key(role: &str, name: &str) -> String {
+        // Use NUL byte separator to avoid collisions:
+        // "a:b" + "c" won't collide with "a" + "b:c"
+        format!("{}\0{}", role, name)
+    }
+
+    /// Record an occurrence of role:name. Returns the 1-based occurrence index.
+    pub fn record(&mut self, role: &str, name: &str) -> usize {
+        let key = Self::key(role, name);
+        let count = self.counts.entry(key).or_insert(0);
+        *count += 1;
+        *count
+    }
+
+    /// Returns how many times a role:name pair has been seen.
+    pub fn count(&self, role: &str, name: &str) -> usize {
+        let key = Self::key(role, name);
+        *self.counts.get(&key).unwrap_or(&0)
+    }
+
+    /// Returns true if a role:name pair has been seen more than once.
+    pub fn has_duplicates(&self, role: &str, name: &str) -> bool {
+        self.count(role, name) > 1
+    }
+}
+
+// ── P0: Stable ref cache (cross-snapshot persistence) ────────────────
+
+/// Tab-scoped cache mapping backendNodeId → refId.
+/// Ensures that the same DOM element keeps the same ref across repeated snapshots.
+///
+/// Scope: one RefCache per tab (not per session — each tab has independent DOM).
+// TODO: iframe isolation — iframes within a tab may share backendNodeId values
+// with the main frame. Need either frame-prefixed keys (e.g., "frame_id:node_id")
+// or a separate RefCache per frame to avoid collisions.
+#[derive(Debug, Default, Clone)]
+pub struct RefCache {
+    /// backendNodeId → refId (e.g., 42 → "e1")
+    id_to_ref: std::collections::HashMap<i64, String>,
+    /// Next available ref counter
+    next_ref: usize,
+}
+
+impl RefCache {
+    pub fn new() -> Self {
+        Self {
+            id_to_ref: std::collections::HashMap::new(),
+            next_ref: 1, // refs start from e1
+        }
+    }
+
+    /// Get or assign a stable ref for the given backendNodeId.
+    /// If the node was seen before, returns the same ref.
+    /// If new, assigns the next available eN.
+    pub fn get_or_assign(&mut self, backend_node_id: i64) -> String {
+        if let Some(existing) = self.id_to_ref.get(&backend_node_id) {
+            return existing.clone();
+        }
+        let ref_id = format!("e{}", self.next_ref);
+        self.next_ref += 1;
+        self.id_to_ref.insert(backend_node_id, ref_id.clone());
+        ref_id
+    }
+
+    /// Look up the ref for a backendNodeId without assigning.
+    pub fn get(&self, backend_node_id: i64) -> Option<&str> {
+        self.id_to_ref.get(&backend_node_id).map(|s| s.as_str())
+    }
+
+    /// Number of refs assigned so far.
+    pub fn len(&self) -> usize {
+        self.id_to_ref.len()
+    }
+
+    /// Whether the cache is empty.
+    pub fn is_empty(&self) -> bool {
+        self.id_to_ref.is_empty()
+    }
+}
+
+// ── P0: Empty leaf removal ───────────────────────────────────────────
+
+/// Remove leaf nodes that are structural with no name, no ref, no value.
+/// A leaf is a node with no children (i.e., no subsequent node at a greater depth).
+pub fn remove_empty_leaves(nodes: Vec<AXNode>) -> Vec<AXNode> {
+    let mut has_child = vec![false; nodes.len()];
+    for i in 0..nodes.len() {
+        if i + 1 < nodes.len() && nodes[i + 1].depth > nodes[i].depth {
+            has_child[i] = true;
+        }
+    }
+
+    nodes
+        .into_iter()
+        .enumerate()
+        .filter(|(i, node)| {
+            // Keep non-structural nodes
+            if !is_structural_role(&node.role) {
+                return true;
+            }
+            // Keep if it has a ref, name, or value
+            if !node.ref_id.is_empty() || !node.name.is_empty() || !node.value.is_empty() {
+                return true;
+            }
+            // Keep if it has children
+            has_child[*i]
+        })
+        .map(|(_, node)| node)
+        .collect()
+}
+
+// ── P1: Compact tree with ancestor chain ─────────────────────────────
+
+/// Keep only nodes with refs or values, plus their ancestor chain.
+/// More aggressive than remove_empty_leaves — removes ALL non-ref/non-value nodes
+/// except those needed to maintain the tree path to ref/value nodes.
+pub fn compact_tree_nodes(nodes: &[AXNode]) -> Vec<AXNode> {
+    let mut keep = vec![false; nodes.len()];
+
+    for i in 0..nodes.len() {
+        let has_ref = !nodes[i].ref_id.is_empty();
+        let has_value = !nodes[i].value.is_empty();
+        if has_ref || has_value {
+            keep[i] = true;
+            // Walk backwards to mark ancestor chain
+            let mut need_depth = nodes[i].depth;
+            for j in (0..i).rev() {
+                if need_depth == 0 {
+                    break;
+                }
+                if nodes[j].depth == need_depth - 1 {
+                    keep[j] = true;
+                    need_depth = nodes[j].depth;
+                }
+            }
+        }
+    }
+
+    nodes
+        .iter()
+        .enumerate()
+        .filter(|(i, _)| keep[*i])
+        .map(|(_, node)| node.clone())
+        .collect()
+}
+
+// ── P1: Token budget ─────────────────────────────────────────────────
+
+/// Estimate the token count of rendered content.
+/// Uses character-to-token ratio (~4 chars per token for indented tree format).
+pub fn estimate_tokens(content: &str) -> usize {
+    content.len() / 4
+}
+
+/// Truncate a node list to fit within a token budget.
+/// Returns (truncated_nodes, was_truncated).
+pub fn truncate_to_tokens(nodes: &[AXNode], max_tokens: usize) -> (Vec<AXNode>, bool) {
+    let mut total = 0usize;
+    let mut result = Vec::new();
+
+    for node in nodes {
+        // Estimate tokens per node: role + name + ref + indent + overhead
+        let cost = (node.role.len()
+            + node.name.len()
+            + node.ref_id.len()
+            + node.value.len()
+            + node.depth * 2
+            + 12)
+            / 4;
+        if total + cost > max_tokens {
+            return (result, true);
+        }
+        total += cost;
+        result.push(node.clone());
+    }
+
+    (result, false)
 }
 
 // ── Unit Tests ────────────────────────────────────────────────────────
@@ -488,7 +937,8 @@ mod tests {
     }
 
     #[test]
-    fn test_render_content_includes_value() {
+    fn test_render_content_value_not_in_text() {
+        // Per §10.1: value is in data.nodes[] JSON, not in text content.
         let nodes = vec![make_node_with_value(
             "e1",
             "textbox",
@@ -498,9 +948,10 @@ mod tests {
             0,
         )];
         let content = render_content(&nodes);
+        // Content should contain role+name+ref, but NOT the value
         assert!(
-            content.contains("value=\"user@example.com\""),
-            "must include value when present"
+            content.contains("textbox") && content.contains("[ref=e1]"),
+            "must contain role and ref"
         );
     }
 
@@ -614,7 +1065,7 @@ mod tests {
                 ]
             }
         });
-        let nodes = parse_ax_tree(&response, &SnapshotOptions::default());
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
         assert_eq!(nodes.len(), 2);
         assert_eq!(nodes[0].ref_id, "e1");
         assert_eq!(nodes[0].role, "button");
@@ -627,14 +1078,14 @@ mod tests {
     #[test]
     fn test_parse_ax_tree_empty_response() {
         let response = serde_json::json!({ "result": { "nodes": [] } });
-        let nodes = parse_ax_tree(&response, &SnapshotOptions::default());
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
         assert!(nodes.is_empty());
     }
 
     #[test]
     fn test_parse_ax_tree_missing_nodes() {
         let response = serde_json::json!({ "result": {} });
-        let nodes = parse_ax_tree(&response, &SnapshotOptions::default());
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
         assert!(nodes.is_empty());
     }
 
@@ -653,7 +1104,7 @@ mod tests {
             interactive: true,
             ..Default::default()
         };
-        let nodes = parse_ax_tree(&response, &opts);
+        let nodes = parse_ax_tree(&response, &opts, &mut RefCache::new());
         assert_eq!(nodes.len(), 2);
         assert!(nodes.iter().all(|n| n.interactive));
     }
@@ -672,26 +1123,31 @@ mod tests {
             compact: true,
             ..Default::default()
         };
-        let nodes = parse_ax_tree(&response, &opts);
+        let nodes = parse_ax_tree(&response, &opts, &mut RefCache::new());
         assert_eq!(nodes.len(), 1);
         assert_eq!(nodes[0].role, "button");
     }
 
     #[test]
     fn test_parse_ax_tree_depth_filter() {
-        // TDD: defines the expected contract after real depth computation from parentId
-        // chains is implemented.
-        //
-        // Current stub assigns depth=0 to all nodes, so apply_depth(_, 0) keeps all
-        // nodes (0 <= 0). This test asserts the CONTRACT: with depth=Some(0) only the
-        // root-level node should survive. It currently FAILS — that is intentional and
-        // makes the placeholder gap visible for the implementer.
+        // depth=0: only root-level nodes survive.
+        // RootWebArea is unwrapped, so its children become depth 0.
+        // Their children are at depth 1 and should be cut.
         let response = serde_json::json!({
             "result": {
                 "nodes": [
-                    { "nodeId": "1", "role": {"value": "generic"}, "name": {"value": "root"} },
-                    { "nodeId": "2", "role": {"value": "button"}, "name": {"value": "OK"} },
-                    { "nodeId": "3", "role": {"value": "link"}, "name": {"value": "Home"} },
+                    {
+                        "nodeId": "1", "role": {"value": "RootWebArea"},
+                        "name": {"value": ""}, "childIds": ["2"]
+                    },
+                    {
+                        "nodeId": "2", "role": {"value": "navigation"},
+                        "name": {"value": "Nav"}, "childIds": ["3"]
+                    },
+                    {
+                        "nodeId": "3", "role": {"value": "button"},
+                        "name": {"value": "OK"}, "childIds": []
+                    },
                 ]
             }
         });
@@ -699,13 +1155,12 @@ mod tests {
             depth: Some(0),
             ..Default::default()
         };
-        let nodes = parse_ax_tree(&response, &opts);
-        // After real depth impl: only root (depth=0) survives → 1 node.
-        // With placeholder (all depth=0): all 3 pass (0 <= 0) → returns 3.
+        let nodes = parse_ax_tree(&response, &opts, &mut RefCache::new());
+        // After RootWebArea unwrap: navigation=depth 0, button=depth 1 (cut by depth=0)
         assert_eq!(
             nodes.len(),
             1,
-            "depth=0 must return only root node; got {} (stub assigns all depth=0)",
+            "depth=0 must return only root-level node; got {}",
             nodes.len()
         );
     }
@@ -730,7 +1185,7 @@ mod tests {
             ..Default::default()
         };
         // Must not panic; actual subtree filtering handled in execute() via CDP node lookup
-        let nodes = parse_ax_tree(&response, &opts);
+        let nodes = parse_ax_tree(&response, &opts, &mut RefCache::new());
         assert!(
             nodes.len() <= 2,
             "selector option must not expand node list"
@@ -748,9 +1203,672 @@ mod tests {
                 ]
             }
         });
-        let nodes = parse_ax_tree(&response, &SnapshotOptions::default());
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
         assert_eq!(nodes[0].ref_id, "e1");
         assert_eq!(nodes[1].ref_id, "e2");
         assert_eq!(nodes[2].ref_id, "e3");
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // P0: Role & noise classification
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_is_skip_role_noise_roles() {
+        assert!(is_skip_role("InlineTextBox"));
+        assert!(is_skip_role("StaticText"));
+        assert!(is_skip_role("LineBreak"));
+        assert!(is_skip_role("ListMarker"));
+        assert!(is_skip_role("strong"));
+        assert!(is_skip_role("emphasis"));
+    }
+
+    #[test]
+    fn test_is_skip_role_non_noise() {
+        assert!(!is_skip_role("button"));
+        assert!(!is_skip_role("heading"));
+        assert!(!is_skip_role("generic"));
+        assert!(!is_skip_role(""));
+    }
+
+    #[test]
+    fn test_is_content_role() {
+        assert!(is_content_role("heading"));
+        assert!(is_content_role("cell"));
+        assert!(is_content_role("navigation"));
+        assert!(is_content_role("main"));
+        assert!(!is_content_role("button"));
+        assert!(!is_content_role("generic"));
+    }
+
+    #[test]
+    fn test_is_structural_role() {
+        assert!(is_structural_role("generic"));
+        assert!(is_structural_role("group"));
+        assert!(is_structural_role("RootWebArea"));
+        assert!(is_structural_role("none"));
+        assert!(!is_structural_role("button"));
+        assert!(!is_structural_role("heading"));
+    }
+
+    #[test]
+    fn test_should_assign_ref_interactive_always() {
+        // Interactive roles always get refs regardless of name
+        assert!(should_assign_ref("button", "Submit"));
+        assert!(should_assign_ref("button", ""));
+        assert!(should_assign_ref("textbox", ""));
+        assert!(should_assign_ref("link", ""));
+        assert!(should_assign_ref("checkbox", ""));
+    }
+
+    #[test]
+    fn test_should_assign_ref_content_needs_name() {
+        // Content roles only get refs when they have a non-empty name
+        assert!(should_assign_ref("heading", "Title"));
+        assert!(should_assign_ref("navigation", "Main Nav"));
+        assert!(!should_assign_ref("heading", ""));
+        assert!(!should_assign_ref("navigation", ""));
+    }
+
+    #[test]
+    fn test_should_assign_ref_structural_never() {
+        // Structural and noise roles never get refs
+        assert!(!should_assign_ref("generic", ""));
+        assert!(!should_assign_ref("generic", "Container"));
+        assert!(!should_assign_ref("group", "Section"));
+        assert!(!should_assign_ref("InlineTextBox", "text"));
+        assert!(!should_assign_ref("StaticText", "text"));
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // P0: Recursive tree building contract tests
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_parse_ignored_nodes_skip_self_render_children() {
+        // Contract: ignored nodes (ignored=true) are skipped, but their children
+        // are promoted to the same depth level.
+        let response = serde_json::json!({
+            "result": {
+                "nodes": [
+                    {
+                        "nodeId": "1", "role": {"value": "RootWebArea"},
+                        "name": {"value": ""},
+                        "childIds": ["2"]
+                    },
+                    {
+                        "nodeId": "2", "ignored": true,
+                        "role": {"value": "generic"}, "name": {"value": ""},
+                        "childIds": ["3"]
+                    },
+                    {
+                        "nodeId": "3",
+                        "role": {"value": "button"}, "name": {"value": "Submit"},
+                        "childIds": []
+                    },
+                ]
+            }
+        });
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
+
+        // The button should appear (child of ignored node promoted).
+        // Neither RootWebArea nor the ignored generic should appear.
+        assert!(
+            nodes
+                .iter()
+                .any(|n| n.role == "button" && n.name == "Submit"),
+            "button child of ignored node must be present: {nodes:?}"
+        );
+        assert!(
+            !nodes.iter().any(|n| n.role == "RootWebArea"),
+            "RootWebArea must be unwrapped: {nodes:?}"
+        );
+    }
+
+    #[test]
+    fn test_parse_rootwebarea_unwrap() {
+        // Contract: RootWebArea is unwrapped — its children are rendered at depth 0
+        let response = serde_json::json!({
+            "result": {
+                "nodes": [
+                    {
+                        "nodeId": "1", "role": {"value": "RootWebArea"},
+                        "name": {"value": "Page"},
+                        "childIds": ["2", "3"]
+                    },
+                    {
+                        "nodeId": "2",
+                        "role": {"value": "navigation"}, "name": {"value": "Main"},
+                        "childIds": []
+                    },
+                    {
+                        "nodeId": "3",
+                        "role": {"value": "button"}, "name": {"value": "OK"},
+                        "childIds": []
+                    },
+                ]
+            }
+        });
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
+
+        // RootWebArea must not appear in output
+        assert!(
+            !nodes.iter().any(|n| n.role == "RootWebArea"),
+            "RootWebArea must not appear in output: {nodes:?}"
+        );
+        // Children should be at depth 0 (promoted from RootWebArea)
+        let nav = nodes.iter().find(|n| n.role == "navigation");
+        assert!(nav.is_some(), "navigation must be present");
+        assert_eq!(
+            nav.unwrap().depth,
+            0,
+            "navigation must be at depth 0 after RootWebArea unwrap"
+        );
+    }
+
+    #[test]
+    fn test_parse_noise_roles_skipped() {
+        // Contract: InlineTextBox, StaticText, etc. are skipped entirely
+        let response = serde_json::json!({
+            "result": {
+                "nodes": [
+                    {
+                        "nodeId": "1", "role": {"value": "RootWebArea"},
+                        "name": {"value": ""},
+                        "childIds": ["2"]
+                    },
+                    {
+                        "nodeId": "2",
+                        "role": {"value": "heading"}, "name": {"value": "Title"},
+                        "childIds": ["3"]
+                    },
+                    {
+                        "nodeId": "3",
+                        "role": {"value": "StaticText"}, "name": {"value": "Title"},
+                        "childIds": []
+                    },
+                ]
+            }
+        });
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
+
+        assert!(
+            !nodes.iter().any(|n| n.role == "StaticText"),
+            "StaticText must be filtered out: {nodes:?}"
+        );
+        assert!(
+            nodes.iter().any(|n| n.role == "heading"),
+            "heading must remain: {nodes:?}"
+        );
+    }
+
+    #[test]
+    fn test_parse_ref_only_for_interactive_and_named_content() {
+        // Contract: only interactive + named content nodes get refs
+        let response = serde_json::json!({
+            "result": {
+                "nodes": [
+                    {
+                        "nodeId": "1", "role": {"value": "RootWebArea"},
+                        "name": {"value": ""}, "childIds": ["2", "3", "4", "5"]
+                    },
+                    {
+                        "nodeId": "2",
+                        "role": {"value": "button"}, "name": {"value": "OK"},
+                        "childIds": []
+                    },
+                    {
+                        "nodeId": "3",
+                        "role": {"value": "heading"}, "name": {"value": "Title"},
+                        "childIds": []
+                    },
+                    {
+                        "nodeId": "4",
+                        "role": {"value": "heading"}, "name": {"value": ""},
+                        "childIds": []
+                    },
+                    {
+                        "nodeId": "5",
+                        "role": {"value": "generic"}, "name": {"value": "Container"},
+                        "childIds": []
+                    },
+                ]
+            }
+        });
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
+
+        // button "OK" → interactive → gets ref
+        let btn = nodes.iter().find(|n| n.role == "button");
+        assert!(btn.is_some(), "button must be present");
+        assert!(
+            !btn.unwrap().ref_id.is_empty(),
+            "button must have a ref: {:?}",
+            btn
+        );
+
+        // heading "Title" → content with name → gets ref
+        let h_named = nodes
+            .iter()
+            .find(|n| n.role == "heading" && n.name == "Title");
+        assert!(h_named.is_some(), "named heading must be present");
+        assert!(
+            !h_named.unwrap().ref_id.is_empty(),
+            "named heading must have a ref"
+        );
+
+        // heading "" → content without name → no ref
+        let h_empty = nodes
+            .iter()
+            .find(|n| n.role == "heading" && n.name.is_empty());
+        if let Some(h) = h_empty {
+            assert!(
+                h.ref_id.is_empty(),
+                "unnamed heading must NOT have a ref: {:?}",
+                h
+            );
+        }
+
+        // generic "Container" → structural → no ref
+        let structural = nodes.iter().find(|n| n.role == "generic");
+        if let Some(s) = structural {
+            assert!(
+                s.ref_id.is_empty(),
+                "structural node must NOT have a ref: {:?}",
+                s
+            );
+        }
+    }
+
+    #[test]
+    fn test_parse_depth_from_childids() {
+        // Contract: depth is computed from the tree hierarchy, not flat index
+        let response = serde_json::json!({
+            "result": {
+                "nodes": [
+                    {
+                        "nodeId": "1", "role": {"value": "RootWebArea"},
+                        "name": {"value": ""}, "childIds": ["2"]
+                    },
+                    {
+                        "nodeId": "2",
+                        "role": {"value": "navigation"}, "name": {"value": "Nav"},
+                        "childIds": ["3"]
+                    },
+                    {
+                        "nodeId": "3",
+                        "role": {"value": "link"}, "name": {"value": "Home"},
+                        "childIds": []
+                    },
+                ]
+            }
+        });
+        let nodes = parse_ax_tree(&response, &SnapshotOptions::default(), &mut RefCache::new());
+
+        // After RootWebArea unwrap: navigation=depth 0, link=depth 1
+        let nav = nodes.iter().find(|n| n.role == "navigation");
+        let link = nodes.iter().find(|n| n.role == "link");
+        assert!(nav.is_some() && link.is_some(), "both nodes must exist");
+        assert_eq!(
+            nav.unwrap().depth,
+            0,
+            "navigation must be at depth 0 (child of unwrapped RootWebArea)"
+        );
+        assert_eq!(
+            link.unwrap().depth,
+            1,
+            "link must be at depth 1 (child of navigation)"
+        );
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // P0: remove_empty_leaves
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_remove_empty_leaves_removes_structural_leaf() {
+        let nodes = vec![
+            make_node("e1", "button", "OK", true, 0),
+            make_node("", "generic", "", false, 0), // structural, no name/ref/value, leaf → remove
+        ];
+        let result = remove_empty_leaves(nodes);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].ref_id, "e1");
+    }
+
+    #[test]
+    fn test_remove_empty_leaves_keeps_structural_with_children() {
+        let nodes = vec![
+            make_node("", "group", "", false, 0), // structural but has children → keep
+            make_node("e1", "button", "OK", true, 1), // child at depth 1
+        ];
+        let result = remove_empty_leaves(nodes);
+        assert_eq!(result.len(), 2, "group with children must be kept");
+    }
+
+    #[test]
+    fn test_remove_empty_leaves_keeps_named_structural() {
+        let nodes = vec![
+            make_node("", "navigation", "Main", false, 0), // structural but has name → keep
+        ];
+        let result = remove_empty_leaves(nodes);
+        assert_eq!(result.len(), 1, "named structural node must be kept");
+    }
+
+    #[test]
+    fn test_remove_empty_leaves_keeps_non_structural() {
+        let nodes = vec![
+            make_node("", "paragraph", "", false, 0), // non-structural → always keep
+        ];
+        let result = remove_empty_leaves(nodes);
+        assert_eq!(result.len(), 1, "non-structural node must be kept");
+    }
+
+    #[test]
+    fn test_remove_empty_leaves_multiple_structural_leaves() {
+        let nodes = vec![
+            make_node("", "generic", "", false, 0),
+            make_node("e1", "button", "A", true, 0),
+            make_node("", "none", "", false, 0),
+            make_node("e2", "link", "B", true, 0),
+            make_node("", "group", "", false, 0),
+        ];
+        let result = remove_empty_leaves(nodes);
+        // Only generic, none, group leaves removed; button and link kept
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].ref_id, "e1");
+        assert_eq!(result[1].ref_id, "e2");
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // P1: Invisible character filtering
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_strip_invisible_chars_bom() {
+        let input = "\u{FEFF}Hello";
+        assert_eq!(strip_invisible_chars(input), "Hello");
+    }
+
+    #[test]
+    fn test_strip_invisible_chars_zws() {
+        let input = "He\u{200B}llo";
+        assert_eq!(strip_invisible_chars(input), "Hello");
+    }
+
+    #[test]
+    fn test_strip_invisible_chars_nbsp_becomes_space() {
+        // NBSP should become regular space, not be deleted (preserves word boundaries)
+        let input = "Hello\u{00A0}World";
+        assert_eq!(strip_invisible_chars(input), "Hello World");
+    }
+
+    #[test]
+    fn test_strip_invisible_chars_multiple() {
+        // NBSP becomes space, all others removed
+        let input = "\u{FEFF}\u{200B}\u{200C}\u{200D}\u{2060}\u{00A0}Clean";
+        assert_eq!(strip_invisible_chars(input), " Clean");
+    }
+
+    #[test]
+    fn test_strip_invisible_chars_normal_text() {
+        let input = "Normal text 123";
+        assert_eq!(strip_invisible_chars(input), "Normal text 123");
+    }
+
+    #[test]
+    fn test_strip_invisible_chars_empty() {
+        assert_eq!(strip_invisible_chars(""), "");
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // P1: RoleNameTracker (duplicate detection)
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_role_name_tracker_first_occurrence() {
+        let mut tracker = RoleNameTracker::new();
+        let nth = tracker.record("button", "Submit");
+        assert_eq!(nth, 1, "first occurrence returns 1");
+        assert_eq!(tracker.count("button", "Submit"), 1);
+        assert!(!tracker.has_duplicates("button", "Submit"));
+    }
+
+    #[test]
+    fn test_role_name_tracker_duplicates() {
+        let mut tracker = RoleNameTracker::new();
+        assert_eq!(tracker.record("button", "Submit"), 1);
+        assert_eq!(tracker.record("button", "Submit"), 2);
+        assert_eq!(tracker.record("button", "Submit"), 3);
+        assert!(tracker.has_duplicates("button", "Submit"));
+        assert_eq!(tracker.count("button", "Submit"), 3);
+    }
+
+    #[test]
+    fn test_role_name_tracker_different_names() {
+        let mut tracker = RoleNameTracker::new();
+        tracker.record("button", "Submit");
+        tracker.record("button", "Cancel");
+        assert!(!tracker.has_duplicates("button", "Submit"));
+        assert!(!tracker.has_duplicates("button", "Cancel"));
+    }
+
+    #[test]
+    fn test_role_name_tracker_different_roles() {
+        let mut tracker = RoleNameTracker::new();
+        tracker.record("button", "OK");
+        tracker.record("link", "OK");
+        assert!(!tracker.has_duplicates("button", "OK"));
+        assert!(!tracker.has_duplicates("link", "OK"));
+    }
+
+    #[test]
+    fn test_role_name_tracker_unseen_pair() {
+        let tracker = RoleNameTracker::new();
+        assert_eq!(tracker.count("button", "Never"), 0);
+        assert!(!tracker.has_duplicates("button", "Never"));
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // P1: compact_tree_nodes (ancestor chain preservation)
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_compact_tree_nodes_keeps_ref_and_ancestors() {
+        let nodes = vec![
+            make_node("", "navigation", "Nav", false, 0), // ancestor of e1
+            make_node("", "list", "Links", false, 1),     // ancestor of e1
+            make_node("e1", "link", "Home", true, 2),     // has ref → keep + ancestors
+            make_node("", "generic", "", false, 1),       // no ref, not ancestor → remove
+        ];
+        let result = compact_tree_nodes(&nodes);
+        assert_eq!(
+            result.len(),
+            3,
+            "ref node + 2 ancestors, non-ancestor removed"
+        );
+        assert_eq!(result[0].role, "navigation");
+        assert_eq!(result[1].role, "list");
+        assert_eq!(result[2].ref_id, "e1");
+    }
+
+    #[test]
+    fn test_compact_tree_nodes_empty_input() {
+        let result = compact_tree_nodes(&[]);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_compact_tree_nodes_all_refs() {
+        let nodes = vec![
+            make_node("e1", "button", "A", true, 0),
+            make_node("e2", "link", "B", true, 0),
+        ];
+        let result = compact_tree_nodes(&nodes);
+        assert_eq!(result.len(), 2, "all ref nodes kept");
+    }
+
+    #[test]
+    fn test_compact_tree_nodes_no_refs() {
+        let nodes = vec![
+            make_node("", "generic", "", false, 0),
+            make_node("", "group", "", false, 1),
+        ];
+        let result = compact_tree_nodes(&nodes);
+        assert!(result.is_empty(), "no ref nodes → empty result");
+    }
+
+    #[test]
+    fn test_compact_tree_nodes_with_value() {
+        let nodes = vec![
+            make_node("", "group", "", false, 0),
+            make_node_with_value("", "textbox", "Email", "user@test.com", true, 1), // has value → keep
+        ];
+        let result = compact_tree_nodes(&nodes);
+        assert_eq!(result.len(), 2, "value node + ancestor kept");
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // P1: Token budget
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_estimate_tokens_basic() {
+        let content = "- button \"Submit\" [ref=e1]\n";
+        let tokens = estimate_tokens(content);
+        assert!(tokens > 0, "non-empty content must have > 0 tokens");
+        // ~27 chars / 4 ≈ 6-7 tokens
+        assert!(tokens < 20, "short content should have < 20 tokens");
+    }
+
+    #[test]
+    fn test_estimate_tokens_empty() {
+        assert_eq!(estimate_tokens(""), 0);
+    }
+
+    #[test]
+    fn test_truncate_to_tokens_no_truncation() {
+        let nodes = vec![
+            make_node("e1", "button", "OK", true, 0),
+            make_node("e2", "link", "Home", true, 0),
+        ];
+        let (result, truncated) = truncate_to_tokens(&nodes, 1000);
+        assert!(!truncated);
+        assert_eq!(result.len(), 2);
+    }
+
+    #[test]
+    fn test_truncate_to_tokens_with_truncation() {
+        let nodes = vec![
+            make_node("e1", "button", "OK", true, 0),
+            make_node("e2", "link", "Home", true, 0),
+            make_node("e3", "textbox", "Search query input field", true, 0),
+        ];
+        // Very small budget → should truncate
+        let (result, truncated) = truncate_to_tokens(&nodes, 5);
+        assert!(truncated, "must truncate with tiny budget");
+        assert!(
+            result.len() < 3,
+            "must return fewer nodes than input: got {}",
+            result.len()
+        );
+    }
+
+    #[test]
+    fn test_truncate_to_tokens_empty() {
+        let (result, truncated) = truncate_to_tokens(&[], 100);
+        assert!(!truncated);
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_truncate_to_tokens_zero_budget() {
+        let nodes = vec![make_node("e1", "button", "OK", true, 0)];
+        let (result, truncated) = truncate_to_tokens(&nodes, 0);
+        assert!(truncated);
+        assert!(result.is_empty());
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // P0: RefCache — stable ref across repeated snapshots
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_ref_cache_assigns_sequential() {
+        let mut cache = RefCache::new();
+        assert_eq!(cache.get_or_assign(42), "e1");
+        assert_eq!(cache.get_or_assign(55), "e2");
+        assert_eq!(cache.get_or_assign(99), "e3");
+    }
+
+    #[test]
+    fn test_ref_cache_stable_on_repeat() {
+        let mut cache = RefCache::new();
+        // First snapshot
+        assert_eq!(cache.get_or_assign(42), "e1");
+        assert_eq!(cache.get_or_assign(55), "e2");
+
+        // Second snapshot — same backendNodeIds must keep same refs
+        assert_eq!(cache.get_or_assign(42), "e1");
+        assert_eq!(cache.get_or_assign(55), "e2");
+    }
+
+    #[test]
+    fn test_ref_cache_new_element_gets_next_ref() {
+        let mut cache = RefCache::new();
+        assert_eq!(cache.get_or_assign(42), "e1");
+        assert_eq!(cache.get_or_assign(55), "e2");
+
+        // New element appears in second snapshot
+        assert_eq!(cache.get_or_assign(99), "e3");
+        // Original elements unchanged
+        assert_eq!(cache.get_or_assign(42), "e1");
+    }
+
+    #[test]
+    fn test_ref_cache_lookup_without_assign() {
+        let mut cache = RefCache::new();
+        assert!(cache.get(42).is_none());
+        cache.get_or_assign(42);
+        assert_eq!(cache.get(42), Some("e1"));
+    }
+
+    #[test]
+    fn test_ref_cache_len() {
+        let mut cache = RefCache::new();
+        assert!(cache.is_empty());
+        cache.get_or_assign(42);
+        cache.get_or_assign(55);
+        assert_eq!(cache.len(), 2);
+        // Repeat doesn't increase len
+        cache.get_or_assign(42);
+        assert_eq!(cache.len(), 2);
+    }
+
+    // ══════════════════════════════════════════════════════════════════
+    // Codex review fixes: collision resistance, escaping
+    // ══════════════════════════════════════════════════════════════════
+
+    #[test]
+    fn test_role_name_tracker_no_colon_collision() {
+        // Codex finding #9: "a:b" + "c" must NOT collide with "a" + "b:c"
+        let mut tracker = RoleNameTracker::new();
+        tracker.record("a:b", "c");
+        tracker.record("a", "b:c");
+        // These are different pairs, neither should show as duplicate
+        assert!(!tracker.has_duplicates("a:b", "c"));
+        assert!(!tracker.has_duplicates("a", "b:c"));
+    }
+
+    #[test]
+    fn test_render_content_escapes_quotes_in_name() {
+        // Codex finding #6: names with quotes must be escaped
+        let nodes = vec![make_node("e1", "button", "Click \"here\"", true, 0)];
+        let content = render_content(&nodes);
+        // The name should not break the format — quotes must be escaped
+        // or the parser will misinterpret the tree structure
+        assert!(
+            !content.contains("\"here\"\""),
+            "unescaped quotes in name would break parsing"
+        );
     }
 }

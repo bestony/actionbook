@@ -517,6 +517,195 @@ fn snap_selector_flag_limits_subtree() {
     close_session(&sid);
 }
 
+// ===========================================================================
+// Group 3b: snapshot — Content Format Validation (§10.1)
+// ===========================================================================
+
+#[test]
+fn snap_json_ref_starts_from_e1() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    let out = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out, "snapshot ref e1");
+    let v = parse_json(&out);
+
+    // §10.1: refs start from e1 (1-based), never e0
+    let content = v["data"]["content"].as_str().unwrap_or("");
+    assert!(
+        content.contains("[ref=e1]"),
+        "content must contain [ref=e1] (1-based ref): got {content:.200}"
+    );
+    assert!(
+        !content.contains("[ref=e0]"),
+        "content must NOT contain [ref=e0] (0-based): got {content:.200}"
+    );
+
+    // Verify nodes array also uses e1+
+    let nodes = v["data"]["nodes"].as_array().unwrap_or(&vec![]);
+    if let Some(first) = nodes.first() {
+        let first_ref = first["ref"].as_str().unwrap_or("");
+        assert!(
+            first_ref.starts_with("e") && first_ref != "e0",
+            "first node ref must be e1+, got: {first_ref}"
+        );
+    }
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_json_content_no_noise_roles() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    let out = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out, "snapshot no noise");
+    let v = parse_json(&out);
+
+    let content = v["data"]["content"].as_str().unwrap_or("");
+
+    // Noise roles must be filtered out of content per snapshot algorithm
+    let noise_roles = [
+        "RootWebArea",
+        "InlineTextBox",
+        "StaticText",
+        "LineBreak",
+        "ListMarker",
+    ];
+    for role in &noise_roles {
+        // Check that these roles don't appear as `- RoleName` in the content lines
+        let pattern = format!("- {role} ");
+        assert!(
+            !content.contains(&pattern),
+            "content must not contain noise role '{role}': got {content:.300}"
+        );
+    }
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_json_nodes_have_required_fields() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    let out = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out, "snapshot node fields");
+    let v = parse_json(&out);
+
+    // §10.1: each node in data.nodes must have ref, role, name, value
+    let nodes = v["data"]["nodes"].as_array().expect("nodes must be array");
+    assert!(!nodes.is_empty(), "nodes must not be empty");
+    for (i, node) in nodes.iter().enumerate() {
+        assert!(
+            node["ref"].is_string(),
+            "nodes[{i}].ref must be string: {node:?}"
+        );
+        assert!(
+            node["role"].is_string(),
+            "nodes[{i}].role must be string: {node:?}"
+        );
+        assert!(
+            node["name"].is_string(),
+            "nodes[{i}].name must be string: {node:?}"
+        );
+        assert!(
+            node["value"].is_string(),
+            "nodes[{i}].value must be string (may be empty): {node:?}"
+        );
+
+        // ref format: eN where N >= 1
+        let ref_val = node["ref"].as_str().unwrap();
+        assert!(
+            ref_val.starts_with('e'),
+            "nodes[{i}].ref must start with 'e': {ref_val}"
+        );
+        let num: Result<u32, _> = ref_val[1..].parse();
+        assert!(
+            num.is_ok() && num.unwrap() >= 1,
+            "nodes[{i}].ref must be e1+: {ref_val}"
+        );
+    }
+
+    close_session(&sid);
+}
+
+#[test]
+fn snap_interactive_compact_combined() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+    let (sid, tid) = start_session(URL_A);
+
+    // Full snapshot for baseline
+    let out_full = headless_json(
+        &["browser", "snapshot", "--session", &sid, "--tab", &tid],
+        30,
+    );
+    assert_success(&out_full, "snapshot full");
+    let v_full = parse_json(&out_full);
+    let full_count = v_full["data"]["stats"]["node_count"].as_u64().unwrap_or(0);
+
+    // Combined --interactive --compact
+    let out_combined = headless_json(
+        &[
+            "browser",
+            "snapshot",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+            "--interactive",
+            "--compact",
+        ],
+        30,
+    );
+    assert_success(&out_combined, "snapshot interactive+compact");
+    let v_combined = parse_json(&out_combined);
+    assert_snapshot_data(&v_combined);
+
+    let combined_count = v_combined["data"]["stats"]["node_count"]
+        .as_u64()
+        .unwrap_or(0);
+
+    // Combined must be <= either filter alone, and <= full
+    assert!(
+        combined_count <= full_count,
+        "--interactive --compact must return <= full: {combined_count} > {full_count}"
+    );
+
+    // All nodes must be interactive
+    let interactive_count = v_combined["data"]["stats"]["interactive_count"]
+        .as_u64()
+        .unwrap_or(0);
+    assert_eq!(
+        combined_count, interactive_count,
+        "combined mode: node_count must equal interactive_count"
+    );
+
+    close_session(&sid);
+}
+
 // TODO: --cursor flag test skipped — requires implementation to distinguish
 // cursor:pointer / onclick / tabindex elements from standard interactive elements.
 // Contract: --cursor includes cursor-interactive elements on top of --interactive.

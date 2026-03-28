@@ -7,6 +7,8 @@ use crate::daemon::cdp_session::get_cdp_and_target;
 use crate::daemon::registry::SharedRegistry;
 use crate::output::ResponseContext;
 
+use super::snapshot_transform::{self, SnapshotOptions};
+
 /// Capture accessibility snapshot
 #[derive(Args, Debug, Clone, Serialize, Deserialize)]
 pub struct Cmd {
@@ -18,17 +20,54 @@ pub struct Cmd {
     #[arg(long)]
     #[serde(rename = "tab_id")]
     pub tab: String,
+    /// Include only interactive elements
+    #[arg(long, short = 'i', default_value_t = false)]
+    #[serde(default)]
+    pub interactive: bool,
+    /// Compact output, remove empty structural nodes
+    #[arg(long, short = 'c', default_value_t = false)]
+    #[serde(default)]
+    pub compact: bool,
+    /// Additionally include cursor-interactive custom elements (P2 — not yet implemented)
+    #[arg(long, default_value_t = false, hide = true)]
+    #[serde(default)]
+    pub cursor: bool,
+    /// Limit maximum tree depth
+    #[arg(long, short = 'd')]
+    #[serde(default)]
+    pub depth: Option<u32>,
+    /// Limit to a specific subtree by CSS selector
+    #[arg(long, short = 's')]
+    #[serde(default)]
+    pub selector: Option<String>,
 }
 
 pub const COMMAND_NAME: &str = "browser.snapshot";
 
-pub fn context(cmd: &Cmd, _result: &ActionResult) -> Option<ResponseContext> {
+pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
+    // SESSION_NOT_FOUND: context must be null per §3.1
+    if let ActionResult::Fatal { code, .. } = result
+        && code == "SESSION_NOT_FOUND"
+    {
+        return None;
+    }
+    let (url, title) = match result {
+        ActionResult::Ok { data } => (
+            data.get("__ctx_url")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+            data.get("__ctx_title")
+                .and_then(|v| v.as_str())
+                .map(String::from),
+        ),
+        _ => (None, None),
+    };
     Some(ResponseContext {
         session_id: cmd.session.clone(),
         tab_id: Some(cmd.tab.clone()),
         window_id: None,
-        url: None,
-        title: None,
+        url,
+        title,
     })
 }
 
@@ -38,11 +77,55 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         Err(e) => return e,
     };
 
-    match cdp
+    // Fetch the full accessibility tree via CDP
+    let cdp_response = match cdp
         .execute_on_tab(&target_id, "Accessibility.getFullAXTree", json!({}))
         .await
     {
-        Ok(resp) => ActionResult::ok(json!({ "snapshot": resp.to_string() })),
-        Err(e) => crate::daemon::cdp_session::cdp_error_to_result(e, "INTERNAL_ERROR"),
+        Ok(resp) => resp,
+        Err(e) => return crate::daemon::cdp_session::cdp_error_to_result(e, "INTERNAL_ERROR"),
+    };
+
+    // Get url/title and RefCache from registry (single lock)
+    let (url, title, mut ref_cache) = {
+        let mut reg = registry.lock().await;
+        let (url, title) = reg.get_tab_url_title(&cmd.session, &cmd.tab);
+        let cache = reg.take_ref_cache(&cmd.session, &cmd.tab);
+        (url, title, cache)
+    };
+
+    // Build transform options from CLI flags
+    // TODO(P2): --selector requires CDP DOM.querySelector to resolve CSS selector
+    // to backendNodeId, then filter the AX subtree. Currently passed through but
+    // not applied in parse_ax_tree — needs apply_selector() integration.
+    let options = SnapshotOptions {
+        interactive: cmd.interactive,
+        compact: cmd.compact,
+        depth: cmd.depth.map(|d| d as usize),
+        selector: cmd.selector.clone(),
+    };
+
+    // Parse and transform the AX tree
+    let nodes = snapshot_transform::parse_ax_tree(&cdp_response, &options, &mut ref_cache);
+
+    // Store RefCache back (single lock)
+    {
+        let mut reg = registry.lock().await;
+        reg.put_ref_cache(&cmd.session, &cmd.tab, ref_cache);
     }
+
+    // Build output per §10.1
+    let output = snapshot_transform::build_output(nodes);
+
+    ActionResult::ok(json!({
+        "format": "snapshot",
+        "content": output.content,
+        "nodes": output.nodes,
+        "stats": {
+            "node_count": output.node_count,
+            "interactive_count": output.interactive_count,
+        },
+        "__ctx_url": url,
+        "__ctx_title": title,
+    }))
 }
