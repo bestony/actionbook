@@ -257,7 +257,7 @@ mod tests {
             executable_path: None,
             open_url: None,
             cdp_endpoint: None,
-            header: None,
+            header: vec![],
             set_session_id: None,
         }
     }
