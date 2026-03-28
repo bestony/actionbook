@@ -1,9 +1,13 @@
 use clap::Args;
 use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 
 use crate::action_result::ActionResult;
+use crate::daemon::cdp_session::{CdpSession, cdp_error_to_result, get_cdp_and_target};
 use crate::daemon::registry::SharedRegistry;
 use crate::output::ResponseContext;
+
+use super::snapshot_transform::RefCache;
 
 /// Inspect the element at specified coordinates
 #[derive(Args, Debug, Clone, Serialize, Deserialize)]
@@ -76,26 +80,203 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     // Validate coordinates early
-    if let Err(e) = parse_coordinates(&cmd.coordinates) {
-        return ActionResult::fatal("INVALID_ARGUMENT", e);
-    }
-
-    // Resolve session/tab so error-path tests work against the stub
-    let (_cdp, _target_id) = match crate::daemon::cdp_session::get_cdp_and_target(
-        registry,
-        &cmd.session,
-        &cmd.tab,
-    )
-    .await
-    {
+    let (x, y) = match parse_coordinates(&cmd.coordinates) {
         Ok(v) => v,
-        Err(e) => return e,
+        Err(e) => return ActionResult::fatal("INVALID_ARGUMENT", e),
     };
 
-    ActionResult::fatal(
-        "NOT_IMPLEMENTED",
-        "browser.inspect-point not yet implemented",
-    )
+    let (cdp, target_id) =
+        match get_cdp_and_target(registry, &cmd.session, &cmd.tab).await {
+            Ok(v) => v,
+            Err(e) => return e,
+        };
+
+    let url = crate::browser::navigation::get_tab_url(&cdp, &target_id).await;
+
+    // Get or create RefCache for this tab
+    let mut ref_cache = {
+        let mut reg = registry.lock().await;
+        reg.take_ref_cache(&cmd.session, &cmd.tab)
+    };
+
+    let result =
+        inspect_at_point(&cdp, &target_id, x, y, cmd.parent_depth, &mut ref_cache).await;
+
+    // Store RefCache back
+    {
+        let mut reg = registry.lock().await;
+        reg.put_ref_cache(&cmd.session, &cmd.tab, ref_cache);
+    }
+
+    match result {
+        Ok((element, parents)) => ActionResult::ok(json!({
+            "point": { "x": x, "y": y },
+            "element": element,
+            "parents": parents,
+            "__ctx_url": url,
+        })),
+        Err(e) => e,
+    }
+}
+
+/// Hit-test at (x, y) and return (element, parents).
+///
+/// Returns `Ok((null, []))` when no element is at the point.
+async fn inspect_at_point(
+    cdp: &CdpSession,
+    target_id: &str,
+    x: f64,
+    y: f64,
+    parent_depth: Option<u32>,
+    ref_cache: &mut RefCache,
+) -> Result<(Value, Value), ActionResult> {
+    // Use DOM.getNodeForLocation to find the element at (x, y).
+    // Coordinates must be integers for CDP.
+    let hit = cdp
+        .execute_on_tab(
+            target_id,
+            "DOM.getNodeForLocation",
+            json!({
+                "x": x as i64,
+                "y": y as i64,
+                "includeUserAgentShadowDOM": false,
+                "ignorePointerEventsNone": true,
+            }),
+        )
+        .await;
+
+    let backend_node_id = match hit {
+        Ok(ref v) => v["result"]["backendNodeId"].as_i64(),
+        Err(_) => None,
+    };
+
+    let Some(backend_node_id) = backend_node_id else {
+        // No element at coordinates — return null element
+        return Ok((Value::Null, json!([])));
+    };
+
+    // Get AX info for the element
+    let element_info =
+        get_ax_info_for_backend_node(cdp, target_id, backend_node_id, ref_cache).await?;
+
+    // Collect parents if requested
+    let parents = if let Some(depth) = parent_depth {
+        if depth > 0 {
+            collect_parents(cdp, target_id, backend_node_id, depth, ref_cache).await?
+        } else {
+            json!([])
+        }
+    } else {
+        json!([])
+    };
+
+    Ok((element_info, parents))
+}
+
+/// Get AX role/name/selector for a backend node ID.
+/// Returns a JSON object {role, name, selector}.
+async fn get_ax_info_for_backend_node(
+    cdp: &CdpSession,
+    target_id: &str,
+    backend_node_id: i64,
+    ref_cache: &mut RefCache,
+) -> Result<Value, ActionResult> {
+    let ax_resp = cdp
+        .execute_on_tab(
+            target_id,
+            "Accessibility.getPartialAXTree",
+            json!({
+                "backendNodeId": backend_node_id,
+                "fetchRelatives": false,
+            }),
+        )
+        .await
+        .map_err(|e| cdp_error_to_result(e, "INTERNAL_ERROR"))?;
+
+    let nodes = ax_resp["result"]["nodes"]
+        .as_array()
+        .and_then(|arr| arr.first());
+
+    let (role, name) = if let Some(node) = nodes {
+        let role = node["role"]["value"].as_str().unwrap_or("generic").to_string();
+        let name = node["name"]["value"].as_str().unwrap_or("").to_string();
+        (role, name)
+    } else {
+        ("generic".to_string(), String::new())
+    };
+
+    // Assign stable ref from RefCache
+    let selector = ref_cache.get_or_assign(backend_node_id);
+
+    Ok(json!({
+        "role": role,
+        "name": name,
+        "selector": selector,
+    }))
+}
+
+/// Walk up the DOM parent chain, collecting up to `depth` ancestors.
+/// Returns a JSON array of {role, name, selector} objects, nearest parent first.
+async fn collect_parents(
+    cdp: &CdpSession,
+    target_id: &str,
+    start_backend_node_id: i64,
+    depth: u32,
+    ref_cache: &mut RefCache,
+) -> Result<Value, ActionResult> {
+    // Resolve DOM nodeId for the starting element
+    let desc = cdp
+        .execute_on_tab(
+            target_id,
+            "DOM.describeNode",
+            json!({ "backendNodeId": start_backend_node_id }),
+        )
+        .await
+        .map_err(|e| cdp_error_to_result(e, "INTERNAL_ERROR"))?;
+
+    let node_id = desc["result"]["node"]["nodeId"].as_i64().unwrap_or(0);
+    if node_id == 0 {
+        return Ok(json!([]));
+    }
+
+    // DOM.getAncestors returns all ancestors from immediate parent to document root.
+    // Take the first `depth` element-type ancestors.
+    let ancestors_resp = cdp
+        .execute_on_tab(
+            target_id,
+            "DOM.getAncestors",
+            json!({ "nodeId": node_id }),
+        )
+        .await;
+
+    let ancestor_nodes = match ancestors_resp {
+        Ok(ref resp) => resp["result"]["nodes"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default(),
+        Err(_) => return Ok(json!([])),
+    };
+
+    let mut parents = Vec::new();
+    for ancestor in ancestor_nodes.iter() {
+        if parents.len() >= depth as usize {
+            break;
+        }
+        // Only include Element nodes (nodeType 1)
+        let node_type = ancestor["nodeType"].as_i64().unwrap_or(0);
+        if node_type != 1 {
+            continue;
+        }
+        let parent_backend_id = ancestor["backendNodeId"].as_i64().unwrap_or(0);
+        if parent_backend_id == 0 {
+            continue;
+        }
+        let parent_info =
+            get_ax_info_for_backend_node(cdp, target_id, parent_backend_id, ref_cache).await?;
+        parents.push(parent_info);
+    }
+
+    Ok(json!(parents))
 }
 
 #[cfg(test)]
