@@ -5,5 +5,6 @@ pub mod cli;
 pub mod daemon;
 pub mod error;
 pub mod output;
+pub mod runtime_config;
 pub mod types;
 pub mod utils;

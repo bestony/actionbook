@@ -8,14 +8,15 @@ use crate::daemon::cdp::ensure_scheme;
 use crate::daemon::cdp_session::CdpSession;
 use crate::daemon::registry::{SessionEntry, SharedRegistry, TabEntry};
 use crate::output::ResponseContext;
+use crate::runtime_config;
 use crate::types::{Mode, TabId};
 
 /// Start or attach a browser session
 #[derive(Args, Debug, Clone, Serialize, Deserialize)]
 pub struct Cmd {
     /// Browser mode
-    #[arg(long, value_enum, default_value = "local")]
-    pub mode: Mode,
+    #[arg(long, value_enum)]
+    pub mode: Option<Mode>,
     /// Headless mode
     #[arg(long)]
     pub headless: bool,
@@ -34,6 +35,21 @@ pub struct Cmd {
     /// Specify a semantic session ID
     #[arg(long)]
     pub set_session_id: Option<String>,
+    #[arg(skip = None)]
+    #[serde(default)]
+    pub effective_mode: Option<Mode>,
+    #[arg(skip = None)]
+    #[serde(default)]
+    pub effective_headless: Option<bool>,
+    #[arg(skip = None)]
+    #[serde(default)]
+    pub effective_profile: Option<String>,
+    #[arg(skip = None)]
+    #[serde(default)]
+    pub effective_executable: Option<String>,
+    #[arg(skip = None)]
+    #[serde(default)]
+    pub effective_cdp_endpoint: Option<String>,
 }
 
 pub const COMMAND_NAME: &str = "browser.start";
@@ -56,15 +72,29 @@ pub fn context(_cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 }
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
+    let mode = cmd
+        .effective_mode
+        .unwrap_or(cmd.mode.unwrap_or(Mode::Local));
+    let headless = cmd.effective_headless.unwrap_or(cmd.headless);
+    let profile_name = cmd
+        .effective_profile
+        .as_deref()
+        .or(cmd.profile.as_deref())
+        .unwrap_or("default");
+    let cdp_endpoint = cmd
+        .effective_cdp_endpoint
+        .as_deref()
+        .or(cmd.cdp_endpoint.as_deref());
+
     let mut reg = registry.lock().await;
-    let profile_name = cmd.profile.as_deref().unwrap_or("actionbook");
 
     // Local mode: 1 profile = max 1 session. Reuse existing if same profile.
-    if cmd.mode == Mode::Local
+    if cdp_endpoint.is_none()
+        && mode == Mode::Local
         && let Some(session_id) = reg
             .list()
             .iter()
-            .find(|s| s.profile == profile_name && s.mode == cmd.mode)
+            .find(|s| s.profile == profile_name && s.mode == mode)
             .map(|s| s.id.as_str().to_string())
     {
         if let Some(url) = &cmd.open_url {
@@ -149,11 +179,6 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
             Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
         };
 
-    let executable = match browser::find_chrome() {
-        Ok(e) => e,
-        Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
-    };
-
     if profile_name.contains('/') || profile_name.contains('\\') || profile_name.contains("..") {
         return ActionResult::fatal(
             "INVALID_ARGUMENT",
@@ -161,45 +186,84 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         );
     }
 
-    let data_dir = std::env::var("XDG_DATA_HOME").unwrap_or_else(|_| {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-        format!("{home}/.local/share")
-    });
-    let user_data_dir = format!("{data_dir}/actionbook/profiles/{profile_name}");
+    let profiles_dir = runtime_config::profiles_dir();
+    std::fs::create_dir_all(&profiles_dir).ok();
+    let user_data_dir = profiles_dir.join(profile_name);
     std::fs::create_dir_all(&user_data_dir).ok();
 
     for lock in &["SingletonLock", "SingletonSocket", "SingletonCookie"] {
-        let p = std::path::Path::new(&user_data_dir).join(lock);
+        let p = user_data_dir.join(lock);
         if p.exists() {
             std::fs::remove_file(&p).ok();
         }
     }
 
-    let (mut chrome, port) = match browser::launch_chrome(
-        &executable,
-        cmd.headless,
-        &user_data_dir,
-        cmd.open_url.as_deref(),
-    )
-    .await
-    {
-        Ok(c) => c,
-        Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
-    };
-
-    let ws_url = match browser::discover_ws_url(port).await {
-        Ok(ws) => ws,
-        Err(e) => {
-            let _ = chrome.kill();
-            let _ = chrome.wait();
-            return ActionResult::fatal(e.error_code(), e.to_string());
+    let (chrome_process, port, ws_url, mut targets) = if let Some(endpoint) = cdp_endpoint {
+        if mode != Mode::Local {
+            return ActionResult::fatal(
+                "INVALID_ARGUMENT",
+                "cdp-endpoint requires --mode local".to_string(),
+            );
         }
-    };
 
-    if cmd.open_url.is_some() {
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-    }
-    let mut targets = browser::list_targets(port).await.unwrap_or_default();
+        let (ws_url, port) = match browser::resolve_cdp_endpoint(endpoint).await {
+            Ok(value) => value,
+            Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
+        };
+
+        let mut targets = browser::list_targets(port).await.unwrap_or_default();
+        if let Some(url) = &cmd.open_url
+            && let Some(target_id) = targets
+                .first()
+                .and_then(|t| t.get("id"))
+                .and_then(|v| v.as_str())
+        {
+            let page_ws = format!("ws://127.0.0.1:{port}/devtools/page/{target_id}");
+            if let Err(e) = cdp_navigate(&page_ws, &ensure_scheme(url)).await {
+                return ActionResult::fatal(e.error_code(), e.to_string());
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            targets = browser::list_targets(port).await.unwrap_or(targets);
+        }
+
+        (None, port, ws_url, targets)
+    } else {
+        let executable = if let Some(executable) = cmd.effective_executable.as_deref() {
+            executable.to_string()
+        } else {
+            match browser::find_chrome() {
+                Ok(e) => e,
+                Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
+            }
+        };
+
+        let (mut chrome, port) = match browser::launch_chrome(
+            &executable,
+            headless,
+            &user_data_dir.to_string_lossy(),
+            cmd.open_url.as_deref(),
+        )
+        .await
+        {
+            Ok(c) => c,
+            Err(e) => return ActionResult::fatal(e.error_code(), e.to_string()),
+        };
+
+        let ws_url = match browser::discover_ws_url(port).await {
+            Ok(ws) => ws,
+            Err(e) => {
+                let _ = chrome.kill();
+                let _ = chrome.wait();
+                return ActionResult::fatal(e.error_code(), e.to_string());
+            }
+        };
+
+        if cmd.open_url.is_some() {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+        }
+        let targets = browser::list_targets(port).await.unwrap_or_default();
+        (Some(chrome), port, ws_url, targets)
+    };
 
     if targets
         .first()
@@ -256,8 +320,8 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
 
     let entry = SessionEntry {
         id: session_id.clone(),
-        mode: cmd.mode,
-        headless: cmd.headless,
+        mode,
+        headless,
         profile: profile_name.to_string(),
         status: "running".to_string(),
         cdp_port: port,
@@ -271,9 +335,9 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     ActionResult::ok(json!({
         "session": {
             "session_id": session_id.as_str(),
-            "mode": cmd.mode.to_string(),
+            "mode": mode.to_string(),
             "status": "running",
-            "headless": cmd.headless,
+            "headless": headless,
             "cdp_endpoint": ws_url,
         },
         "tab": {

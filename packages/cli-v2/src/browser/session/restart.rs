@@ -65,13 +65,18 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     }
 
     let start_cmd = super::start::Cmd {
-        mode,
+        mode: Some(mode),
         headless,
         profile: Some(profile),
         open_url,
         cdp_endpoint: None,
         header: None,
         set_session_id: Some(cmd.session.clone()),
+        effective_mode: None,
+        effective_headless: None,
+        effective_profile: None,
+        effective_executable: None,
+        effective_cdp_endpoint: None,
     };
 
     let result = super::start::execute(&start_cmd, registry).await;

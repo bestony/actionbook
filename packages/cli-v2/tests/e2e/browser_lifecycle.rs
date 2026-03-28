@@ -5,11 +5,16 @@
 //! All assertions strictly follow api-reference.md §7.
 
 use crate::harness::{
-    SessionGuard, assert_failure, assert_success, headless, headless_json, parse_json, skip,
-    stdout_str,
+    SessionGuard, assert_failure, assert_success, config_path, headless, headless_json,
+    headless_json_with_env, parse_json, profiles_dir, skip, stdout_str,
 };
 
 const TEST_URL: &str = "https://example.com";
+
+fn close_session(session_id: &str) {
+    let out = headless(&["browser", "close", "--session", session_id], 30);
+    assert_success(&out, "close session");
+}
 
 // ===========================================================================
 // 1. lifecycle_open_and_close — §7.1 + §7.4 (JSON)
@@ -989,4 +994,124 @@ fn lifecycle_start_reuse_with_open_url_json() {
 
     let out = headless(&["browser", "close", "--session", "local-1"], 30);
     assert_success(&out, "close reuse");
+}
+
+#[test]
+fn lifecycle_start_bootstraps_default_config() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    let path = config_path();
+    if path.exists() {
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    let out = headless_json(&["browser", "start", "--headless"], 30);
+    assert_success(&out, "start should bootstrap config");
+    let v = parse_json(&out);
+    let session_id = v["data"]["session"]["session_id"]
+        .as_str()
+        .expect("session id");
+
+    assert!(
+        path.exists(),
+        "config.toml should be created on first start"
+    );
+    let text = std::fs::read_to_string(&path).expect("read config");
+    assert!(text.contains("[browser]"));
+    assert!(text.contains("profile = \"default\""));
+
+    close_session(session_id);
+}
+
+#[test]
+fn lifecycle_start_env_over_config_json() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    std::fs::write(
+        config_path(),
+        r#"[browser]
+mode = "extension"
+profile = "config-profile"
+headless = false
+"#,
+    )
+    .expect("write config");
+
+    let out = headless_json_with_env(
+        &["browser", "start"],
+        &[
+            ("ACTIONBOOK_BROWSER_MODE", "local"),
+            ("ACTIONBOOK_PROFILE", "env-profile"),
+            ("ACTIONBOOK_HEADLESS", "true"),
+        ],
+        30,
+    );
+    assert_success(&out, "start env over config");
+    let v = parse_json(&out);
+    let session_id = v["data"]["session"]["session_id"]
+        .as_str()
+        .expect("session id");
+
+    assert_eq!(v["data"]["session"]["mode"], "local");
+    assert_eq!(v["data"]["session"]["headless"], true);
+    assert!(
+        profiles_dir().join("env-profile").exists(),
+        "env profile directory should exist"
+    );
+    assert!(
+        !profiles_dir().join("config-profile").exists(),
+        "config profile directory should not be used"
+    );
+
+    close_session(session_id);
+}
+
+#[test]
+fn lifecycle_start_cli_over_env_json() {
+    if skip() {
+        return;
+    }
+    let _guard = SessionGuard::new();
+
+    let out = headless_json_with_env(
+        &[
+            "browser",
+            "start",
+            "--mode",
+            "local",
+            "--profile",
+            "cli-profile",
+            "--headless",
+        ],
+        &[
+            ("ACTIONBOOK_BROWSER_MODE", "extension"),
+            ("ACTIONBOOK_PROFILE", "env-profile"),
+            ("ACTIONBOOK_HEADLESS", "false"),
+        ],
+        30,
+    );
+    assert_success(&out, "start cli over env");
+    let v = parse_json(&out);
+    let session_id = v["data"]["session"]["session_id"]
+        .as_str()
+        .expect("session id");
+
+    assert_eq!(v["data"]["session"]["mode"], "local");
+    assert_eq!(v["data"]["session"]["headless"], true);
+    assert!(
+        profiles_dir().join("cli-profile").exists(),
+        "cli profile directory should exist"
+    );
+    assert!(
+        !profiles_dir().join("env-profile").exists(),
+        "env profile directory should not be used"
+    );
+
+    close_session(session_id);
 }
