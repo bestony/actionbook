@@ -14,4 +14,5 @@ mod cloud_mode;
 mod harness;
 mod navigation;
 mod page_info;
+mod snapshot;
 mod tab_management;

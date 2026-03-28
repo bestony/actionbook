@@ -1,7 +1,9 @@
 use clap::Args;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::action_result::ActionResult;
+use crate::daemon::cdp_session::{cdp_error_to_result, get_cdp_and_target};
 use crate::daemon::registry::SharedRegistry;
 use crate::output::ResponseContext;
 
@@ -33,11 +35,18 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
     } else {
         Some(cmd.tab.clone())
     };
+    let url = match result {
+        ActionResult::Ok { data } => data
+            .get("__ctx_url")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        _ => None,
+    };
     Some(ResponseContext {
         session_id: cmd.session.clone(),
         tab_id,
         window_id: None,
-        url: None,
+        url,
         title: None,
     })
 }
@@ -47,8 +56,38 @@ pub fn format_viewport(width: u64, height: u64) -> String {
     format!("{width}x{height}")
 }
 
-pub async fn execute(_cmd: &Cmd, _registry: &SharedRegistry) -> ActionResult {
-    ActionResult::fatal("NOT_IMPLEMENTED", "browser.viewport not yet implemented")
+pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
+    let (cdp, target_id) = match get_cdp_and_target(registry, &cmd.session, &cmd.tab).await {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+
+    let url = crate::browser::navigation::get_tab_url(&cdp, &target_id).await;
+
+    let resp = match cdp
+        .execute_on_tab(
+            &target_id,
+            "Runtime.evaluate",
+            json!({
+                "expression": "({width:window.innerWidth,height:window.innerHeight})",
+                "returnByValue": true
+            }),
+        )
+        .await
+    {
+        Ok(v) => v,
+        Err(e) => return cdp_error_to_result(e, "INTERNAL_ERROR"),
+    };
+
+    let obj = &resp["result"]["result"]["value"];
+    let width = obj.get("width").and_then(|v| v.as_u64()).unwrap_or(0);
+    let height = obj.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
+
+    ActionResult::ok(json!({
+        "width": width,
+        "height": height,
+        "__ctx_url": url,
+    }))
 }
 
 #[cfg(test)]

@@ -1,7 +1,9 @@
 use clap::Args;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::action_result::ActionResult;
+use crate::daemon::cdp_session::get_cdp_and_target;
 use crate::daemon::registry::SharedRegistry;
 use crate::output::ResponseContext;
 
@@ -33,15 +35,32 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
     } else {
         Some(cmd.tab.clone())
     };
+    let url = match result {
+        ActionResult::Ok { data } => data
+            .get("__ctx_url")
+            .and_then(|v| v.as_str())
+            .map(String::from),
+        _ => None,
+    };
     Some(ResponseContext {
         session_id: cmd.session.clone(),
         tab_id,
         window_id: None,
-        url: None,
+        url,
         title: None,
     })
 }
 
-pub async fn execute(_cmd: &Cmd, _registry: &SharedRegistry) -> ActionResult {
-    ActionResult::fatal("NOT_IMPLEMENTED", "browser.url not yet implemented")
+pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
+    let (cdp, target_id) = match get_cdp_and_target(registry, &cmd.session, &cmd.tab).await {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+
+    let url = crate::browser::navigation::get_tab_url(&cdp, &target_id).await;
+
+    ActionResult::ok(json!({
+        "value": url,
+        "__ctx_url": url,
+    }))
 }
