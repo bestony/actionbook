@@ -3,7 +3,11 @@
 //! All navigation commands are Tab-level: require `--session <SID> --tab <TID>`.
 //! Tests are strict per api-reference.md §9.
 //!
-//! All 4 commands are implemented. All tests are expected to pass.
+//! goto/back/forward are implemented; those tests are expected to pass.
+//! reload basic path is implemented; reload-specific tests pass except for
+//! `nav_reload_navigation_failed_json`, which currently exposes an
+//! implementation gap: reload returns `UNSUPPORTED_OPERATION` instead of
+//! `NAVIGATION_FAILED` on error. That test is the TDD contract for the fix.
 
 use crate::harness::{
     SessionGuard, assert_failure, assert_success, headless, headless_json, parse_json, skip,
