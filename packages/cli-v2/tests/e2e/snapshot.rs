@@ -186,9 +186,20 @@ fn snap_json_envelope() {
         v["context"]["url"].is_string(),
         "context.url must be present"
     );
+    // URL must match the actual page, not chrome://newtab/ or stale values
+    let ctx_url = v["context"]["url"].as_str().unwrap_or("");
+    assert!(
+        ctx_url.contains("actionbook.dev"),
+        "context.url must reflect actual page URL, got: {ctx_url}"
+    );
     assert!(
         v["context"]["title"].is_string(),
         "context.title must be present"
+    );
+    let ctx_title = v["context"]["title"].as_str().unwrap_or("");
+    assert!(
+        !ctx_title.is_empty() && ctx_title != "New Tab",
+        "context.title must reflect actual page title, got: {ctx_title}"
     );
 
     assert_meta(&v);
