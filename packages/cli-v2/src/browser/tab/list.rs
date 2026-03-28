@@ -63,24 +63,21 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         entry
             .tabs
             .iter()
-            .map(|t| {
+            .filter_map(|t| {
                 let target_id = &t.id.0;
-                // Find real-time url/title from Chrome targets
-                let (url, title) = targets
+                // Only include tabs that still exist in Chrome's real-time targets
+                targets
                     .iter()
                     .find(|tgt| tgt.get("id").and_then(|v| v.as_str()) == Some(target_id))
                     .map(|tgt| {
                         let url = tgt.get("url").and_then(|v| v.as_str()).unwrap_or("");
                         let title = tgt.get("title").and_then(|v| v.as_str()).unwrap_or("");
-                        (url.to_string(), title.to_string())
+                        json!({
+                            "tab_id": target_id,
+                            "url": url,
+                            "title": title,
+                        })
                     })
-                    .unwrap_or_default();
-
-                json!({
-                    "tab_id": target_id,
-                    "url": url,
-                    "title": title,
-                })
             })
             .collect()
     };
