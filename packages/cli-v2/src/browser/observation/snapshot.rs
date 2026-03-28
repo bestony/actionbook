@@ -100,24 +100,10 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     };
 
     // Query live url/title from CDP (not registry — avoids stale data after navigation)
-    let url = cdp
-        .execute_on_tab(
-            &target_id,
-            "Runtime.evaluate",
-            json!({"expression": "location.href"}),
-        )
-        .await
-        .ok()
-        .and_then(|v| v["result"]["result"]["value"].as_str().map(String::from));
-    let title = cdp
-        .execute_on_tab(
-            &target_id,
-            "Runtime.evaluate",
-            json!({"expression": "document.title"}),
-        )
-        .await
-        .ok()
-        .and_then(|v| v["result"]["result"]["value"].as_str().map(String::from));
+    let url = Some(crate::browser::navigation::get_tab_url(&cdp, &target_id).await)
+        .filter(|s| !s.is_empty());
+    let title = Some(crate::browser::navigation::get_tab_title(&cdp, &target_id).await)
+        .filter(|s| !s.is_empty());
 
     // Get RefCache from registry
     let mut ref_cache = {
