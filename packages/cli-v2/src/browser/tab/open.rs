@@ -109,15 +109,28 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         );
     }
 
-    // Add to registry
+    // Add to registry — if session was closed concurrently, rollback
     {
         let mut reg = registry.lock().await;
-        if let Some(entry) = reg.get_mut(&cmd.session) {
-            entry.tabs.push(TabEntry {
-                id: TabId(target_id.clone()),
-                url: final_url.clone(),
-                title: String::new(),
-            });
+        match reg.get_mut(&cmd.session) {
+            Some(entry) => {
+                entry.tabs.push(TabEntry {
+                    id: TabId(target_id.clone()),
+                    url: final_url.clone(),
+                    title: String::new(),
+                });
+            }
+            None => {
+                // Session gone — close orphaned tab and detach
+                let _ = cdp
+                    .execute_browser("Target.closeTarget", json!({ "targetId": target_id }))
+                    .await;
+                let _ = cdp.detach(&target_id).await;
+                return ActionResult::fatal(
+                    "SESSION_NOT_FOUND",
+                    format!("session '{}' was closed during tab creation", cmd.session),
+                );
+            }
         }
     }
 

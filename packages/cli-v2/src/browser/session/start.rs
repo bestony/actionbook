@@ -110,91 +110,108 @@ async fn execute_cloud(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         if let Some(ref cdp) = entry.cdp {
             let cdp = cdp.clone();
             drop(reg);
-            if let Err(_) = cdp.execute_browser("Target.getTargets", json!({})).await {
-                // Connection dead — remove session and return error
+
+            // Health check + refresh live tab state
+            let health = cdp.execute_browser("Target.getTargets", json!({})).await;
+            if health.is_err() {
+                // Connection dead — remove session and fall through to fresh connect
                 let mut reg = registry.lock().await;
                 reg.remove(&session_id);
-                return ActionResult::fatal_with_hint(
-                    "CLOUD_CONNECTION_LOST",
-                    "cloud browser connection lost",
-                    "run `actionbook browser start --mode cloud ...` to reconnect",
-                );
-            }
-            let mut reg = registry.lock().await;
-            // Update headers if changed (after health check passed)
-            if let Some(entry) = reg.get_mut(&session_id) {
-                if entry.headers != headers {
-                    entry.headers = headers;
-                }
-            }
-            let entry = match reg.get(&session_id) {
-                Some(e) => e,
-                None => {
-                    return ActionResult::fatal(
-                        "SESSION_NOT_FOUND",
-                        format!("session '{session_id}' was closed during health check"),
-                    );
-                }
-            };
-            let first_tab_id = entry.tabs.first().map(|t| t.id.0.clone()).unwrap_or_default();
+                drop(reg);
+                // Fall through to new session path below (don't return error)
+            } else {
+                // Reconcile live targets with cached registry
+                let live_targets = health.unwrap();
+                let target_infos = live_targets
+                    .get("result")
+                    .and_then(|r| r.get("targetInfos"))
+                    .and_then(|t| t.as_array())
+                    .cloned()
+                    .unwrap_or_default();
 
-            // Ensure first tab is attached (may have been lost after reconnect)
-            if !first_tab_id.is_empty() {
-                if let Err(e) = cdp.attach(&first_tab_id).await {
-                    tracing::warn!("cloud reuse: failed to re-attach tab {first_tab_id}: {e}");
+                let mut reg = registry.lock().await;
+                if let Some(entry) = reg.get_mut(&session_id) {
+                    // Update headers
+                    if entry.headers != headers {
+                        entry.headers = headers;
+                    }
+                    // Refresh tab url/title from live data
+                    for tab in &mut entry.tabs {
+                        if let Some(live) = target_infos.iter().find(|t| {
+                            t.get("targetId").and_then(|v| v.as_str()) == Some(&tab.id.0)
+                        }) {
+                            tab.url = live.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                            tab.title = live.get("title").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        }
+                    }
                 }
-            }
-
-            // If --open-url, navigate the first tab
-            if let Some(url) = &cmd.open_url {
-                let final_url = match ensure_scheme_or_fatal(url) {
-                    Ok(u) => u,
-                    Err(e) => return e,
-                };
-                if !first_tab_id.is_empty() {
-                    let cdp_clone = cdp.clone();
-                    drop(reg);
-                    if let Err(e) = cdp_clone
-                        .execute_on_tab(&first_tab_id, "Page.navigate", json!({ "url": final_url }))
-                        .await
-                    {
+                let entry = match reg.get(&session_id) {
+                    Some(e) => e,
+                    None => {
                         return ActionResult::fatal(
-                            "NAVIGATION_FAILED",
-                            format!("cloud reuse navigate failed: {e}"),
+                            "SESSION_NOT_FOUND",
+                            format!("session '{session_id}' was closed during health check"),
                         );
                     }
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    let reg = registry.lock().await;
-                    if let Some(entry) = reg.get(&session_id) {
-                        return make_session_response(entry, &first_tab_id, "", "", true);
-                    }
-                    return ActionResult::fatal(
-                        "SESSION_NOT_FOUND",
-                        format!("session '{session_id}' was closed during reuse"),
-                    );
-                }
-            }
-
-            drop(reg);
-            let reg = registry.lock().await;
-            if let Some(entry) = reg.get(&session_id) {
+                };
                 let first_tab_id = entry.tabs.first().map(|t| t.id.0.clone()).unwrap_or_default();
-                return make_session_response(entry, &first_tab_id, "", "", true);
-            }
-            return ActionResult::fatal(
-                "SESSION_NOT_FOUND",
-                format!("session '{session_id}' was closed during reuse"),
-            );
-        }
 
-        // No CDP connection — this should not happen for running sessions
-        return ActionResult::fatal(
-            "INTERNAL_ERROR",
-            format!("session '{session_id}' has no CDP connection"),
-        );
+                // Re-attach first tab (may be stale after reconnect)
+                if !first_tab_id.is_empty() {
+                    if let Err(e) = cdp.attach(&first_tab_id).await {
+                        tracing::warn!("cloud reuse: failed to re-attach tab {first_tab_id}: {e}");
+                    }
+                }
+
+                // Navigate if --open-url
+                if let Some(url) = &cmd.open_url {
+                    let final_url = match ensure_scheme_or_fatal(url) {
+                        Ok(u) => u,
+                        Err(e) => return e,
+                    };
+                    if !first_tab_id.is_empty() {
+                        let cdp_clone = cdp.clone();
+                        drop(reg);
+                        if let Err(e) = cdp_clone
+                            .execute_on_tab(&first_tab_id, "Page.navigate", json!({ "url": final_url }))
+                            .await
+                        {
+                            return ActionResult::fatal(
+                                "NAVIGATION_FAILED",
+                                format!("cloud reuse navigate failed: {e}"),
+                            );
+                        }
+                        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                        // Re-read entry with fresh tab state
+                        let reg = registry.lock().await;
+                        if let Some(entry) = reg.get(&session_id) {
+                            return make_session_response(entry, &first_tab_id, "", "", true);
+                        }
+                        return ActionResult::fatal(
+                            "SESSION_NOT_FOUND",
+                            format!("session '{session_id}' was closed during reuse"),
+                        );
+                    }
+                }
+
+                // No navigate — return with live tab state (already refreshed above)
+                drop(reg);
+                let reg = registry.lock().await;
+                if let Some(entry) = reg.get(&session_id) {
+                    let first_tab_id = entry.tabs.first().map(|t| t.id.0.clone()).unwrap_or_default();
+                    return make_session_response(entry, &first_tab_id, "", "", true);
+                }
+                return ActionResult::fatal(
+                    "SESSION_NOT_FOUND",
+                    format!("session '{session_id}' was closed during reuse"),
+                );
+            }
+            // Health check failed — fall through to new session path below
+        }
     }
 
     // New cloud session — insert placeholder to prevent concurrent duplicate connections
+    let mut reg = registry.lock().await;
     let session_id =
         match reg.generate_session_id(cmd.set_session_id.as_deref(), cmd.profile.as_deref()) {
             Ok(id) => id,
