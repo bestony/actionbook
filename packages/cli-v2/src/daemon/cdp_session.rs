@@ -239,6 +239,8 @@ impl CdpSession {
 ///
 /// Returns `ActionResult` errors for SESSION_NOT_FOUND, TAB_NOT_FOUND,
 /// or missing CDP connection.
+/// Extract CdpSession from the registry and verify the tab exists.
+/// Since tab_id IS the native target_id, just return it directly.
 pub async fn get_cdp_and_target(
     registry: &crate::daemon::registry::SharedRegistry,
     session_id: &str,
@@ -257,23 +259,14 @@ pub async fn get_cdp_and_target(
             format!("no CDP connection for session '{session_id}'"),
         )
     })?;
-    let parsed_tab: crate::types::TabId = tab_id.parse().map_err(|e| {
-        crate::action_result::ActionResult::fatal(
-            "INVALID_ARGUMENT",
-            format!("invalid tab id: {e}"),
-        )
-    })?;
-    let tab = entry
-        .tabs
-        .iter()
-        .find(|t| t.id == parsed_tab)
-        .ok_or_else(|| {
-            crate::action_result::ActionResult::fatal(
-                "TAB_NOT_FOUND",
-                format!("tab '{tab_id}' not found"),
-            )
-        })?;
-    Ok((cdp, tab.target_id.clone()))
+    if !entry.tabs.iter().any(|t| t.id.0 == tab_id) {
+        return Err(crate::action_result::ActionResult::fatal(
+            "TAB_NOT_FOUND",
+            format!("tab '{tab_id}' not found"),
+        ));
+    }
+    // tab_id IS the native target_id
+    Ok((cdp, tab_id.to_string()))
 }
 
 // ─── Unit Tests ──────────────────────────────────────────────────────

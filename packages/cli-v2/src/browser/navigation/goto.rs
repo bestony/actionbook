@@ -7,7 +7,6 @@ use crate::daemon::cdp::ensure_scheme;
 use crate::daemon::cdp_session::get_cdp_and_target;
 use crate::daemon::registry::SharedRegistry;
 use crate::output::ResponseContext;
-use crate::types::TabId;
 
 /// Navigate to URL
 #[derive(Args, Debug, Clone, Serialize, Deserialize)]
@@ -54,17 +53,6 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
             .await
         {
             return ActionResult::fatal("NAVIGATION_FAILED", e.to_string());
-        }
-    }
-
-    // Update tab URL in registry
-    {
-        let mut reg = registry.lock().await;
-        if let Some(entry) = reg.get_mut(&cmd.session)
-            && let Ok(parsed_tab) = cmd.tab.parse::<TabId>()
-            && let Some(tab) = entry.tabs.iter_mut().find(|t| t.id == parsed_tab)
-        {
-            tab.url.clone_from(&final_url);
         }
     }
 

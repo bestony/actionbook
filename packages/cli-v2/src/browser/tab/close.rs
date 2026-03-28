@@ -51,7 +51,6 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     let cdp_port;
-    let target_id;
     let cdp;
 
     {
@@ -66,42 +65,34 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
             }
         };
 
-        let tab = match entry.tabs.iter().find(|t| t.id.to_string() == cmd.tab) {
-            Some(t) => t,
-            None => {
-                return ActionResult::fatal(
-                    "TAB_NOT_FOUND",
-                    format!("tab '{}' not found in session '{}'", cmd.tab, cmd.session),
-                );
-            }
-        };
+        if !entry.tabs.iter().any(|t| t.id.0 == cmd.tab) {
+            return ActionResult::fatal(
+                "TAB_NOT_FOUND",
+                format!("tab '{}' not found in session '{}'", cmd.tab, cmd.session),
+            );
+        }
 
         cdp_port = entry.cdp_port;
-        target_id = tab.target_id.clone();
         cdp = entry.cdp.clone();
     }
 
     // Detach from the persistent CDP session before closing
-    if let Some(ref cdp) = cdp
-        && !target_id.is_empty()
-    {
-        let _ = cdp.detach(&target_id).await;
+    if let Some(ref cdp) = cdp {
+        let _ = cdp.detach(&cmd.tab).await;
     }
 
     // Close the CDP target
-    if !target_id.is_empty() {
-        let close_url = format!(
-            "http://127.0.0.1:{}/json/close/{}",
-            cdp_port, target_id
-        );
-        let _ = reqwest::Client::new().put(&close_url).send().await;
-    }
+    let close_url = format!(
+        "http://127.0.0.1:{}/json/close/{}",
+        cdp_port, cmd.tab
+    );
+    let _ = reqwest::Client::new().put(&close_url).send().await;
 
     // Remove from registry
     {
         let mut reg = registry.lock().await;
         if let Some(entry) = reg.get_mut(&cmd.session) {
-            entry.tabs.retain(|t| t.id.to_string() != cmd.tab);
+            entry.tabs.retain(|t| t.id.0 != cmd.tab);
         }
     }
 

@@ -28,7 +28,6 @@ pub struct Cmd {
 pub const COMMAND_NAME: &str = "browser.new-tab";
 
 pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
-    // Special case like browser start: returns context with newly created tab_id
     if let ActionResult::Ok { data } = result {
         Some(ResponseContext {
             session_id: cmd.session.clone(),
@@ -95,10 +94,7 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         .map(|s| s.to_string())
         .unwrap_or_default();
 
-    // Wait for page to load
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-
-    let (tab_id, cdp) = {
+    let cdp = {
         let mut reg = registry.lock().await;
         let entry = match reg.get_mut(&cmd.session) {
             Some(e) => e,
@@ -109,41 +105,29 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                 );
             }
         };
-        let tid = TabId(entry.next_tab_id);
-        entry.next_tab_id += 1;
         entry.tabs.push(TabEntry {
-            id: tid,
-            target_id: target_id.clone(),
+            id: TabId(target_id.clone()),
             url: final_url.clone(),
             title: title.clone(),
         });
-        (tid, entry.cdp.clone())
+        entry.cdp.clone()
     };
 
     // Attach the new tab to the persistent CDP session
-    if let Some(ref cdp) = cdp
-        && !target_id.is_empty()
-    {
+    if let Some(ref cdp) = cdp {
         if let Err(e) = cdp.attach(&target_id).await {
             return ActionResult::fatal(
                 "CDP_ERROR",
-                format!("failed to attach tab {} to CDP session: {e}", tab_id),
+                format!("failed to attach tab to CDP session: {e}"),
             );
         }
     }
 
-    let native_tab_id: serde_json::Value = if target_id.is_empty() {
-        serde_json::Value::Null
-    } else {
-        json!(target_id)
-    };
-
     ActionResult::ok(json!({
         "tab": {
-            "tab_id": tab_id.to_string(),
+            "tab_id": target_id,
             "url": final_url,
             "title": title,
-            "native_tab_id": native_tab_id,
         },
         "created": true,
         "new_window": cmd.new_window,
