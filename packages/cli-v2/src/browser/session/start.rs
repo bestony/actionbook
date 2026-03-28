@@ -97,7 +97,10 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     }
 
     // Parse headers from "KEY:VALUE" strings
-    let headers = parse_headers(&cmd.header);
+    let headers = match parse_headers(&cmd.header) {
+        Ok(h) => h,
+        Err(e) => return e,
+    };
 
     // ── Cloud mode ──────────────────────────────────────────────────
     if mode == Mode::Cloud {
@@ -771,11 +774,25 @@ fn make_session_response(
 }
 
 /// Parse "KEY:VALUE" header strings into (key, value) tuples.
-fn parse_headers(raw: &[String]) -> Vec<(String, String)> {
+/// Returns error for malformed headers (missing colon, empty key).
+fn parse_headers(raw: &[String]) -> Result<Vec<(String, String)>, ActionResult> {
     raw.iter()
-        .filter_map(|h| {
-            let (k, v) = h.split_once(':')?;
-            Some((k.trim().to_string(), v.trim().to_string()))
+        .map(|h| {
+            let (key, value) = h.split_once(':').ok_or_else(|| {
+                ActionResult::fatal(
+                    "INVALID_ARGUMENT",
+                    format!("invalid header format, expected KEY:VALUE"),
+                )
+            })?;
+            let key = key.trim().to_string();
+            let value = value.trim().to_string();
+            if key.is_empty() {
+                return Err(ActionResult::fatal(
+                    "INVALID_ARGUMENT",
+                    "header key must not be empty".to_string(),
+                ));
+            }
+            Ok((key, value))
         })
         .collect()
 }
