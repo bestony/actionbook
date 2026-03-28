@@ -377,6 +377,7 @@ fn lifecycle_close_s1t2_closes_all_json() {
         return;
     }
     let (sid, _t1) = start_session(&url_a());
+    let _guard = SessionGuard::new(&sid); // safety net on panic
     let url = url_a();
     let _t2 = new_tab_json(&sid, &url);
 
@@ -395,6 +396,7 @@ fn lifecycle_close_s1t2_closes_all_text() {
         return;
     }
     let (sid, _t1) = start_session(&url_a());
+    let _guard = SessionGuard::new(&sid);
     let url = url_a();
     let _t2 = new_tab_json(&sid, &url);
 
@@ -418,6 +420,7 @@ fn lifecycle_double_close_json() {
         return;
     }
     let (sid, _tid) = start_session(&url_a());
+    let _guard = SessionGuard::new(&sid); // safety net if first close panics
 
     let out = headless(&["browser", "close", "--session", &sid], 30);
     assert_success(&out, "first close");
@@ -441,6 +444,7 @@ fn lifecycle_double_close_text() {
         return;
     }
     let (sid, _tid) = start_session(&url_a());
+    let _guard = SessionGuard::new(&sid);
 
     let out = headless(&["browser", "close", "--session", &sid], 30);
     assert_success(&out, "first close");

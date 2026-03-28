@@ -1297,7 +1297,61 @@ fn cloud_restart_preserves_endpoint_and_headers_json() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// Group 12: Daemon crash recovery (SoloEnv)
+// Group 12a: Daemon crash recovery — reconnect (SoloEnv)
+// ═══════════════════════════════════════════════════════════════════
+
+#[test]
+fn cloud_crash_recovery_reconnect() {
+    if skip() {
+        return;
+    }
+    // SoloEnv because we kill the daemon to simulate crash.
+    let env = SoloEnv::new();
+    let (mut chrome, ws_url) = launch_simulated_cloud();
+
+    let out = env.headless_json(
+        &[
+            "browser",
+            "start",
+            "--mode",
+            "cloud",
+            "--cdp-endpoint",
+            &ws_url,
+        ],
+        30,
+    );
+    assert_success(&out, "cloud start");
+
+    // Kill Chrome, then launch a fresh one on a new port.
+    let _ = chrome.child.kill();
+    let _ = chrome.child.wait();
+    let (_chrome2, ws_url2) = launch_simulated_cloud();
+
+    // Start a new session to the fresh endpoint — should work cleanly
+    // after the daemon auto-restarts.
+    let out = env.headless_json(
+        &[
+            "browser",
+            "start",
+            "--mode",
+            "cloud",
+            "--cdp-endpoint",
+            &ws_url2,
+        ],
+        30,
+    );
+    assert_success(&out, "start after daemon crash");
+    let v = parse_json(&out);
+    assert_cloud_session(&v);
+    let sid2 = v["data"]["session"]["session_id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let _ = env.headless(&["browser", "close", "--session", &sid2], 10);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Group 12b: Daemon crash recovery — endpoint gone (SoloEnv)
 // ═══════════════════════════════════════════════════════════════════
 
 #[test]
@@ -1336,22 +1390,42 @@ fn cloud_crash_recovery_endpoint_gone() {
         ],
         15,
     );
-    // After killing Chrome, the command may fail with JSON error or empty stdout
-    // (daemon itself may crash or return nothing). Both are acceptable.
-    if out.status.success() {
-        // Reused existing (now-dead) session — acceptable
+    // After killing Chrome, the CLI must either:
+    // (a) Return a connection error (CDP_CONNECTION_FAILED / CLOUD_CONNECTION_LOST), or
+    // (b) Exit non-zero (daemon itself may crash with no JSON output).
+    // It must NOT succeed with ok=true and a new functional session.
+    let stdout = stdout_str(&out);
+    if stdout.is_empty() {
+        // Daemon crashed — non-zero exit with no output is acceptable.
+        assert!(
+            !out.status.success(),
+            "empty stdout must come with non-zero exit"
+        );
     } else {
-        let stdout = stdout_str(&out);
-        if !stdout.is_empty() {
-            let v = parse_json(&out);
-            assert_eq!(v["ok"], false);
+        let v = parse_json(&out);
+        if v["ok"].as_bool() == Some(true) {
+            // Reused existing session — verify it's actually dead by trying eval.
+            let sid = v["data"]["session"]["session_id"].as_str().unwrap_or("");
+            let tid = v["data"]["tab"]["tab_id"].as_str().unwrap_or("");
+            if !sid.is_empty() && !tid.is_empty() {
+                let eval_out = env.headless_json(
+                    &["browser", "eval", "1+1", "--session", sid, "--tab", tid],
+                    10,
+                );
+                // The eval should fail since Chrome is dead.
+                assert!(
+                    !eval_out.status.success(),
+                    "eval on dead cloud session should fail"
+                );
+            }
+        } else {
+            // JSON error — verify it's a connection error.
             let code = v["error"]["code"].as_str().unwrap_or("");
             assert!(
                 code == "CDP_CONNECTION_FAILED" || code == "CLOUD_CONNECTION_LOST",
                 "expected connection error, got: {code}"
             );
         }
-        // Empty stdout with non-zero exit is also acceptable (daemon crashed)
     }
 }
 

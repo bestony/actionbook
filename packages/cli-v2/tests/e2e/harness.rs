@@ -101,7 +101,9 @@ impl SoloEnv {
 
 impl Drop for SoloEnv {
     fn drop(&mut self) {
-        // Kill this env's daemon and Chrome processes.
+        // Kill this env's daemon and Chrome processes, wait for exit,
+        // then clean up socket/ready/pid files (SIGKILL prevents daemon's
+        // own cleanup path from running).
         let dir = std::path::Path::new(&self.actionbook_home);
         let pid_path = dir.join("daemon.pid");
         if let Ok(pid_str) = std::fs::read_to_string(&pid_path)
@@ -110,6 +112,18 @@ impl Drop for SoloEnv {
             let _ = std::process::Command::new("kill")
                 .args(["-9", &pid.to_string()])
                 .output();
+            // Wait for the process to actually exit before cleaning up files.
+            let start = std::time::Instant::now();
+            while start.elapsed() < Duration::from_secs(3) {
+                // kill -0 checks if process exists without sending a signal.
+                let status = std::process::Command::new("kill")
+                    .args(["-0", &pid.to_string()])
+                    .output();
+                if status.is_err() || !status.unwrap().status.success() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
         }
         let profiles_dir = dir.join("profiles");
         if profiles_dir.exists() {
@@ -117,6 +131,10 @@ impl Drop for SoloEnv {
                 .args(["-f", &format!("--user-data-dir={}", profiles_dir.display())])
                 .output();
         }
+        // Clean up daemon files that SIGKILL leaves behind.
+        let _ = std::fs::remove_file(dir.join("daemon.sock"));
+        let _ = std::fs::remove_file(dir.join("daemon.ready"));
+        let _ = std::fs::remove_file(dir.join("daemon.pid"));
     }
 }
 
