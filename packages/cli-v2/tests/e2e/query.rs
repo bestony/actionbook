@@ -8,6 +8,7 @@ use crate::harness::{
 const SINGLE_QUERY: &str = ".single";
 const ITEMS_QUERY: &str = ".item";
 const MISSING_QUERY: &str = ".missing";
+const DISABLED_QUERY: &str = ".disabled-item";
 
 fn start_session() -> (String, String) {
     let out = headless_json(
@@ -384,6 +385,47 @@ fn query_all_empty_json() {
     assert_eq!(v["data"]["query"], MISSING_QUERY);
     assert_eq!(v["data"]["count"], 0);
     assert_eq!(v["data"]["items"], serde_json::json!([]));
+}
+
+#[test]
+fn query_one_disabled_json_happy_path() {
+    if skip() {
+        return;
+    }
+
+    let (sid, tid) = start_session();
+    let _guard = SessionGuard::new(&sid);
+    inject_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "query",
+            "one",
+            DISABLED_QUERY,
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        10,
+    );
+    assert_success(&out, "query disabled json");
+    let v = parse_json(&out);
+
+    assert_eq!(v["command"], "browser.query");
+    assert_eq!(v["ok"], true);
+    assert_eq!(v["data"]["mode"], "one");
+    assert_eq!(v["data"]["query"], DISABLED_QUERY);
+    assert_eq!(v["data"]["count"], 1);
+    assert_query_item(
+        &v["data"]["item"],
+        ".disabled-item:nth-of-type(2)",
+        "button",
+        "Disabled CTA",
+        true,
+        false,
+    );
 }
 
 #[test]
