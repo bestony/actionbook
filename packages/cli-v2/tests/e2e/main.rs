@@ -16,5 +16,6 @@ mod inspect_point;
 mod interaction;
 mod navigation;
 mod page_info;
+mod screenshot;
 mod snapshot;
 mod tab_management;

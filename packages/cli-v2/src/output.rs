@@ -198,6 +198,7 @@ pub fn format_text(
                     | "browser.click"
                     | "browser.type"
                     | "browser.fill"
+                    | "browser.screenshot"
                     | "browser.select"
                     | "browser.new-tab"
                     | "browser.close-tab"
@@ -365,6 +366,11 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 data.pointer("/target/coordinates").and_then(|v| v.as_str())
             {
                 lines.push(format!("target: {coords}"));
+            }
+        }
+        "browser.screenshot" => {
+            if let Some(path) = data.pointer("/artifact/path").and_then(|v| v.as_str()) {
+                lines.push(format!("path: {path}"));
             }
         }
         "browser.snapshot" => {

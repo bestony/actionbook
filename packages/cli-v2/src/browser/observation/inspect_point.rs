@@ -208,7 +208,7 @@ async fn get_ax_info_for_backend_node(
     };
 
     // Assign stable ref from RefCache
-    let selector = ref_cache.get_or_assign(backend_node_id);
+    let selector = ref_cache.get_or_assign(backend_node_id, &role, &name);
 
     Ok(json!({
         "role": role,
@@ -306,9 +306,9 @@ async fn collect_parents(
         // Use backendDOMNodeId for stable ref assignment
         let backend_dom_id = parent_node["backendDOMNodeId"].as_i64().unwrap_or(0);
         let selector = if backend_dom_id != 0 {
-            ref_cache.get_or_assign(backend_dom_id)
+            ref_cache.get_or_assign(backend_dom_id, &role, &name)
         } else {
-            ref_cache.get_or_assign(parent_idx as i64)
+            ref_cache.get_or_assign(parent_idx as i64, &role, &name)
         };
 
         parents.push(json!({

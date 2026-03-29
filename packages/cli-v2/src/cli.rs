@@ -6,16 +6,6 @@ use crate::browser::{interaction, navigation, observation, session, tab};
 use crate::output::ResponseContext;
 use crate::setup;
 
-fn tab_context(session: &str, tab: &str) -> Option<ResponseContext> {
-    Some(ResponseContext {
-        session_id: session.to_string(),
-        tab_id: Some(tab.to_string()),
-        window_id: None,
-        url: None,
-        title: None,
-    })
-}
-
 #[derive(Parser, Debug)]
 #[command(
     name = "actionbook",
@@ -109,16 +99,7 @@ pub enum BrowserCommands {
     /// Inspect element at coordinates
     InspectPoint(observation::inspect_point::Cmd),
     /// Take screenshot
-    Screenshot {
-        /// Output file path
-        path: String,
-        /// Session ID
-        #[arg(long)]
-        session: String,
-        /// Tab ID
-        #[arg(long)]
-        tab: String,
-    },
+    Screenshot(observation::screenshot::Cmd),
 
     // ── Interaction ────────────────────────────────────────────
     /// Evaluate JavaScript
@@ -163,12 +144,12 @@ impl BrowserCommands {
             Self::Url(cmd) => Action::Url(cmd.clone()),
             Self::Viewport(cmd) => Action::Viewport(cmd.clone()),
             Self::InspectPoint(cmd) => Action::InspectPoint(cmd.clone()),
+            Self::Screenshot(cmd) => Action::Screenshot(cmd.clone()),
             Self::Eval(cmd) => Action::Eval(cmd.clone()),
             Self::Click(cmd) => Action::Click(cmd.clone()),
             Self::Type(cmd) => Action::Type(cmd.clone()),
             Self::Fill(cmd) => Action::Fill(cmd.clone()),
             Self::Select(cmd) => Action::Select(cmd.clone()),
-            _ => return None,
         })
     }
 
@@ -192,7 +173,7 @@ impl BrowserCommands {
             Self::Url(_) => observation::url::COMMAND_NAME,
             Self::Viewport(_) => observation::viewport::COMMAND_NAME,
             Self::InspectPoint(_) => observation::inspect_point::COMMAND_NAME,
-            Self::Screenshot { .. } => "browser.screenshot",
+            Self::Screenshot(_) => observation::screenshot::COMMAND_NAME,
             Self::Eval(_) => interaction::eval::COMMAND_NAME,
             Self::Click(_) => interaction::click::COMMAND_NAME,
             Self::Fill(_) => interaction::fill::COMMAND_NAME,
@@ -244,7 +225,7 @@ impl BrowserCommands {
             Self::Type(cmd) => interaction::type_text::context(cmd, result),
             Self::Fill(cmd) => interaction::fill::context(cmd, result),
             Self::Select(cmd) => interaction::select::context(cmd, result),
-            Self::Screenshot { session, tab, .. } => tab_context(session, tab),
+            Self::Screenshot(cmd) => observation::screenshot::context(cmd, result),
         }
     }
 }
