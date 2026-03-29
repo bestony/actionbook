@@ -171,6 +171,13 @@ async fn resolve_xpath(
     target_id: &str,
     selector: &str,
 ) -> Result<i64, ActionResult> {
+    // Materialize the DOM tree for this target before converting a runtime
+    // node handle back into a DOM nodeId. Without this, DOM.requestNode can
+    // return nodeId=0 for otherwise valid XPath matches.
+    cdp.execute_on_tab(target_id, "DOM.getDocument", json!({}))
+        .await
+        .map_err(|e| cdp_error_to_result(e, "CDP_ERROR"))?;
+
     let xpath_json = serde_json::to_string(selector).unwrap_or_default();
     let js = format!(
         r#"(() => {{

@@ -112,6 +112,44 @@ fn html_json_selector_happy_path() {
 }
 
 #[test]
+fn html_json_xpath_selector_happy_path() {
+    if skip() {
+        return;
+    }
+
+    let (sid, tid) = start_session();
+    let _guard = SessionGuard::new(&sid);
+    inject_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "html",
+            "//*[@id='reader']",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        10,
+    );
+    assert_success(&out, "html xpath json");
+    let v = parse_json(&out);
+
+    assert_eq!(v["command"], "browser.html");
+    assert_eq!(v["ok"], true);
+    assert!(v["error"].is_null());
+    assert_meta(&v);
+    assert_eq!(v["context"]["session_id"], sid);
+    assert_eq!(v["context"]["tab_id"], tid);
+    assert_eq!(v["data"]["target"]["selector"], "//*[@id='reader']");
+    let html = v["data"]["value"].as_str().unwrap_or("");
+    assert!(html.contains("<main id=\"reader\">"));
+    assert!(html.contains("Story Title"));
+    assert!(html.contains("user@example.com"));
+}
+
+#[test]
 fn html_json_full_page_happy_path() {
     if skip() {
         return;
