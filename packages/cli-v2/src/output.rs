@@ -126,7 +126,7 @@ impl JsonEnvelope {
                 details,
             } => {
                 // CloudConnectionLost is retryable despite being Fatal variant
-                let retryable = code == "CLOUD_CONNECTION_LOST";
+                let retryable = matches!(code.as_str(), "CLOUD_CONNECTION_LOST" | "TIMEOUT");
                 Self::error(
                     command,
                     context,
@@ -211,6 +211,10 @@ pub fn format_text(
                     | "browser.new-tab"
                     | "browser.close-tab"
                     | "browser.pdf"
+                    | "browser.wait.element"
+                    | "browser.wait.navigation"
+                    | "browser.wait.network-idle"
+                    | "browser.wait.condition"
             );
 
             if is_action {
@@ -660,6 +664,30 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                     let text = item.get("text").and_then(|v| v.as_str()).unwrap_or("");
                     lines.push(format!("{level} {ts} {source} {text}"));
                 }
+            }
+        }
+        "browser.wait.element" => {
+            if let Some(ms) = data.get("elapsed_ms").and_then(|v| v.as_u64()) {
+                lines.push(format!("elapsed_ms: {ms}"));
+            }
+            if let Some(sel) = data
+                .pointer("/observed_value/selector")
+                .and_then(|v| v.as_str())
+            {
+                lines.push(format!("target: {sel}"));
+            }
+        }
+        "browser.wait.navigation" | "browser.wait.network-idle" => {
+            if let Some(ms) = data.get("elapsed_ms").and_then(|v| v.as_u64()) {
+                lines.push(format!("elapsed_ms: {ms}"));
+            }
+        }
+        "browser.wait.condition" => {
+            if let Some(ms) = data.get("elapsed_ms").and_then(|v| v.as_u64()) {
+                lines.push(format!("elapsed_ms: {ms}"));
+            }
+            if let Some(val) = data.get("observed_value") {
+                lines.push(format!("observed_value: {}", text_scalar(val)));
             }
         }
         "browser.eval" => {

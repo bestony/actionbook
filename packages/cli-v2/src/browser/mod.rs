@@ -4,3 +4,4 @@ pub mod navigation;
 pub mod observation;
 pub mod session;
 pub mod tab;
+pub mod wait;

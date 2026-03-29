@@ -2,7 +2,7 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::action::Action;
 use crate::action_result::ActionResult;
-use crate::browser::{interaction, navigation, observation, session, tab};
+use crate::browser::{interaction, navigation, observation, session, tab, wait};
 use crate::output::ResponseContext;
 use crate::setup;
 
@@ -147,6 +147,13 @@ Examples:
   actionbook browser screenshot /tmp/page.png --session s1 --tab t1")]
     Screenshot(observation::screenshot::Cmd),
 
+    // ── Wait ───────────────────────────────────────────────────
+    /// Wait for a browser condition
+    Wait {
+        #[command(subcommand)]
+        command: WaitCommands,
+    },
+
     // ── Interaction ────────────────────────────────────────────
     /// Evaluate JavaScript
     Eval(interaction::eval::Cmd),
@@ -174,6 +181,20 @@ Examples:
     CursorPosition(interaction::cursor_position::Cmd),
     /// Scroll the page or a container
     Scroll(interaction::scroll::Cmd),
+}
+
+#[derive(Subcommand, Debug)]
+#[command(disable_help_subcommand = true)]
+pub enum WaitCommands {
+    /// Wait for a CSS selector to appear in the DOM
+    Element(wait::element::Cmd),
+    /// Wait for a navigation to complete
+    Navigation(wait::navigation::Cmd),
+    /// Wait for network activity to become idle
+    #[command(name = "network-idle")]
+    NetworkIdle(wait::network_idle::Cmd),
+    /// Wait for a JavaScript expression to become truthy
+    Condition(wait::condition::Cmd),
 }
 
 #[derive(Subcommand, Debug)]
@@ -231,6 +252,12 @@ impl BrowserCommands {
                 LogsCommands::Console(cmd) => Action::LogsConsole(cmd.clone()),
                 LogsCommands::Errors(cmd) => Action::LogsErrors(cmd.clone()),
             },
+            Self::Wait { command } => match command {
+                WaitCommands::Element(cmd) => Action::WaitElement(cmd.clone()),
+                WaitCommands::Navigation(cmd) => Action::WaitNavigation(cmd.clone()),
+                WaitCommands::NetworkIdle(cmd) => Action::WaitNetworkIdle(cmd.clone()),
+                WaitCommands::Condition(cmd) => Action::WaitCondition(cmd.clone()),
+            },
             Self::Screenshot(cmd) => Action::Screenshot(cmd.clone()),
             Self::Eval(cmd) => Action::Eval(cmd.clone()),
             Self::Click(cmd) => Action::Click(cmd.clone()),
@@ -284,6 +311,12 @@ impl BrowserCommands {
                 LogsCommands::Console(_) => observation::logs_console::COMMAND_NAME,
                 LogsCommands::Errors(_) => observation::logs_errors::COMMAND_NAME,
             },
+            Self::Wait { command } => match command {
+                WaitCommands::Element(_) => wait::element::COMMAND_NAME,
+                WaitCommands::Navigation(_) => wait::navigation::COMMAND_NAME,
+                WaitCommands::NetworkIdle(_) => wait::network_idle::COMMAND_NAME,
+                WaitCommands::Condition(_) => wait::condition::COMMAND_NAME,
+            },
             Self::Screenshot(_) => observation::screenshot::COMMAND_NAME,
             Self::Eval(_) => interaction::eval::COMMAND_NAME,
             Self::Click(_) => interaction::click::COMMAND_NAME,
@@ -333,6 +366,12 @@ impl BrowserCommands {
             Self::Logs { command } => match command {
                 LogsCommands::Console(cmd) => observation::logs_console::context(cmd, result),
                 LogsCommands::Errors(cmd) => observation::logs_errors::context(cmd, result),
+            },
+            Self::Wait { command } => match command {
+                WaitCommands::Element(cmd) => wait::element::context(cmd, result),
+                WaitCommands::Navigation(cmd) => wait::navigation::context(cmd, result),
+                WaitCommands::NetworkIdle(cmd) => wait::network_idle::context(cmd, result),
+                WaitCommands::Condition(cmd) => wait::condition::context(cmd, result),
             },
             Self::Eval(cmd) => interaction::eval::context(cmd, result),
             Self::Back(a) => navigation::back::context(

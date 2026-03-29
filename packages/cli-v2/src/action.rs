@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::browser::{interaction, navigation, observation, session, tab};
+use crate::browser::{interaction, navigation, observation, session, tab, wait};
 
 /// CLI → Daemon action protocol. Each variant wraps the command's Cmd type.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +44,12 @@ pub enum Action {
     Pdf(observation::pdf::Cmd),
     LogsConsole(observation::logs_console::Cmd),
     LogsErrors(observation::logs_errors::Cmd),
+
+    // ── Wait ───────────────────────────────────────────────────
+    WaitElement(wait::element::Cmd),
+    WaitNavigation(wait::navigation::Cmd),
+    WaitNetworkIdle(wait::network_idle::Cmd),
+    WaitCondition(wait::condition::Cmd),
 
     // ── Interaction ────────────────────────────────────────────
     Eval(interaction::eval::Cmd),
@@ -96,6 +102,10 @@ impl Action {
             Action::Pdf(_) => observation::pdf::COMMAND_NAME,
             Action::LogsConsole(_) => observation::logs_console::COMMAND_NAME,
             Action::LogsErrors(_) => observation::logs_errors::COMMAND_NAME,
+            Action::WaitElement(_) => wait::element::COMMAND_NAME,
+            Action::WaitNavigation(_) => wait::navigation::COMMAND_NAME,
+            Action::WaitNetworkIdle(_) => wait::network_idle::COMMAND_NAME,
+            Action::WaitCondition(_) => wait::condition::COMMAND_NAME,
             Action::Eval(_) => interaction::eval::COMMAND_NAME,
             Action::Click(_) => interaction::click::COMMAND_NAME,
             Action::Hover(_) => interaction::hover::COMMAND_NAME,

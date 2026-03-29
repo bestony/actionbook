@@ -44,6 +44,12 @@ pub async fn route(action: &Action, registry: &SharedRegistry) -> ActionResult {
         Action::LogsErrors(cmd) => {
             browser::observation::logs_errors::execute(cmd, registry).await
         }
+        Action::WaitElement(cmd) => browser::wait::element::execute(cmd, registry).await,
+        Action::WaitNavigation(cmd) => browser::wait::navigation::execute(cmd, registry).await,
+        Action::WaitNetworkIdle(cmd) => {
+            browser::wait::network_idle::execute(cmd, registry).await
+        }
+        Action::WaitCondition(cmd) => browser::wait::condition::execute(cmd, registry).await,
         Action::Eval(cmd) => browser::interaction::eval::execute(cmd, registry).await,
         Action::Click(cmd) => browser::interaction::click::execute(cmd, registry).await,
         Action::Hover(cmd) => browser::interaction::hover::execute(cmd, registry).await,
