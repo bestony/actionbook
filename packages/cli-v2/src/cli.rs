@@ -122,34 +122,13 @@ pub enum BrowserCommands {
     /// Evaluate JavaScript
     Eval(interaction::eval::Cmd),
     /// Click an element
-    Click {
-        /// Selector
-        selector: String,
-        #[arg(long)]
-        session: String,
-        #[arg(long)]
-        tab: String,
-    },
+    Click(interaction::click::Cmd),
     /// Fill an input field
-    Fill {
-        /// Selector
-        selector: String,
-        /// Value to fill
-        value: String,
-        #[arg(long)]
-        session: String,
-        #[arg(long)]
-        tab: String,
-    },
+    Fill(interaction::fill::Cmd),
     /// Type text (keystroke by keystroke)
-    Type {
-        /// Text to type
-        text: String,
-        #[arg(long)]
-        session: String,
-        #[arg(long)]
-        tab: String,
-    },
+    Type(interaction::type_text::Cmd),
+    /// Select a value from a dropdown
+    Select(interaction::select::Cmd),
 }
 
 impl BrowserCommands {
@@ -182,6 +161,10 @@ impl BrowserCommands {
             Self::Url(cmd) => Action::Url(cmd.clone()),
             Self::Viewport(cmd) => Action::Viewport(cmd.clone()),
             Self::Eval(cmd) => Action::Eval(cmd.clone()),
+            Self::Click(cmd) => Action::Click(cmd.clone()),
+            Self::Type(cmd) => Action::Type(cmd.clone()),
+            Self::Fill(cmd) => Action::Fill(cmd.clone()),
+            Self::Select(cmd) => Action::Select(cmd.clone()),
             _ => return None,
         })
     }
@@ -207,9 +190,10 @@ impl BrowserCommands {
             Self::Viewport(_) => observation::viewport::COMMAND_NAME,
             Self::Screenshot { .. } => "browser.screenshot",
             Self::Eval(_) => interaction::eval::COMMAND_NAME,
-            Self::Click { .. } => "browser.click",
-            Self::Fill { .. } => "browser.fill",
-            Self::Type { .. } => "browser.type",
+            Self::Click(_) => interaction::click::COMMAND_NAME,
+            Self::Fill(_) => interaction::fill::COMMAND_NAME,
+            Self::Type(_) => interaction::type_text::COMMAND_NAME,
+            Self::Select(_) => interaction::select::COMMAND_NAME,
         }
     }
 
@@ -251,10 +235,11 @@ impl BrowserCommands {
                 },
                 result,
             ),
-            Self::Screenshot { session, tab, .. }
-            | Self::Click { session, tab, .. }
-            | Self::Fill { session, tab, .. }
-            | Self::Type { session, tab, .. } => tab_context(session, tab),
+            Self::Click(cmd) => interaction::click::context(cmd, result),
+            Self::Type(cmd) => interaction::type_text::context(cmd, result),
+            Self::Fill(cmd) => interaction::fill::context(cmd, result),
+            Self::Select(cmd) => interaction::select::context(cmd, result),
+            Self::Screenshot { session, tab, .. } => tab_context(session, tab),
         }
     }
 }

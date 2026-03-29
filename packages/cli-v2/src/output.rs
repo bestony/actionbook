@@ -196,7 +196,9 @@ pub fn format_text(
                     | "browser.forward"
                     | "browser.reload"
                     | "browser.click"
+                    | "browser.type"
                     | "browser.fill"
+                    | "browser.select"
                     | "browser.new-tab"
                     | "browser.close-tab"
             );
@@ -326,6 +328,43 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
         "browser.goto" | "browser.back" | "browser.forward" | "browser.reload" => {
             if let Some(title) = data.get("title").and_then(|v| v.as_str()) {
                 lines.push(format!("title: {title}"));
+            }
+        }
+        "browser.type" | "browser.fill" => {
+            if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
+                lines.push(format!("target: {sel}"));
+            }
+            if let Some(len) = data
+                .pointer("/value_summary/text_length")
+                .and_then(|v| v.as_u64())
+            {
+                lines.push(format!("text_length: {len}"));
+            }
+        }
+        "browser.select" => {
+            if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
+                lines.push(format!("target: {sel}"));
+            }
+            if let Some(val) = data
+                .pointer("/value_summary/value")
+                .and_then(|v| v.as_str())
+            {
+                lines.push(format!("value: {val}"));
+            }
+            if let Some(by_text) = data
+                .pointer("/value_summary/by_text")
+                .and_then(|v| v.as_bool())
+            {
+                lines.push(format!("by_text: {by_text}"));
+            }
+        }
+        "browser.click" => {
+            if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
+                lines.push(format!("target: {sel}"));
+            } else if let Some(coords) =
+                data.pointer("/target/coordinates").and_then(|v| v.as_str())
+            {
+                lines.push(format!("target: {coords}"));
             }
         }
         "browser.snapshot" => {

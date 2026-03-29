@@ -12,6 +12,7 @@
 mod browser_lifecycle;
 mod cloud_mode;
 mod harness;
+mod interaction;
 mod navigation;
 mod page_info;
 mod snapshot;
