@@ -13,7 +13,7 @@ use crate::output::ResponseContext;
 const DEFAULT_TIMEOUT_MS: u64 = 30_000;
 const POLL_INTERVAL_MS: u64 = 100;
 
-/// Wait for network activity to become idle (document.readyState complete)
+/// Wait for network activity to become idle
 #[derive(Args, Debug, Clone, Serialize, Deserialize)]
 #[command(after_help = "\
 Examples:
@@ -74,65 +74,119 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     };
 
     let timeout_ms = cmd.timeout.unwrap_or(DEFAULT_TIMEOUT_MS);
-    // Idle stabilisation window — resources completed within this many ms still count as
-    // "active" so transient quiet periods don't trigger a false-positive.
+    // Idle stabilisation window: no new requests for this long before we declare idle.
     let idle_window_ms: u64 = 500;
     let start = Instant::now();
 
-    // Three-layer network-idle check (JS-only, no CDP event subscription required):
-    // 1. document.readyState — page must be complete.
-    // 2. img.complete — any <img> element still loading means network is active.
-    // 3. Performance Resource Timing entries:
-    //    - responseEnd === 0 → in-flight (Chrome exposes these for resources that started
-    //      but haven't finished yet, matching W3C Resource Timing Level 2).
-    //    - responseEnd > 0 and within idle_window_ms → recently finished (cooling-down).
-    let js = format!(
-        r#"(function() {{
-            if (document.readyState !== 'complete') {{ return {{ pending: 1 }}; }}
-            var imgs = Array.prototype.slice.call(document.querySelectorAll('img'));
-            var unloaded = imgs.filter(function(i) {{ return !i.complete; }}).length;
-            if (unloaded > 0) {{ return {{ pending: unloaded }}; }}
-            var entries = performance.getEntriesByType('resource');
-            var now = performance.now();
-            var active = entries.filter(function(e) {{
-                return e.responseEnd === 0 || (now - e.responseEnd < {idle_window_ms});
-            }});
-            return {{ pending: active.length }};
-        }})()"#
-    );
+    // Resolve the CDP flat-session ID for event subscription.
+    let cdp_session_id = match cdp.get_cdp_session_id(&target_id).await {
+        Some(sid) => sid,
+        None => {
+            return ActionResult::fatal(
+                "INTERNAL_ERROR",
+                format!("no CDP session for target '{target_id}'"),
+            );
+        }
+    };
+
+    // Subscribe to Network domain events BEFORE enabling the domain to avoid a
+    // race where requests fire between Network.enable and our first poll.
+    let mut req_rx = cdp
+        .subscribe_events(&cdp_session_id, "Network.requestWillBeSent")
+        .await;
+    let mut finished_rx = cdp
+        .subscribe_events(&cdp_session_id, "Network.loadingFinished")
+        .await;
+    let mut failed_rx = cdp
+        .subscribe_events(&cdp_session_id, "Network.loadingFailed")
+        .await;
+    let mut cached_rx = cdp
+        .subscribe_events(&cdp_session_id, "Network.requestServedFromCache")
+        .await;
+
+    // Enable the Network domain on this tab.
+    let _ = cdp
+        .execute_on_tab(&target_id, "Network.enable", json!({}))
+        .await;
+
+    // JS guard: document.readyState must be complete and all DOM-attached <img>
+    // elements must be loaded.  This catches requests that were already in-flight
+    // before Network.enable was called, and same-document navigations where no
+    // Network events fire.
+    let js = r#"(function() {
+        if (document.readyState !== 'complete') { return { ready: false, unloaded_imgs: 1 }; }
+        var imgs = Array.prototype.slice.call(document.querySelectorAll('img'));
+        var unloaded = imgs.filter(function(i) { return !i.complete; }).length;
+        return { ready: true, unloaded_imgs: unloaded };
+    })()"#;
+
+    // in-flight request count tracked via CDP Network events.
+    let mut pending: i64 = 0;
+    // When pending first drops to 0 (and js_idle), we record the time.
+    // Idle is only declared after idle_window_ms passes with no new requests.
+    let mut quiet_start: Option<Instant> = None;
 
     loop {
-        let resp = cdp
+        // Drain Network events to update the in-flight request count.
+        while req_rx.try_recv().is_ok() {
+            pending += 1;
+            quiet_start = None; // new request resets the quiet window
+        }
+        while finished_rx.try_recv().is_ok() {
+            pending = (pending - 1).max(0);
+        }
+        while failed_rx.try_recv().is_ok() {
+            pending = (pending - 1).max(0);
+        }
+        // requestServedFromCache is the terminal event for cache-served requests
+        // (paired with requestWillBeSent, so we decrement pending).
+        while cached_rx.try_recv().is_ok() {
+            pending = (pending - 1).max(0);
+        }
+
+        // JS fallback: readyState + DOM-attached img.complete.
+        let js_idle = cdp
             .execute_on_tab(
                 &target_id,
                 "Runtime.evaluate",
                 json!({ "expression": js, "returnByValue": true }),
             )
-            .await;
-
-        let pending = resp
+            .await
             .ok()
-            .and_then(|v| {
-                v.pointer("/result/result/value")
-                    .and_then(|v| v.get("pending"))
+            .and_then(|v| v.pointer("/result/result/value").cloned())
+            .map(|rv| {
+                let ready = rv.get("ready").and_then(|v| v.as_bool()).unwrap_or(false);
+                let unloaded = rv
+                    .get("unloaded_imgs")
                     .and_then(|v| v.as_i64())
+                    .unwrap_or(1);
+                ready && unloaded == 0
             })
-            .unwrap_or(1);
+            .unwrap_or(false);
 
-        let idle = pending == 0;
-
-        if idle {
-            let elapsed_ms = start.elapsed().as_millis() as u64;
-            let url = navigation::get_tab_url(&cdp, &target_id).await;
-            let title = navigation::get_tab_title(&cdp, &target_id).await;
-            return ActionResult::ok(json!({
-                "kind": "network-idle",
-                "satisfied": true,
-                "elapsed_ms": elapsed_ms,
-                "observed_value": { "idle": true },
-                "__ctx_url": url,
-                "__ctx_title": title,
-            }));
+        if pending == 0 && js_idle {
+            let quiet_elapsed_ms = match quiet_start {
+                None => {
+                    quiet_start = Some(Instant::now());
+                    0
+                }
+                Some(qs) => qs.elapsed().as_millis() as u64,
+            };
+            if quiet_elapsed_ms >= idle_window_ms {
+                let elapsed_ms = start.elapsed().as_millis() as u64;
+                let url = navigation::get_tab_url(&cdp, &target_id).await;
+                let title = navigation::get_tab_title(&cdp, &target_id).await;
+                return ActionResult::ok(json!({
+                    "kind": "network-idle",
+                    "satisfied": true,
+                    "elapsed_ms": elapsed_ms,
+                    "observed_value": { "idle": true },
+                    "__ctx_url": url,
+                    "__ctx_title": title,
+                }));
+            }
+        } else {
+            quiet_start = None;
         }
 
         let elapsed = start.elapsed().as_millis() as u64;

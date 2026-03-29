@@ -20,6 +20,7 @@ use crate::error::CliError;
 
 type PendingResponseTx = oneshot::Sender<Result<Value, CliError>>;
 type PendingRequests = Arc<Mutex<HashMap<u64, PendingResponseTx>>>;
+type EventSubs = Arc<Mutex<HashMap<String, Vec<mpsc::Sender<Value>>>>>;
 
 /// Persistent CDP connection for a single browser session.
 ///
@@ -36,6 +37,8 @@ pub struct CdpSession {
     next_id: Arc<AtomicU64>,
     /// Mapping from CDP target_id → CDP sessionId (from Target.attachToTarget).
     tab_sessions: Arc<Mutex<HashMap<String, String>>>,
+    /// Event subscribers keyed by `"{cdp_session_id}:{method}"`.
+    event_subs: EventSubs,
 }
 
 impl CdpSession {
@@ -71,16 +74,19 @@ impl CdpSession {
         let pending: PendingRequests = Arc::new(Mutex::new(HashMap::new()));
         let next_id = Arc::new(AtomicU64::new(1));
         let (writer_tx, writer_rx) = mpsc::channel::<String>(64);
+        let event_subs: EventSubs = Arc::new(Mutex::new(HashMap::new()));
 
         tokio::spawn(Self::writer_loop(ws_writer, writer_rx));
         let pending_clone = pending.clone();
-        tokio::spawn(Self::reader_loop(ws_reader, pending_clone));
+        let event_subs_clone = event_subs.clone();
+        tokio::spawn(Self::reader_loop(ws_reader, pending_clone, event_subs_clone));
 
         Ok(CdpSession {
             writer_tx,
             pending,
             next_id,
             tab_sessions: Arc::new(Mutex::new(HashMap::new())),
+            event_subs,
         })
     }
 
@@ -168,6 +174,27 @@ impl CdpSession {
         self.execute(method, params, None).await
     }
 
+    /// Return the CDP flat-session ID for a target, or `None` if not attached.
+    pub async fn get_cdp_session_id(&self, target_id: &str) -> Option<String> {
+        self.tab_sessions.lock().await.get(target_id).cloned()
+    }
+
+    /// Subscribe to a CDP event for a specific flat-session.
+    ///
+    /// Returns a channel receiver that yields each matching event message.
+    /// Subscribe BEFORE enabling the relevant CDP domain to avoid races.
+    /// Dead receivers are removed lazily on the next event dispatch.
+    pub async fn subscribe_events(
+        &self,
+        cdp_session_id: &str,
+        method: &str,
+    ) -> mpsc::Receiver<Value> {
+        let key = format!("{cdp_session_id}:{method}");
+        let (tx, rx) = mpsc::channel(256);
+        self.event_subs.lock().await.entry(key).or_default().push(tx);
+        rx
+    }
+
     /// Low-level: send a CDP command and wait for its response.
     pub async fn execute(
         &self,
@@ -212,8 +239,8 @@ impl CdpSession {
         Ok(resp)
     }
 
-    /// Background task: read WS messages and route responses to pending callers.
-    async fn reader_loop<S>(mut reader: S, pending: PendingRequests)
+    /// Background task: read WS messages and route responses/events to callers.
+    async fn reader_loop<S>(mut reader: S, pending: PendingRequests, event_subs: EventSubs)
     where
         S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
     {
@@ -229,17 +256,26 @@ impl CdpSession {
                 Err(_) => continue,
             };
 
-            // Only route messages with an "id" field (responses).
-            // Messages without "id" are CDP events — ignored.
             if let Some(id) = resp.get("id").and_then(|v| v.as_u64()) {
+                // Response: route to the pending caller by message ID.
                 let mut map = pending.lock().await;
                 if let Some(tx) = map.remove(&id) {
                     let _ = tx.send(Ok(resp));
                 }
+            } else if let Some(method) = resp.get("method").and_then(|v| v.as_str()) {
+                // Event: route to subscribers keyed by "{sessionId}:{method}".
+                // Browser-level events have no sessionId → key is ":{method}".
+                let session_id = resp.get("sessionId").and_then(|v| v.as_str()).unwrap_or("");
+                let key = format!("{session_id}:{method}");
+                let mut subs = event_subs.lock().await;
+                if let Some(txs) = subs.get_mut(&key) {
+                    // try_send is non-blocking; retain removes closed receivers lazily.
+                    txs.retain(|tx| tx.try_send(resp.clone()).is_ok());
+                }
             }
         }
 
-        // Connection dropped — fail all pending requests
+        // Connection dropped — fail all pending requests.
         // Use generic CdpError here; cdp_error_to_result will upgrade to
         // CloudConnectionLost for cloud sessions based on session mode.
         let mut map = pending.lock().await;
@@ -608,6 +644,80 @@ mod tests {
         assert!(
             err.to_string().contains("no CDP session for target"),
             "error should mention missing session, got: {err}"
+        );
+    }
+
+    // ── 7. test_event_routing ─────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_event_routing() {
+        let (url, mut conns) = mock_ws_server().await;
+        let cdp = CdpSession::connect(&url).await.unwrap();
+        let (_, mut writer) = conns.recv().await.unwrap();
+
+        // Pre-populate a tab session to simulate attach
+        cdp.tab_sessions
+            .lock()
+            .await
+            .insert("TARGET_EV".to_string(), "SESSION_EV".to_string());
+
+        // Subscribe before the event arrives
+        let mut rx = cdp
+            .subscribe_events("SESSION_EV", "Network.requestWillBeSent")
+            .await;
+
+        // Server sends a CDP event (no id field)
+        send_json(
+            &mut writer,
+            json!({
+                "method": "Network.requestWillBeSent",
+                "sessionId": "SESSION_EV",
+                "params": { "requestId": "req-42" }
+            }),
+        )
+        .await;
+
+        let event =
+            tokio::time::timeout(std::time::Duration::from_secs(2), rx.recv())
+                .await
+                .expect("timed out waiting for event")
+                .expect("channel closed");
+
+        assert_eq!(event["method"], "Network.requestWillBeSent");
+        assert_eq!(event["params"]["requestId"], "req-42");
+    }
+
+    // ── 8. test_event_not_routed_to_wrong_session ─────────────────────
+
+    #[tokio::test]
+    async fn test_event_not_routed_to_wrong_session() {
+        let (url, mut conns) = mock_ws_server().await;
+        let cdp = CdpSession::connect(&url).await.unwrap();
+        let (_, mut writer) = conns.recv().await.unwrap();
+
+        // Subscribe to SESSION_A events
+        let mut rx_a = cdp
+            .subscribe_events("SESSION_A", "Network.requestWillBeSent")
+            .await;
+
+        // Send event for SESSION_B (different session)
+        send_json(
+            &mut writer,
+            json!({
+                "method": "Network.requestWillBeSent",
+                "sessionId": "SESSION_B",
+                "params": { "requestId": "req-99" }
+            }),
+        )
+        .await;
+
+        // Allow reader loop to process
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+        // SESSION_A subscriber must NOT receive SESSION_B event
+        assert!(
+            rx_a.try_recv().is_err(),
+            "should not receive event destined for a different session"
         );
     }
 }
