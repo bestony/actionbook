@@ -48,7 +48,7 @@ fn start_session() -> (String, String) {
 
 fn inject_fixture(sid: &str, tid: &str) {
     let js = r#"document.body.style.margin = '0';
-document.body.innerHTML = '<main id="reader"><h1>Story Title</h1><p>Primary article copy.</p><input id="email" value="user@example.com" aria-label="Email field" data-testid="email-input"></main>';
+document.body.innerHTML = '<main id="reader"><h1>Story Title</h1><p>Primary article copy.</p><input id="email" value="user@example.com" aria-label="Email field" data-testid="email-input"><div id="plain">Plain block</div></main>';
 document.title = 'Read Contract Fixture';
 void(0)"#;
     let out = headless_json(&["browser", "eval", js, "--session", sid, "--tab", tid], 10);
@@ -318,6 +318,87 @@ fn value_and_attr_json_and_text_happy_path() {
             .starts_with(&format!("[{sid} {tid}]"))
     );
     assert!(attr_text.contains("Email field"));
+}
+
+#[test]
+fn value_and_attr_return_null_when_property_or_attribute_absent() {
+    if skip() {
+        return;
+    }
+
+    let (sid, tid) = start_session();
+    let _guard = SessionGuard::new(&sid);
+    inject_fixture(&sid, &tid);
+
+    let value_out = headless_json(
+        &[
+            "browser",
+            "value",
+            "#plain",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        10,
+    );
+    assert_success(&value_out, "value null json");
+    let value_json = parse_json(&value_out);
+    assert_eq!(value_json["command"], "browser.value");
+    assert_eq!(value_json["data"]["target"]["selector"], "#plain");
+    assert!(value_json["data"]["value"].is_null());
+
+    let value_text_out = headless(
+        &[
+            "browser",
+            "value",
+            "#plain",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        10,
+    );
+    assert_success(&value_text_out, "value null text");
+    let value_text = stdout_str(&value_text_out);
+    assert!(value_text.contains("null"));
+
+    let attr_out = headless_json(
+        &[
+            "browser",
+            "attr",
+            EMAIL_SELECTOR,
+            "placeholder",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        10,
+    );
+    assert_success(&attr_out, "attr null json");
+    let attr_json = parse_json(&attr_out);
+    assert_eq!(attr_json["command"], "browser.attr");
+    assert_eq!(attr_json["data"]["target"]["selector"], EMAIL_SELECTOR);
+    assert!(attr_json["data"]["value"].is_null());
+
+    let attr_text_out = headless(
+        &[
+            "browser",
+            "attr",
+            EMAIL_SELECTOR,
+            "placeholder",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        10,
+    );
+    assert_success(&attr_text_out, "attr null text");
+    let attr_text = stdout_str(&attr_text_out);
+    assert!(attr_text.contains("null"));
 }
 
 #[test]

@@ -98,13 +98,8 @@ async fn get_value(
         .await
         .map_err(|e| cdp_error_to_result(e, "CDP_ERROR"))?;
 
-    let value = resp
+    Ok(resp
         .pointer("/result/result/value")
         .cloned()
-        .unwrap_or(Value::Null);
-    if value.is_null() {
-        Err(element::element_not_found(selector))
-    } else {
-        Ok(value)
-    }
+        .unwrap_or(Value::Null))
 }
