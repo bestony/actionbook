@@ -29,13 +29,26 @@ pub enum Action {
     Title(observation::title::Cmd),
     Url(observation::url::Cmd),
     Viewport(observation::viewport::Cmd),
+    Html(observation::html::Cmd),
+    Text(observation::text::Cmd),
+    Value(observation::value::Cmd),
+    Attr(observation::attr::Cmd),
+    InspectPoint(observation::inspect_point::Cmd),
 
     // ── Interaction ────────────────────────────────────────────
     Eval(interaction::eval::Cmd),
     Click(interaction::click::Cmd),
+    Hover(interaction::hover::Cmd),
+    Focus(interaction::focus::Cmd),
+    Press(interaction::press::Cmd),
     Type(interaction::type_text::Cmd),
     Fill(interaction::fill::Cmd),
     Select(interaction::select::Cmd),
+    Drag(interaction::drag::Cmd),
+    Upload(interaction::upload::Cmd),
+    MouseMove(interaction::mouse_move::Cmd),
+    CursorPosition(interaction::cursor_position::Cmd),
+    Scroll(interaction::scroll::Cmd),
 }
 
 impl Action {
@@ -58,11 +71,24 @@ impl Action {
             Action::Title(_) => observation::title::COMMAND_NAME,
             Action::Url(_) => observation::url::COMMAND_NAME,
             Action::Viewport(_) => observation::viewport::COMMAND_NAME,
+            Action::Html(_) => observation::html::COMMAND_NAME,
+            Action::Text(_) => observation::text::COMMAND_NAME,
+            Action::Value(_) => observation::value::COMMAND_NAME,
+            Action::Attr(_) => observation::attr::COMMAND_NAME,
+            Action::InspectPoint(_) => observation::inspect_point::COMMAND_NAME,
             Action::Eval(_) => interaction::eval::COMMAND_NAME,
             Action::Click(_) => interaction::click::COMMAND_NAME,
+            Action::Hover(_) => interaction::hover::COMMAND_NAME,
+            Action::Focus(_) => interaction::focus::COMMAND_NAME,
+            Action::Press(_) => interaction::press::COMMAND_NAME,
             Action::Type(_) => interaction::type_text::COMMAND_NAME,
             Action::Fill(_) => interaction::fill::COMMAND_NAME,
             Action::Select(_) => interaction::select::COMMAND_NAME,
+            Action::Drag(_) => interaction::drag::COMMAND_NAME,
+            Action::Upload(_) => interaction::upload::COMMAND_NAME,
+            Action::MouseMove(_) => interaction::mouse_move::COMMAND_NAME,
+            Action::CursorPosition(_) => interaction::cursor_position::COMMAND_NAME,
+            Action::Scroll(_) => interaction::scroll::COMMAND_NAME,
         }
     }
 }

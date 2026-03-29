@@ -196,9 +196,17 @@ pub fn format_text(
                     | "browser.forward"
                     | "browser.reload"
                     | "browser.click"
+                    | "browser.hover"
+                    | "browser.focus"
+                    | "browser.press"
                     | "browser.type"
                     | "browser.fill"
                     | "browser.select"
+                    | "browser.drag"
+                    | "browser.upload"
+                    | "browser.mouse-move"
+                    | "browser.cursor-position"
+                    | "browser.scroll"
                     | "browser.new-tab"
                     | "browser.close-tab"
             );
@@ -367,10 +375,76 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(format!("target: {coords}"));
             }
         }
+        "browser.hover" | "browser.focus" => {
+            if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
+                lines.push(format!("target: {sel}"));
+            }
+        }
+        "browser.mouse-move" => {
+            if let Some(coords) = data.pointer("/target/coordinates").and_then(|v| v.as_str()) {
+                lines.push(format!("target: {coords}"));
+            }
+        }
+        "browser.cursor-position" => {
+            if let Some(x) = data.get("x").and_then(|v| v.as_f64()) {
+                lines.push(format!("x: {}", x as i64));
+            }
+            if let Some(y) = data.get("y").and_then(|v| v.as_f64()) {
+                lines.push(format!("y: {}", y as i64));
+            }
+        }
+        "browser.scroll" => {
+            if let Some(dir) = data.get("direction").and_then(|v| v.as_str()) {
+                lines.push(format!("direction: {dir}"));
+            }
+            if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
+                lines.push(format!("target: {sel}"));
+            }
+            if let Some(container) = data.get("container").and_then(|v| v.as_str()) {
+                lines.push(format!("container: {container}"));
+            }
+        }
+        "browser.drag" => {
+            if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
+                lines.push(format!("target: {sel}"));
+            }
+            if let Some(sel) = data
+                .pointer("/destination/selector")
+                .and_then(|v| v.as_str())
+            {
+                lines.push(format!("destination: {sel}"));
+            } else if let Some(coords) = data
+                .pointer("/destination/coordinates")
+                .and_then(|v| v.as_str())
+            {
+                lines.push(format!("destination: {coords}"));
+            }
+        }
+        "browser.upload" => {
+            if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
+                lines.push(format!("target: {sel}"));
+            }
+            if let Some(count) = data
+                .pointer("/value_summary/count")
+                .and_then(|v| v.as_u64())
+            {
+                lines.push(format!("count: {count}"));
+            }
+        }
+        "browser.press" => {
+            if let Some(keys) = data.get("keys").and_then(|v| v.as_str()) {
+                lines.push(format!("keys: {keys}"));
+            }
+        }
         "browser.snapshot" => {
             // §10.1: text mode outputs content directly (no "ok" prefix)
             if let Some(content) = data.get("content").and_then(|v| v.as_str()) {
                 lines.push(content.to_string());
+            }
+        }
+        "browser.html" | "browser.text" | "browser.value" | "browser.attr" => {
+            if let Some(val) = data.get("value") {
+                lines.push(text_scalar(val));
             }
         }
         "browser.title" | "browser.url" => {
@@ -385,6 +459,31 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(format!("{w}x{h}"));
             }
         }
+        "browser.inspect-point" => {
+            // §10.11: role "name" / selector / point
+            if let Some(element) = data.get("element") {
+                let role = element.get("role").and_then(|v| v.as_str()).unwrap_or("");
+                let name = element.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                if !name.is_empty() {
+                    lines.push(format!("{role} \"{name}\""));
+                } else {
+                    lines.push(role.to_string());
+                }
+                if let Some(sel) = element.get("selector").and_then(|v| v.as_str()) {
+                    lines.push(format!("selector: {sel}"));
+                }
+            }
+            if let Some(point) = data.get("point") {
+                let x = point.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let y = point.get("y").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                // Format as integers if they are whole numbers
+                if x.fract() == 0.0 && y.fract() == 0.0 {
+                    lines.push(format!("point: {},{}", x as i64, y as i64));
+                } else {
+                    lines.push(format!("point: {x},{y}"));
+                }
+            }
+        }
         "browser.eval" => {
             if let Some(val) = data.get("value") {
                 lines.push(val.as_str().unwrap_or(&val.to_string()).to_string());
@@ -396,5 +495,15 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(s.to_string());
             }
         }
+    }
+}
+
+fn text_scalar(value: &Value) -> String {
+    match value {
+        Value::Null => "null".to_string(),
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        Value::Bool(b) => b.to_string(),
+        other => other.to_string(),
     }
 }
