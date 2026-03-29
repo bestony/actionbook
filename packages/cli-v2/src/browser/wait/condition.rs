@@ -98,8 +98,8 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                         n.as_f64().map(|f| f != 0.0).unwrap_or(false)
                     }
                     serde_json::Value::String(s) => !s.is_empty(),
-                    serde_json::Value::Array(a) => !a.is_empty(),
-                    serde_json::Value::Object(o) => !o.is_empty(),
+                    // Arrays and objects are always truthy in JS, even when empty.
+                    serde_json::Value::Array(_) | serde_json::Value::Object(_) => true,
                 })
                 .unwrap_or(false);
 

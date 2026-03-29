@@ -106,7 +106,9 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
 
                 let url_changed = current_url != initial_url.as_str();
 
-                if url_changed && ready_state == "complete" {
+                // Match reference: return on URL change OR readyState=complete.
+                // OR covers same-URL navigations/reloads where URL never changes.
+                if url_changed || ready_state == "complete" {
                     let elapsed_ms = start.elapsed().as_millis() as u64;
                     let title = nav_helpers::get_tab_title(&cdp, &target_id).await;
                     return ActionResult::ok(json!({

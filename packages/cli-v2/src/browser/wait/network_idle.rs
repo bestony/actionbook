@@ -74,11 +74,22 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     };
 
     let timeout_ms = cmd.timeout.unwrap_or(DEFAULT_TIMEOUT_MS);
+    // How long (ms) resources must be quiet before declaring idle — matches reference default.
+    let idle_window_ms: u64 = 500;
     let start = Instant::now();
 
-    // Poll document.readyState. 'complete' means the main document and all
-    // sub-resources have loaded, which corresponds to network idle for typical pages.
-    let js = r#"document.readyState === 'complete'"#;
+    // Use the Performance Resource Timing API to detect recent network activity.
+    // A resource with responseEnd within the last `idle_window_ms` means the network
+    // is still active. When no such entries exist the page is considered idle.
+    // This matches the actionbook-rs reference implementation.
+    let js = format!(
+        r#"(function() {{
+            var entries = performance.getEntriesByType('resource');
+            var now = performance.now();
+            var recent = entries.filter(function(e) {{ return now - e.responseEnd < {idle_window_ms}; }});
+            return {{ pending: recent.length }};
+        }})()"#
+    );
 
     loop {
         let resp = cdp
@@ -89,13 +100,16 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
             )
             .await;
 
-        let idle = resp
+        let pending = resp
             .ok()
             .and_then(|v| {
                 v.pointer("/result/result/value")
-                    .and_then(|v| v.as_bool())
+                    .and_then(|v| v.get("pending"))
+                    .and_then(|v| v.as_i64())
             })
-            .unwrap_or(false);
+            .unwrap_or(1);
+
+        let idle = pending == 0;
 
         if idle {
             let elapsed_ms = start.elapsed().as_millis() as u64;
