@@ -74,20 +74,30 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     };
 
     let timeout_ms = cmd.timeout.unwrap_or(DEFAULT_TIMEOUT_MS);
-    // How long (ms) resources must be quiet before declaring idle — matches reference default.
+    // Idle stabilisation window — resources completed within this many ms still count as
+    // "active" so transient quiet periods don't trigger a false-positive.
     let idle_window_ms: u64 = 500;
     let start = Instant::now();
 
-    // Use the Performance Resource Timing API to detect recent network activity.
-    // A resource with responseEnd within the last `idle_window_ms` means the network
-    // is still active. When no such entries exist the page is considered idle.
-    // This matches the actionbook-rs reference implementation.
+    // Three-layer network-idle check (JS-only, no CDP event subscription required):
+    // 1. document.readyState — page must be complete.
+    // 2. img.complete — any <img> element still loading means network is active.
+    // 3. Performance Resource Timing entries:
+    //    - responseEnd === 0 → in-flight (Chrome exposes these for resources that started
+    //      but haven't finished yet, matching W3C Resource Timing Level 2).
+    //    - responseEnd > 0 and within idle_window_ms → recently finished (cooling-down).
     let js = format!(
         r#"(function() {{
+            if (document.readyState !== 'complete') {{ return {{ pending: 1 }}; }}
+            var imgs = Array.prototype.slice.call(document.querySelectorAll('img'));
+            var unloaded = imgs.filter(function(i) {{ return !i.complete; }}).length;
+            if (unloaded > 0) {{ return {{ pending: unloaded }}; }}
             var entries = performance.getEntriesByType('resource');
             var now = performance.now();
-            var recent = entries.filter(function(e) {{ return now - e.responseEnd < {idle_window_ms}; }});
-            return {{ pending: recent.length }};
+            var active = entries.filter(function(e) {{
+                return e.responseEnd === 0 || (now - e.responseEnd < {idle_window_ms});
+            }});
+            return {{ pending: active.length }};
         }})()"#
     );
 
