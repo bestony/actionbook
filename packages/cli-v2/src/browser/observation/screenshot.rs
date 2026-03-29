@@ -109,17 +109,17 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     let title = crate::browser::navigation::get_tab_title(&cdp, &target_id).await;
 
     // Determine format
-    let format = cmd
-        .screenshot_format
-        .as_deref()
-        .map(|f| {
-            if f == "jpeg" || f == "jpg" {
-                "jpeg"
-            } else {
-                "png"
-            }
-        })
-        .unwrap_or_else(|| infer_format(&cmd.path));
+    let format = match cmd.screenshot_format.as_deref() {
+        Some("jpeg" | "jpg") => "jpeg",
+        Some("png") => "png",
+        Some(unknown) => {
+            return ActionResult::fatal(
+                "INVALID_ARGUMENT",
+                format!("unsupported screenshot format: '{unknown}' (supported: png, jpeg)"),
+            );
+        }
+        None => infer_format(&cmd.path),
+    };
 
     // Validate --full + --selector mutual exclusion
     if cmd.full && cmd.selector.is_some() {
