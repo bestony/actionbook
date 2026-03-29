@@ -517,6 +517,45 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 }
             }
         }
+        "browser.describe" => {
+            let summary = {
+                let role = data.get("role").and_then(|v| v.as_str()).unwrap_or("");
+                let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                if name.is_empty() {
+                    role.to_string()
+                } else {
+                    format!("{role} \"{name}\"")
+                }
+            };
+            lines.push(summary);
+            if let Some(nearby) = data.get("nearby").filter(|v| !v.is_null()) {
+                if let Some(p) = nearby.get("parent").and_then(|v| v.as_str()) {
+                    lines.push(format!("parent: {p}"));
+                }
+                if let Some(ps) = nearby.get("previous_sibling").and_then(|v| v.as_str()) {
+                    lines.push(format!("previous_sibling: {ps}"));
+                }
+                if let Some(ns) = nearby.get("next_sibling").and_then(|v| v.as_str()) {
+                    lines.push(format!("next_sibling: {ns}"));
+                }
+                if let Some(children) = nearby.get("children").and_then(|v| v.as_array()) {
+                    for child in children {
+                        if let Some(s) = child.as_str() {
+                            lines.push(format!("child: {s}"));
+                        }
+                    }
+                }
+            }
+        }
+        "browser.state" => {
+            for key in [
+                "visible", "enabled", "checked", "focused", "editable", "selected",
+            ] {
+                if let Some(val) = data.pointer(&format!("/state/{key}")) {
+                    lines.push(format!("{key}: {}", text_scalar(val)));
+                }
+            }
+        }
         "browser.inspect-point" => {
             // §10.11: role "name" / selector / point
             if let Some(element) = data.get("element") {

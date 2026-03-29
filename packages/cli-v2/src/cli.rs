@@ -120,6 +120,10 @@ pub enum BrowserCommands {
     Box(observation::r#box::Cmd),
     /// Read computed styles for an element
     Styles(observation::styles::Cmd),
+    /// Describe element properties and context
+    Describe(observation::describe::Cmd),
+    /// Get element state
+    State(observation::state::Cmd),
     /// Inspect element at coordinates
     InspectPoint(observation::inspect_point::Cmd),
     /// Take screenshot
@@ -199,6 +203,8 @@ impl BrowserCommands {
             Self::Attrs(cmd) => Action::Attrs(cmd.clone()),
             Self::Box(cmd) => Action::Box(cmd.clone()),
             Self::Styles(cmd) => Action::Styles(cmd.clone()),
+            Self::Describe(cmd) => Action::Describe(cmd.clone()),
+            Self::State(cmd) => Action::State(cmd.clone()),
             Self::InspectPoint(cmd) => Action::InspectPoint(cmd.clone()),
             Self::Eval(cmd) => Action::Eval(cmd.clone()),
             Self::Click(cmd) => Action::Click(cmd.clone()),
@@ -243,6 +249,8 @@ impl BrowserCommands {
             Self::Attrs(_) => observation::attrs::COMMAND_NAME,
             Self::Box(_) => observation::r#box::COMMAND_NAME,
             Self::Styles(_) => observation::styles::COMMAND_NAME,
+            Self::Describe(_) => observation::describe::COMMAND_NAME,
+            Self::State(_) => observation::state::COMMAND_NAME,
             Self::InspectPoint(_) => observation::inspect_point::COMMAND_NAME,
             Self::Screenshot { .. } => "browser.screenshot",
             Self::Eval(_) => interaction::eval::COMMAND_NAME,
@@ -284,6 +292,8 @@ impl BrowserCommands {
             Self::Attrs(cmd) => observation::attrs::context(cmd, result),
             Self::Box(cmd) => observation::r#box::context(cmd, result),
             Self::Styles(cmd) => observation::styles::context(cmd, result),
+            Self::Describe(cmd) => observation::describe::context(cmd, result),
+            Self::State(cmd) => observation::state::context(cmd, result),
             Self::InspectPoint(cmd) => observation::inspect_point::context(cmd, result),
             Self::Eval(cmd) => interaction::eval::context(cmd, result),
             Self::Back(a) => navigation::back::context(
