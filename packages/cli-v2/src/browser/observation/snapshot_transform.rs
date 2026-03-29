@@ -317,14 +317,14 @@ pub fn parse_ax_tree(
         let should_ref = should_assign_ref(&role, &name) || is_cursor;
         let ref_id = if should_ref {
             if backend_node_id > 0 {
-                ref_cache.get_or_assign(backend_node_id)
+                ref_cache.get_or_assign(backend_node_id, &role, &name)
             } else {
                 let node_id_str = node["nodeId"].as_str().unwrap_or("");
                 use std::hash::{Hash, Hasher};
                 let mut hasher = std::collections::hash_map::DefaultHasher::new();
                 node_id_str.hash(&mut hasher);
                 let hash_key = -(hasher.finish() as i64).abs() - 1;
-                ref_cache.get_or_assign(hash_key)
+                ref_cache.get_or_assign(hash_key, &role, &name)
             }
         } else {
             String::new()
@@ -544,8 +544,17 @@ impl RoleNameTracker {
 
 // ── P0: Stable ref cache (cross-snapshot persistence) ────────────────
 
-/// Tab-scoped cache mapping backendNodeId → refId.
+/// A cached entry for a DOM element: stable ref label plus AX metadata.
+#[derive(Debug, Clone)]
+pub struct RefEntry {
+    pub ref_id: String,
+    pub role: String,
+    pub name: String,
+}
+
+/// Tab-scoped cache mapping backendNodeId → RefEntry.
 /// Ensures that the same DOM element keeps the same ref across repeated snapshots.
+/// Also stores role/name so that screenshot `--annotate` can build annotation metadata.
 ///
 /// Scope: one RefCache per tab (not per session — each tab has independent DOM).
 // TODO: iframe isolation — iframes within a tab may share backendNodeId values
@@ -553,8 +562,8 @@ impl RoleNameTracker {
 // or a separate RefCache per frame to avoid collisions.
 #[derive(Debug, Clone)]
 pub struct RefCache {
-    /// backendNodeId → refId (e.g., 42 → "e1")
-    id_to_ref: std::collections::HashMap<i64, String>,
+    /// backendNodeId → RefEntry (e.g., 42 → RefEntry { ref_id: "e1", role: "button", name: "Submit" })
+    id_to_ref: std::collections::HashMap<i64, RefEntry>,
     /// Next available ref counter
     next_ref: usize,
 }
@@ -574,21 +583,42 @@ impl RefCache {
     }
 
     /// Get or assign a stable ref for the given backendNodeId.
-    /// If the node was seen before, returns the same ref.
+    /// If the node was seen before, updates role/name and returns the same ref.
     /// If new, assigns the next available eN.
-    pub fn get_or_assign(&mut self, backend_node_id: i64) -> String {
-        if let Some(existing) = self.id_to_ref.get(&backend_node_id) {
-            return existing.clone();
+    pub fn get_or_assign(&mut self, backend_node_id: i64, role: &str, name: &str) -> String {
+        if let Some(existing) = self.id_to_ref.get_mut(&backend_node_id) {
+            existing.role = role.to_string();
+            existing.name = name.to_string();
+            return existing.ref_id.clone();
         }
         let ref_id = format!("e{}", self.next_ref);
         self.next_ref += 1;
-        self.id_to_ref.insert(backend_node_id, ref_id.clone());
+        self.id_to_ref.insert(
+            backend_node_id,
+            RefEntry {
+                ref_id: ref_id.clone(),
+                role: role.to_string(),
+                name: name.to_string(),
+            },
+        );
         ref_id
     }
 
     /// Look up the ref for a backendNodeId without assigning.
-    pub fn get(&self, backend_node_id: i64) -> Option<&str> {
-        self.id_to_ref.get(&backend_node_id).map(|s| s.as_str())
+    pub fn get_ref(&self, backend_node_id: i64) -> Option<&str> {
+        self.id_to_ref
+            .get(&backend_node_id)
+            .map(|e| e.ref_id.as_str())
+    }
+
+    /// Look up the full entry for a backendNodeId.
+    pub fn get(&self, backend_node_id: i64) -> Option<&RefEntry> {
+        self.id_to_ref.get(&backend_node_id)
+    }
+
+    /// Iterate over all entries: (backendNodeId, &RefEntry).
+    pub fn entries(&self) -> impl Iterator<Item = (i64, &RefEntry)> {
+        self.id_to_ref.iter().map(|(&k, v)| (k, v))
     }
 
     /// Number of refs assigned so far.
@@ -1702,53 +1732,82 @@ mod tests {
     #[test]
     fn test_ref_cache_assigns_sequential() {
         let mut cache = RefCache::new();
-        assert_eq!(cache.get_or_assign(42), "e1");
-        assert_eq!(cache.get_or_assign(55), "e2");
-        assert_eq!(cache.get_or_assign(99), "e3");
+        assert_eq!(cache.get_or_assign(42, "button", "OK"), "e1");
+        assert_eq!(cache.get_or_assign(55, "link", "Home"), "e2");
+        assert_eq!(cache.get_or_assign(99, "textbox", "Search"), "e3");
     }
 
     #[test]
     fn test_ref_cache_stable_on_repeat() {
         let mut cache = RefCache::new();
         // First snapshot
-        assert_eq!(cache.get_or_assign(42), "e1");
-        assert_eq!(cache.get_or_assign(55), "e2");
+        assert_eq!(cache.get_or_assign(42, "button", "OK"), "e1");
+        assert_eq!(cache.get_or_assign(55, "link", "Home"), "e2");
 
         // Second snapshot — same backendNodeIds must keep same refs
-        assert_eq!(cache.get_or_assign(42), "e1");
-        assert_eq!(cache.get_or_assign(55), "e2");
+        assert_eq!(cache.get_or_assign(42, "button", "OK"), "e1");
+        assert_eq!(cache.get_or_assign(55, "link", "Home"), "e2");
     }
 
     #[test]
     fn test_ref_cache_new_element_gets_next_ref() {
         let mut cache = RefCache::new();
-        assert_eq!(cache.get_or_assign(42), "e1");
-        assert_eq!(cache.get_or_assign(55), "e2");
+        assert_eq!(cache.get_or_assign(42, "button", "OK"), "e1");
+        assert_eq!(cache.get_or_assign(55, "link", "Home"), "e2");
 
         // New element appears in second snapshot
-        assert_eq!(cache.get_or_assign(99), "e3");
+        assert_eq!(cache.get_or_assign(99, "textbox", "Search"), "e3");
         // Original elements unchanged
-        assert_eq!(cache.get_or_assign(42), "e1");
+        assert_eq!(cache.get_or_assign(42, "button", "OK"), "e1");
     }
 
     #[test]
     fn test_ref_cache_lookup_without_assign() {
         let mut cache = RefCache::new();
         assert!(cache.get(42).is_none());
-        cache.get_or_assign(42);
-        assert_eq!(cache.get(42), Some("e1"));
+        cache.get_or_assign(42, "button", "OK");
+        assert_eq!(cache.get(42).map(|e| e.ref_id.as_str()), Some("e1"));
     }
 
     #[test]
     fn test_ref_cache_len() {
         let mut cache = RefCache::new();
         assert!(cache.is_empty());
-        cache.get_or_assign(42);
-        cache.get_or_assign(55);
+        cache.get_or_assign(42, "button", "OK");
+        cache.get_or_assign(55, "link", "Home");
         assert_eq!(cache.len(), 2);
         // Repeat doesn't increase len
-        cache.get_or_assign(42);
+        cache.get_or_assign(42, "button", "OK");
         assert_eq!(cache.len(), 2);
+    }
+
+    #[test]
+    fn test_ref_cache_stores_role_name() {
+        let mut cache = RefCache::new();
+        cache.get_or_assign(42, "button", "Submit");
+        let entry = cache.get(42).unwrap();
+        assert_eq!(entry.ref_id, "e1");
+        assert_eq!(entry.role, "button");
+        assert_eq!(entry.name, "Submit");
+    }
+
+    #[test]
+    fn test_ref_cache_updates_role_name_on_reassign() {
+        let mut cache = RefCache::new();
+        cache.get_or_assign(42, "button", "Old");
+        cache.get_or_assign(42, "button", "New");
+        let entry = cache.get(42).unwrap();
+        assert_eq!(entry.ref_id, "e1");
+        assert_eq!(entry.name, "New");
+    }
+
+    #[test]
+    fn test_ref_cache_entries() {
+        let mut cache = RefCache::new();
+        cache.get_or_assign(42, "button", "OK");
+        cache.get_or_assign(55, "link", "Home");
+        let entries: Vec<_> = cache.entries().collect();
+        assert_eq!(entries.len(), 2);
     }
 
     // ══════════════════════════════════════════════════════════════════

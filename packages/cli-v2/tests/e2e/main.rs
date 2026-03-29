@@ -21,5 +21,6 @@ mod navigation;
 mod page_info;
 mod pdf;
 mod query;
+mod screenshot;
 mod snapshot;
 mod tab_management;

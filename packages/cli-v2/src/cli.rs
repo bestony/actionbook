@@ -6,16 +6,6 @@ use crate::browser::{interaction, navigation, observation, session, tab};
 use crate::output::ResponseContext;
 use crate::setup;
 
-fn tab_context(session: &str, tab: &str) -> Option<ResponseContext> {
-    Some(ResponseContext {
-        session_id: session.to_string(),
-        tab_id: Some(tab.to_string()),
-        window_id: None,
-        url: None,
-        title: None,
-    })
-}
-
 #[derive(Parser, Debug)]
 #[command(
     name = "actionbook",
@@ -150,16 +140,7 @@ Examples:
     #[command(after_help = "\
 Examples:
   actionbook browser screenshot /tmp/page.png --session s1 --tab t1")]
-    Screenshot {
-        /// Output file path
-        path: String,
-        /// Session ID
-        #[arg(long)]
-        session: String,
-        /// Tab ID
-        #[arg(long)]
-        tab: String,
-    },
+    Screenshot(observation::screenshot::Cmd),
 
     // ── Interaction ────────────────────────────────────────────
     /// Evaluate JavaScript
@@ -194,6 +175,7 @@ impl BrowserCommands {
     /// Convert to wire Action. Returns None for unimplemented commands.
     pub fn to_action(&self) -> Option<Action> {
         Some(match self {
+            Self::Help => return None,
             Self::Start(cmd) => Action::StartSession(cmd.clone()),
             Self::ListSessions(cmd) => Action::ListSessions(cmd.clone()),
             Self::Status(cmd) => Action::SessionStatus(cmd.clone()),
@@ -231,6 +213,7 @@ impl BrowserCommands {
             Self::Query(cmd) => Action::Query(cmd.clone()),
             Self::InspectPoint(cmd) => Action::InspectPoint(cmd.clone()),
             Self::Pdf(cmd) => Action::Pdf(cmd.clone()),
+            Self::Screenshot(cmd) => Action::Screenshot(cmd.clone()),
             Self::Eval(cmd) => Action::Eval(cmd.clone()),
             Self::Click(cmd) => Action::Click(cmd.clone()),
             Self::Hover(cmd) => Action::Hover(cmd.clone()),
@@ -244,7 +227,6 @@ impl BrowserCommands {
             Self::MouseMove(cmd) => Action::MouseMove(cmd.clone()),
             Self::CursorPosition(cmd) => Action::CursorPosition(cmd.clone()),
             Self::Scroll(cmd) => Action::Scroll(cmd.clone()),
-            _ => return None,
         })
     }
 
@@ -280,7 +262,7 @@ impl BrowserCommands {
             Self::Query(_) => observation::query::COMMAND_NAME,
             Self::InspectPoint(_) => observation::inspect_point::COMMAND_NAME,
             Self::Pdf(_) => observation::pdf::COMMAND_NAME,
-            Self::Screenshot { .. } => "browser.screenshot",
+            Self::Screenshot(_) => observation::screenshot::COMMAND_NAME,
             Self::Eval(_) => interaction::eval::COMMAND_NAME,
             Self::Click(_) => interaction::click::COMMAND_NAME,
             Self::Hover(_) => interaction::hover::COMMAND_NAME,
@@ -360,7 +342,7 @@ impl BrowserCommands {
             Self::MouseMove(cmd) => interaction::mouse_move::context(cmd, result),
             Self::CursorPosition(cmd) => interaction::cursor_position::context(cmd, result),
             Self::Scroll(cmd) => interaction::scroll::context(cmd, result),
-            Self::Screenshot { session, tab, .. } => tab_context(session, tab),
+            Self::Screenshot(cmd) => observation::screenshot::context(cmd, result),
         }
     }
 }

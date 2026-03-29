@@ -20,6 +20,7 @@ pub async fn route(action: &Action, registry: &SharedRegistry) -> ActionResult {
         Action::NewTab(cmd) => browser::tab::open::execute(cmd, registry).await,
         Action::CloseTab(cmd) => browser::tab::close::execute(cmd, registry).await,
         Action::Snapshot(cmd) => browser::observation::snapshot::execute(cmd, registry).await,
+        Action::Screenshot(cmd) => browser::observation::screenshot::execute(cmd, registry).await,
         Action::Title(cmd) => browser::observation::title::execute(cmd, registry).await,
         Action::Url(cmd) => browser::observation::url::execute(cmd, registry).await,
         Action::Viewport(cmd) => browser::observation::viewport::execute(cmd, registry).await,

@@ -201,6 +201,7 @@ pub fn format_text(
                     | "browser.press"
                     | "browser.type"
                     | "browser.fill"
+                    | "browser.screenshot"
                     | "browser.select"
                     | "browser.drag"
                     | "browser.upload"
@@ -435,6 +436,11 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
         "browser.press" => {
             if let Some(keys) = data.get("keys").and_then(|v| v.as_str()) {
                 lines.push(format!("keys: {keys}"));
+            }
+        }
+        "browser.screenshot" => {
+            if let Some(path) = data.pointer("/artifact/path").and_then(|v| v.as_str()) {
+                lines.push(format!("path: {path}"));
             }
         }
         "browser.snapshot" => {
