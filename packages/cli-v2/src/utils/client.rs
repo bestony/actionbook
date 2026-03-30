@@ -123,6 +123,28 @@ mod tests {
     }
 
     #[test]
+    fn check_version_accepts_exact_match() {
+        let (_dir, ready_path) = write_ready_file(crate::BUILD_VERSION);
+
+        let result = check_version(&ready_path);
+        assert!(result.is_ok(), "exact version match should stay compatible");
+    }
+
+    #[test]
+    fn check_version_accepts_missing_hash_on_daemon_side() {
+        let (major, minor, patch) = parsed_build_version();
+        let daemon_version = format!("{major}.{minor}.{patch}");
+        let (_dir, ready_path) = write_ready_file(&daemon_version);
+
+        let result = check_version(&ready_path);
+        assert!(
+            result.is_ok(),
+            "same major.minor.patch should stay compatible when daemon omits hash: cli={}, daemon={daemon_version}",
+            crate::BUILD_VERSION
+        );
+    }
+
+    #[test]
     fn check_version_rejects_different_minor() {
         let (major, minor, _) = parsed_build_version();
         let daemon_version = format!("{major}.{}.0", minor + 1);
