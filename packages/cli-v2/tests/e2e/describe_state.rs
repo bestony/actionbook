@@ -62,9 +62,9 @@ document.body.innerHTML = `
     <li id="person-row" aria-label="John Smith">
       <span id="person-name">John Smith</span>
       <button id="describe-target" type="button">Edit</button>
-      <button id="describe-disabled" type="button" disabled>Edit</button>
     </li>
   </ul>
+  <button id="describe-disabled" type="button" disabled>Edit</button>
   <label><input id="describe-checked" type="checkbox" checked>Agree</label>
   <label><input id="describe-multi" type="checkbox" checked disabled>Confirm</label>
   <label><input id="describe-unchecked" type="checkbox">Later</label>
