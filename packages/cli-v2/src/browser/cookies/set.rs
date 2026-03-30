@@ -60,7 +60,7 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 }
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
-    let (cdp, first_target_id) = {
+    let (cdp, target_id) = {
         let reg = registry.lock().await;
         let entry = match reg.get(&cmd.session) {
             Some(e) => e,
@@ -81,19 +81,26 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                 );
             }
         };
-        // Capture first tab's target_id for hostname derivation when --domain is omitted.
-        let first_target_id = entry.tabs.first().map(|t| t.id.0.clone());
-        (cdp, first_target_id)
+        let target_id = match entry.tabs.first() {
+            Some(t) => t.id.0.clone(),
+            None => {
+                return ActionResult::fatal(
+                    "NO_TAB",
+                    format!("no active tab in session '{}'", cmd.session),
+                );
+            }
+        };
+        (cdp, target_id)
     };
 
     // Derive domain: use explicit --domain if provided, else evaluate window.location.hostname
     // on the first active tab and prepend a leading dot for subdomain matching.
     let resolved_domain: Option<String> = if let Some(ref d) = cmd.domain {
         Some(d.clone())
-    } else if let Some(ref tid) = first_target_id {
+    } else {
         let resp = cdp
             .execute_on_tab(
-                tid,
+                &target_id,
                 "Runtime.evaluate",
                 json!({ "expression": "window.location.hostname", "returnByValue": true }),
             )
@@ -114,19 +121,18 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
             }
             Err(_) => None,
         }
-    } else {
-        None
     };
+
+    // Default path to "/" per §13.3 when omitted.
+    let resolved_path = cmd.path.as_deref().unwrap_or("/").to_string();
 
     let mut params = json!({
         "name": cmd.name,
         "value": cmd.value,
+        "path": resolved_path,
     });
     if let Some(ref domain) = resolved_domain {
         params["domain"] = json!(domain);
-    }
-    if let Some(ref path) = cmd.path {
-        params["path"] = json!(path);
     }
     if cmd.secure {
         params["secure"] = json!(true);
@@ -141,7 +147,7 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         params["expires"] = json!(exp);
     }
 
-    match cdp.execute_browser("Network.setCookie", params).await {
+    match cdp.execute_on_tab(&target_id, "Network.setCookie", params).await {
         Ok(_) => {}
         Err(e) => return ActionResult::fatal("CDP_ERROR", e.to_string()),
     };

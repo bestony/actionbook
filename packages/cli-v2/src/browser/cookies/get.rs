@@ -41,7 +41,7 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 }
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
-    let cdp = {
+    let (cdp, target_id) = {
         let reg = registry.lock().await;
         let entry = match reg.get(&cmd.session) {
             Some(e) => e,
@@ -53,7 +53,7 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                 );
             }
         };
-        match entry.cdp.clone() {
+        let cdp = match entry.cdp.clone() {
             Some(c) => c,
             None => {
                 return ActionResult::fatal(
@@ -61,11 +61,21 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                     format!("no CDP connection for session '{}'", cmd.session),
                 );
             }
-        }
+        };
+        let target_id = match entry.tabs.first() {
+            Some(t) => t.id.0.clone(),
+            None => {
+                return ActionResult::fatal(
+                    "NO_TAB",
+                    format!("no active tab in session '{}'", cmd.session),
+                );
+            }
+        };
+        (cdp, target_id)
     };
 
     let resp = match cdp
-        .execute_browser("Network.getAllCookies", json!({}))
+        .execute_on_tab(&target_id, "Network.getAllCookies", json!({}))
         .await
     {
         Ok(v) => v,
