@@ -346,7 +346,8 @@ Observation:
   describe <selector>     --session --tab  Describe element properties
   state <selector>        --session --tab  Get element state flags
   inspect-point <x,y>    --session --tab  Inspect element at coordinates
-  query one|all|nth|count <selector>  --session --tab  Query elements
+  query one|all|count <selector>  --session --tab  Query elements
+  query nth <n> <selector>        --session --tab  Query nth element (1-based)
 
 Logs:
   logs console        --session --tab  Get console logs
