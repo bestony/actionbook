@@ -25,7 +25,7 @@ pub fn map_cookie(c: &Value) -> Value {
     })
 }
 
-/// Normalize a cookie domain for comparison by stripping a leading dot.
-pub fn normalize_domain(d: &str) -> &str {
-    d.trim_start_matches('.')
+/// Normalize a cookie domain for comparison by stripping a leading dot and lowercasing.
+pub fn normalize_domain(d: &str) -> String {
+    d.trim_start_matches('.').to_lowercase()
 }

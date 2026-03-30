@@ -60,7 +60,7 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 }
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
-    let cdp = {
+    let (cdp, first_target_id) = {
         let reg = registry.lock().await;
         let entry = match reg.get(&cmd.session) {
             Some(e) => e,
@@ -72,7 +72,7 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                 );
             }
         };
-        match entry.cdp.clone() {
+        let cdp = match entry.cdp.clone() {
             Some(c) => c,
             None => {
                 return ActionResult::fatal(
@@ -80,14 +80,49 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                     format!("no CDP connection for session '{}'", cmd.session),
                 );
             }
+        };
+        // Capture first tab's target_id for hostname derivation when --domain is omitted.
+        let first_target_id = entry.tabs.first().map(|t| t.id.0.clone());
+        (cdp, first_target_id)
+    };
+
+    // Derive domain: use explicit --domain if provided, else evaluate window.location.hostname
+    // on the first active tab and prepend a leading dot for subdomain matching.
+    let resolved_domain: Option<String> = if let Some(ref d) = cmd.domain {
+        Some(d.clone())
+    } else if let Some(ref tid) = first_target_id {
+        let resp = cdp
+            .execute_on_tab(
+                tid,
+                "Runtime.evaluate",
+                json!({ "expression": "window.location.hostname", "returnByValue": true }),
+            )
+            .await;
+        match resp {
+            Ok(v) => {
+                let hostname = v
+                    .pointer("/result/value")
+                    .and_then(|h| h.as_str())
+                    .unwrap_or("")
+                    .trim()
+                    .to_string();
+                if hostname.is_empty() {
+                    None
+                } else {
+                    Some(format!(".{hostname}"))
+                }
+            }
+            Err(_) => None,
         }
+    } else {
+        None
     };
 
     let mut params = json!({
         "name": cmd.name,
         "value": cmd.value,
     });
-    if let Some(ref domain) = cmd.domain {
+    if let Some(ref domain) = resolved_domain {
         params["domain"] = json!(domain);
     }
     if let Some(ref path) = cmd.path {
@@ -111,7 +146,7 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         Err(e) => return ActionResult::fatal("CDP_ERROR", e.to_string()),
     };
 
-    let domain_val = cmd.domain.as_deref().unwrap_or("").to_string();
+    let domain_val = resolved_domain.unwrap_or_default();
 
     ActionResult::ok(json!({
         "action": "set",
