@@ -203,7 +203,7 @@ async fn resolve_css(
             // CDP -32000 "DOM Error while querying" means invalid CSS selector syntax
             if msg.contains("DOM Error while querying") {
                 return Err(ActionResult::Fatal {
-                    code: "ELEMENT_NOT_FOUND".to_string(),
+                    code: "INVALID_SELECTOR".to_string(),
                     message: format!("invalid CSS selector: '{selector}'"),
                     hint: if selector.starts_with('@') {
                         "snapshot refs must use @eN format (e.g. @e5), not @N".to_string()
