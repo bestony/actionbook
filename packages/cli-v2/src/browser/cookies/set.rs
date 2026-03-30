@@ -108,7 +108,7 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         match resp {
             Ok(v) => {
                 let hostname = v
-                    .pointer("/result/value")
+                    .pointer("/result/result/value")
                     .and_then(|h| h.as_str())
                     .unwrap_or("")
                     .trim()
