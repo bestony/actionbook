@@ -323,7 +323,8 @@ fn storage_set_json_happy_path(kind: StorageKind, key: &str, value: &str) {
         return;
     }
 
-    let (sid, tid) = start_session(&url_a());
+    let base_url = url_a();
+    let (sid, tid) = start_session(&base_url);
     let _guard = SessionGuard::new(&sid);
 
     let v = set_storage(kind, &sid, &tid, key, value);
@@ -331,6 +332,7 @@ fn storage_set_json_happy_path(kind: StorageKind, key: &str, value: &str) {
     assert_eq!(v["ok"], true);
     assert!(v["error"].is_null());
     assert_meta(&v);
+    assert_tab_context(&v, &sid, &tid, &base_url);
     assert_eq!(v["data"]["storage"], kind.data_name);
     assert_eq!(v["data"]["action"], "set");
     assert_eq!(v["data"]["affected"], 1);
