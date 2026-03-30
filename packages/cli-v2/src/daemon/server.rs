@@ -80,21 +80,51 @@ fn try_lock_exclusive(file: &std::fs::File) -> bool {
         safe fn flock(fd: i32, operation: i32) -> i32;
     }
     use std::os::unix::io::AsRawFd;
+    let fd = file.as_raw_fd();
     // LOCK_EX (2) | LOCK_NB (4) = 6
-    flock(file.as_raw_fd(), 6) == 0
+    loop {
+        if flock(fd, 6) == 0 {
+            return true;
+        }
+        // Retry on EINTR (signal interrupted); give up on EWOULDBLOCK or other errors.
+        if std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+            return false;
+        }
+    }
+}
+
+/// Parse idle timeout from an optional string value.
+///
+/// - `None` → default (30 minutes)
+/// - `Some("0")` → disabled (returns `None`)
+/// - `Some(valid_int)` → that many seconds
+/// - `Some(invalid)` → falls back to default (avoids silent misconfiguration)
+fn parse_idle_timeout(val: Option<&str>) -> Option<Duration> {
+    match val {
+        Some("0") => None,
+        Some(s) => Some(Duration::from_secs(
+            s.parse::<u64>().unwrap_or(DEFAULT_IDLE_TIMEOUT_SECS),
+        )),
+        None => Some(Duration::from_secs(DEFAULT_IDLE_TIMEOUT_SECS)),
+    }
 }
 
 /// Read idle timeout from environment variable.
-///
-/// - Unset → default (30 minutes)
-/// - `"0"` → disabled (returns `None`)
-/// - Other integer → that many seconds
 fn idle_timeout() -> Option<Duration> {
-    match std::env::var("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS") {
-        Ok(val) if val == "0" => None,
-        Ok(val) => val.parse::<u64>().ok().map(Duration::from_secs),
-        Err(_) => Some(Duration::from_secs(DEFAULT_IDLE_TIMEOUT_SECS)),
-    }
+    parse_idle_timeout(
+        std::env::var("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS")
+            .ok()
+            .as_deref(),
+    )
+}
+
+/// Read housekeeping interval from environment variable (for testing).
+fn housekeeping_interval() -> Duration {
+    std::env::var("ACTIONBOOK_DAEMON_HOUSEKEEPING_INTERVAL_SECS")
+        .ok()
+        .and_then(|s| s.parse::<u64>().ok())
+        .map(Duration::from_secs)
+        .unwrap_or(Duration::from_secs(HOUSEKEEPING_INTERVAL_SECS))
 }
 
 /// Run the daemon server (blocking).
@@ -119,7 +149,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
         // finish startup. If its socket becomes ready, exit and let the CLI reuse it.
         for attempt in 1..=3 {
             info!("daemon lock held by another process, retrying ({attempt}/3)");
-            std::thread::sleep(Duration::from_secs(1));
+            tokio::time::sleep(Duration::from_secs(1)).await;
 
             locked = try_lock_exclusive(&pid_file_fd);
             if locked {
@@ -173,7 +203,7 @@ pub async fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
     // Idle timeout housekeeping
     let mut last_activity = Instant::now();
     let idle_timeout_duration = idle_timeout();
-    let mut housekeeping = tokio::time::interval(Duration::from_secs(HOUSEKEEPING_INTERVAL_SECS));
+    let mut housekeeping = tokio::time::interval(housekeeping_interval());
     housekeeping.tick().await; // consume the immediate first tick
 
     loop {
@@ -308,46 +338,39 @@ mod tests {
         );
     }
 
-    // Note: idle_timeout() reads env vars which are process-global and unsafe
-    // in edition 2024. We test the parsing logic indirectly through the function
-    // but must wrap env mutations in unsafe blocks. These tests are serial-only
-    // (env var mutation is inherently non-parallel-safe).
+    // Test parse_idle_timeout directly (pure function, no env var mutation).
 
     #[test]
-    fn test_idle_timeout_config_default() {
-        unsafe {
-            std::env::remove_var("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS");
-        }
-        let t = idle_timeout();
-        assert_eq!(t, Some(Duration::from_secs(DEFAULT_IDLE_TIMEOUT_SECS)));
+    fn test_parse_idle_timeout_default() {
+        assert_eq!(
+            parse_idle_timeout(None),
+            Some(Duration::from_secs(DEFAULT_IDLE_TIMEOUT_SECS))
+        );
     }
 
     #[test]
-    fn test_idle_timeout_config_custom() {
-        unsafe {
-            std::env::set_var("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS", "120");
-        }
-        let t = idle_timeout();
-        assert_eq!(t, Some(Duration::from_secs(120)));
-        unsafe {
-            std::env::remove_var("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS");
-        }
+    fn test_parse_idle_timeout_custom() {
+        assert_eq!(
+            parse_idle_timeout(Some("120")),
+            Some(Duration::from_secs(120))
+        );
     }
 
     #[test]
-    fn test_idle_timeout_config_disabled() {
-        unsafe {
-            std::env::set_var("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS", "0");
-        }
-        let t = idle_timeout();
-        assert_eq!(t, None);
-        unsafe {
-            std::env::remove_var("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS");
-        }
+    fn test_parse_idle_timeout_disabled() {
+        assert_eq!(parse_idle_timeout(Some("0")), None);
     }
 
-    // is_daemon_running() depends on ACTIONBOOK_HOME which is process-global.
-    // We test the flock logic directly via try_lock_exclusive instead — the
-    // is_daemon_running function is a thin wrapper that opens the PID file and
-    // probes the lock, already covered by test_try_lock_exclusive_basic.
+    #[test]
+    fn test_parse_idle_timeout_invalid_falls_back_to_default() {
+        // Invalid value should NOT silently disable timeout — fall back to default
+        assert_eq!(
+            parse_idle_timeout(Some("abc")),
+            Some(Duration::from_secs(DEFAULT_IDLE_TIMEOUT_SECS))
+        );
+        assert_eq!(
+            parse_idle_timeout(Some("")),
+            Some(Duration::from_secs(DEFAULT_IDLE_TIMEOUT_SECS))
+        );
+    }
 }

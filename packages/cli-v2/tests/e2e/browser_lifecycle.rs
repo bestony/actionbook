@@ -1110,6 +1110,7 @@ fn daemon_singleton_concurrent_start() {
             let barrier = barrier.clone();
             std::thread::spawn(move || {
                 barrier.wait();
+                // Each thread uses a unique profile to avoid SESSION_ALREADY_EXISTS
                 env.headless_json(
                     &[
                         "browser",
@@ -1117,6 +1118,8 @@ fn daemon_singleton_concurrent_start() {
                         "--mode",
                         "local",
                         "--headless",
+                        "--profile",
+                        &format!("conc-prof-{i}"),
                         "--set-session-id",
                         &format!("conc-{i}"),
                     ],
@@ -1128,11 +1131,13 @@ fn daemon_singleton_concurrent_start() {
 
     let results: Vec<Output> = handles.into_iter().map(|h| h.join().unwrap()).collect();
 
-    // Both CLI invocations must succeed (one starts the daemon, one reuses it)
+    // Both CLI invocations must succeed (one starts the daemon, the other
+    // connects to the same daemon and starts a second session).
     for (i, out) in results.iter().enumerate() {
         assert!(
             out.status.success(),
-            "concurrent start {i} must succeed: {}",
+            "concurrent start {i} must succeed.\nstdout: {}\nstderr: {}",
+            String::from_utf8_lossy(&out.stdout),
             String::from_utf8_lossy(&out.stderr)
         );
     }
@@ -1156,9 +1161,7 @@ fn daemon_idle_timeout() {
     }
     let env = SoloEnv::new();
 
-    // Start with short idle timeout (2s) and short housekeeping (use default 60s
-    // but we override idle to be very short — daemon checks every 60s so we need
-    // to wait at least that long).
+    // Short idle timeout (2s) + short housekeeping interval (2s) for fast test.
     let out = env.headless_json_with_env(
         &[
             "browser",
@@ -1169,7 +1172,10 @@ fn daemon_idle_timeout() {
             "--set-session-id",
             "idle-test",
         ],
-        &[("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS", "2")],
+        &[
+            ("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS", "2"),
+            ("ACTIONBOOK_DAEMON_HOUSEKEEPING_INTERVAL_SECS", "2"),
+        ],
         30,
     );
     assert_success(&out, "start for idle test");
@@ -1183,10 +1189,10 @@ fn daemon_idle_timeout() {
     let pid_str = std::fs::read_to_string(&pid_path).expect("PID file should exist");
     let pid: u32 = pid_str.trim().parse().expect("PID should be a number");
 
-    // Wait for housekeeping tick (up to 75 seconds: 60s interval + 2s idle + margin)
+    // Wait for daemon to exit (2s idle + 2s housekeeping + margin)
     let start = std::time::Instant::now();
     let mut exited = false;
-    while start.elapsed() < Duration::from_secs(75) {
+    while start.elapsed() < Duration::from_secs(15) {
         let status = std::process::Command::new("kill")
             .args(["-0", &pid.to_string()])
             .output()
@@ -1218,7 +1224,10 @@ fn daemon_no_idle_exit_with_active_session() {
             "--set-session-id",
             "keep-alive",
         ],
-        &[("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS", "2")],
+        &[
+            ("ACTIONBOOK_DAEMON_IDLE_TIMEOUT_SECS", "2"),
+            ("ACTIONBOOK_DAEMON_HOUSEKEEPING_INTERVAL_SECS", "2"),
+        ],
         30,
     );
     assert_success(&out, "start for keep-alive test");
@@ -1227,8 +1236,8 @@ fn daemon_no_idle_exit_with_active_session() {
     let pid_str = std::fs::read_to_string(&pid_path).expect("PID file should exist");
     let pid: u32 = pid_str.trim().parse().expect("PID should be a number");
 
-    // Wait 70 seconds — past the idle timeout + housekeeping interval
-    std::thread::sleep(Duration::from_secs(70));
+    // Wait 10 seconds — past the idle timeout + housekeeping interval
+    std::thread::sleep(Duration::from_secs(10));
 
     // Daemon should still be alive because the session was never closed
     let status = std::process::Command::new("kill")
@@ -1264,7 +1273,7 @@ fn daemon_crash_recovery() {
     );
     assert_success(&out, "start before crash");
 
-    // Kill daemon with SIGKILL
+    // Kill daemon with SIGKILL (skips graceful Chrome shutdown)
     let pid_path = std::path::Path::new(&env.actionbook_home).join("daemon.pid");
     let pid_str = std::fs::read_to_string(&pid_path).expect("PID file should exist");
     let pid: u32 = pid_str.trim().parse().expect("PID should be a number");
@@ -1272,10 +1281,23 @@ fn daemon_crash_recovery() {
         .args(["-9", &pid.to_string()])
         .output();
 
-    // Wait for process to exit
+    // Wait for daemon to exit
     std::thread::sleep(Duration::from_secs(1));
 
-    // New CLI invocation should auto-start a new daemon and succeed
+    // Kill orphaned Chrome processes (SIGKILL skips daemon's graceful cleanup)
+    let profiles_dir = std::path::Path::new(&env.actionbook_home).join("profiles");
+    if profiles_dir.exists() {
+        let _ = std::process::Command::new("pkill")
+            .args(["-f", &format!("--user-data-dir={}", profiles_dir.display())])
+            .output();
+        std::thread::sleep(Duration::from_millis(500));
+    }
+
+    // Do NOT manually remove stale daemon.sock/ready files — the production code
+    // (client auto-start + daemon stale-socket cleanup) must handle these.
+
+    // New CLI invocation should auto-start a new daemon and succeed.
+    // Use a different profile to avoid Chrome profile lock from the killed process.
     let out = env.headless_json(
         &[
             "browser",
@@ -1283,6 +1305,8 @@ fn daemon_crash_recovery() {
             "--mode",
             "local",
             "--headless",
+            "--profile",
+            "crash-recovery-prof",
             "--set-session-id",
             "crash-recovery",
         ],
