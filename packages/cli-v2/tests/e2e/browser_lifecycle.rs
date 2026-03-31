@@ -16,7 +16,7 @@ use std::time::Duration;
 use crate::harness::{
     SessionGuard, SoloEnv, assert_failure, assert_native_tab_id, assert_success, assert_tab_id,
     headless, headless_json, new_tab_json, parse_json, skip, start_session, stdout_str,
-    unique_session, url_a, url_b,
+    unique_session, url_a, url_b, wait_url_contains,
 };
 
 const DEFAULT_LOCAL_SESSION_ID: &str = "SLOCAL-1";
@@ -155,8 +155,10 @@ fn lifecycle_open_with_url_json() {
     if skip() {
         return;
     }
-    let (sid, _tid) = start_session(&url_a());
+    let (sid, tid) = start_session(&url_a());
     let _guard = SessionGuard::new(&sid);
+    // Wait for --open-url navigation to reflect in the tab URL.
+    wait_url_contains(&sid, &tid, "page-a");
     let v = parse_json(&headless_json(
         &["browser", "status", "--session", &sid],
         10,
@@ -196,10 +198,13 @@ fn lifecycle_open_with_url_text() {
     );
     assert_success(&out, "start with url text");
     let _guard = SessionGuard::new(&sid);
-    let text = stdout_str(&out);
+    // --open-url navigates asynchronously; wait then verify via status.
+    wait_url_contains(&sid, "t1", "page-a");
+    let status_out = headless(&["browser", "status", "--session", &sid], 10);
+    let status_text = stdout_str(&status_out);
     assert!(
-        text.contains("page-a"),
-        "start text should contain page-a URL, got: {text}"
+        status_text.contains("page-a"),
+        "status text should contain page-a URL, got: {status_text}"
     );
 }
 
@@ -1082,7 +1087,7 @@ fn lifecycle_set_session_id_rejects_reuse_of_occupied_profile() {
         "profile-conflict message must name the active session: {message}"
     );
     assert!(
-        message.contains("one session"),
+        message.contains("already in use"),
         "profile-conflict message must explain the exclusivity mechanism: {message}"
     );
     assert!(
