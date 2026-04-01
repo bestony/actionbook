@@ -99,11 +99,14 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                 }
                 Ok(ClickTarget::Selector(s)) => {
                     target_json = json!({ "selector": s.clone() });
-                    // Resolve and focus the element
+                    // Resolve, scroll to center, and focus the element
                     let node_id = match ctx.resolve_node(&s).await {
                         Ok(id) => id,
                         Err(e) => return e,
                     };
+                    if let Err(e) = ctx.scroll_into_view(node_id).await {
+                        return e;
+                    }
                     if let Err(e) = ctx
                         .execute_on_element("DOM.focus", json!({ "nodeId": node_id }))
                         .await

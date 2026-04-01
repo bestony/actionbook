@@ -106,6 +106,9 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                         Ok(id) => id,
                         Err(e) => return e,
                     };
+                    if let Err(e) = ctx.scroll_into_view(node_id).await {
+                        return e;
+                    }
                     if let Err(e) = ctx
                         .execute_on_element("DOM.focus", json!({ "nodeId": node_id }))
                         .await

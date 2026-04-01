@@ -6245,3 +6245,402 @@ fn scroll_into_view_missing_target_text() {
 
     close_session(&sid);
 }
+
+// ========================================================================
+// Group: scroll-to-center — off-screen element operations
+// ========================================================================
+
+/// Inject a page with a sticky header, 2000px spacer, and interactive
+/// elements far below the fold. This tests that commands auto-scroll
+/// elements to viewport center before operating.
+fn install_offscreen_fixture(session_id: &str, tab_id: &str) {
+    let expression = r#"
+(() => {
+  const existing = document.getElementById('ab-offscreen-fixture');
+  if (existing) existing.remove();
+
+  window.scrollTo(0, 0);
+  document.body.innerHTML = '';
+  document.body.style.margin = '0';
+
+  window.__ab_offscreen_clicked = false;
+  window.__ab_offscreen_hovered = false;
+
+  const root = document.createElement('div');
+  root.id = 'ab-offscreen-fixture';
+  root.innerHTML = `
+    <style>
+      #ab-sticky-header {
+        position: sticky;
+        top: 0;
+        height: 50px;
+        background: #333;
+        color: #fff;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        padding: 0 16px;
+        font-size: 14px;
+      }
+      #ab-spacer {
+        height: 2000px;
+      }
+      #ab-offscreen-section {
+        padding: 20px;
+      }
+      #ab-offscreen-btn {
+        display: block;
+        width: 200px;
+        height: 40px;
+        margin-bottom: 12px;
+      }
+      #ab-offscreen-input {
+        display: block;
+        width: 200px;
+        height: 36px;
+        margin-bottom: 12px;
+      }
+      #ab-offscreen-select {
+        display: block;
+        width: 200px;
+        height: 36px;
+        margin-bottom: 12px;
+      }
+      #ab-offscreen-hover {
+        width: 200px;
+        height: 40px;
+        background: #f5f5f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+      }
+      #ab-trailing-spacer {
+        height: 500px;
+      }
+    </style>
+    <div id="ab-sticky-header">Sticky Header</div>
+    <div id="ab-spacer"></div>
+    <div id="ab-offscreen-section">
+      <button id="ab-offscreen-btn" type="button">Off-Screen Button</button>
+      <input id="ab-offscreen-input" type="text" placeholder="off-screen input" />
+      <select id="ab-offscreen-select">
+        <option value="">--</option>
+        <option value="a">Option A</option>
+        <option value="b">Option B</option>
+      </select>
+      <div id="ab-offscreen-hover" tabindex="0">Hover target</div>
+    </div>
+    <div id="ab-trailing-spacer"></div>
+  `;
+  document.body.appendChild(root);
+
+  document.getElementById('ab-offscreen-btn').addEventListener('click', () => {
+    window.__ab_offscreen_clicked = true;
+  });
+  document.getElementById('ab-offscreen-hover').addEventListener('mouseenter', () => {
+    window.__ab_offscreen_hovered = true;
+  });
+
+  return 'ok';
+})()
+"#;
+
+    let value = eval_value(session_id, tab_id, expression);
+    assert_eq!(value, "ok", "offscreen fixture should install successfully");
+}
+
+/// Helper: get the element's bounding rect top relative to viewport.
+fn get_element_viewport_top(session_id: &str, tab_id: &str, element_id: &str) -> f64 {
+    let expr =
+        format!("String(document.getElementById('{element_id}').getBoundingClientRect().top)");
+    let val = eval_value(session_id, tab_id, &expr);
+    val.parse::<f64>().unwrap_or(-1.0)
+}
+
+/// Helper: check that an element is roughly centered in the viewport.
+/// We check that its top is between 20% and 70% of viewport height.
+fn assert_element_near_center(session_id: &str, tab_id: &str, element_id: &str) {
+    let top = get_element_viewport_top(session_id, tab_id, element_id);
+    let vh: f64 = eval_value(session_id, tab_id, "String(window.innerHeight)")
+        .parse()
+        .unwrap_or(768.0);
+    let ratio = top / vh;
+    assert!(
+        (0.2..=0.7).contains(&ratio),
+        "element #{element_id} should be near viewport center: top={top}, vh={vh}, ratio={ratio:.2}"
+    );
+}
+
+#[test]
+fn click_offscreen_element() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_offscreen_fixture(&sid, &tid);
+
+    // Confirm element is off-screen before click
+    let pre_scroll = eval_value(&sid, &tid, "String(window.scrollY)");
+    assert_eq!(pre_scroll, "0", "page should start at top");
+
+    let out = headless_json(
+        &[
+            "browser",
+            "click",
+            "#ab-offscreen-btn",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_success(&out, "click offscreen element");
+    let v = parse_json(&out);
+    assert_click_success(&v, &sid, &tid, Some("#ab-offscreen-btn"));
+
+    // Verify click actually registered
+    let clicked = eval_value(&sid, &tid, "String(window.__ab_offscreen_clicked)");
+    assert_eq!(clicked, "true", "click handler must have fired");
+
+    // Verify element was scrolled near viewport center
+    assert_element_near_center(&sid, &tid, "ab-offscreen-btn");
+
+    close_session(&sid);
+}
+
+#[test]
+fn type_offscreen_element() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_offscreen_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "type",
+            "#ab-offscreen-input",
+            "hello",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_success(&out, "type offscreen element");
+    let v = parse_json(&out);
+    assert_type_success(&v, &sid, &tid, "#ab-offscreen-input", 5);
+
+    // Verify value was typed
+    let val = eval_value(
+        &sid,
+        &tid,
+        "document.getElementById('ab-offscreen-input').value",
+    );
+    assert_eq!(val, "hello", "input must contain typed text");
+
+    // Verify element was scrolled near viewport center
+    assert_element_near_center(&sid, &tid, "ab-offscreen-input");
+
+    close_session(&sid);
+}
+
+#[test]
+fn fill_offscreen_element() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_offscreen_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "fill",
+            "#ab-offscreen-input",
+            "world",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_success(&out, "fill offscreen element");
+    let v = parse_json(&out);
+    assert_fill_success(&v, &sid, &tid, "#ab-offscreen-input", 5);
+
+    // Verify value was filled
+    let val = eval_value(
+        &sid,
+        &tid,
+        "document.getElementById('ab-offscreen-input').value",
+    );
+    assert_eq!(val, "world", "input must contain filled text");
+
+    // Verify element was scrolled near viewport center
+    assert_element_near_center(&sid, &tid, "ab-offscreen-input");
+
+    close_session(&sid);
+}
+
+#[test]
+fn select_offscreen_element() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_offscreen_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "select",
+            "#ab-offscreen-select",
+            "a",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_success(&out, "select offscreen element");
+    let v = parse_json(&out);
+    assert_select_success(&v, &sid, &tid, "#ab-offscreen-select", "a", false);
+
+    // Verify value was selected
+    let val = eval_value(
+        &sid,
+        &tid,
+        "document.getElementById('ab-offscreen-select').value",
+    );
+    assert_eq!(val, "a", "select must have value 'a'");
+
+    // Verify element was scrolled near viewport center
+    assert_element_near_center(&sid, &tid, "ab-offscreen-select");
+
+    close_session(&sid);
+}
+
+#[test]
+fn focus_offscreen_element() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_offscreen_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "focus",
+            "#ab-offscreen-input",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_success(&out, "focus offscreen element");
+    let v = parse_json(&out);
+    assert_focus_success(&v, &sid, &tid, "#ab-offscreen-input");
+
+    // Verify element is focused
+    let focused_id = eval_value(&sid, &tid, "document.activeElement.id");
+    assert_eq!(
+        focused_id, "ab-offscreen-input",
+        "activeElement must be the offscreen input"
+    );
+
+    // Verify element was scrolled near viewport center
+    assert_element_near_center(&sid, &tid, "ab-offscreen-input");
+
+    close_session(&sid);
+}
+
+#[test]
+fn hover_offscreen_element() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_offscreen_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "hover",
+            "#ab-offscreen-hover",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_success(&out, "hover offscreen element");
+    let v = parse_json(&out);
+    assert_hover_success(&v, &sid, &tid, "#ab-offscreen-hover");
+
+    // Verify hover event fired
+    let hovered = eval_value(&sid, &tid, "String(window.__ab_offscreen_hovered)");
+    assert_eq!(hovered, "true", "mouseenter handler must have fired");
+
+    // Verify element was scrolled near viewport center
+    assert_element_near_center(&sid, &tid, "ab-offscreen-hover");
+
+    close_session(&sid);
+}
+
+#[test]
+fn click_offscreen_avoids_sticky_header() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_offscreen_fixture(&sid, &tid);
+
+    // Click the offscreen button — it should scroll to center, away from sticky header
+    let out = headless_json(
+        &[
+            "browser",
+            "click",
+            "#ab-offscreen-btn",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_success(&out, "click avoids sticky header");
+
+    // The element's top should be well below the sticky header (50px)
+    let top = get_element_viewport_top(&sid, &tid, "ab-offscreen-btn");
+    assert!(
+        top > 60.0,
+        "element top ({top}) must be well below sticky header (50px) — center-scroll should place it in the middle"
+    );
+
+    // Confirm click went to the button, not the header
+    let clicked = eval_value(&sid, &tid, "String(window.__ab_offscreen_clicked)");
+    assert_eq!(
+        clicked, "true",
+        "click must hit the button, not the sticky header"
+    );
+
+    close_session(&sid);
+}

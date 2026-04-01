@@ -170,19 +170,28 @@ impl TabContext {
 
 // ── Standalone helpers (frame-aware versions) ─────────────────────
 
-/// Scroll an element into the viewport, routing to the correct frame session.
+/// Scroll an element to the viewport center, routing to the correct frame session.
+///
+/// Uses `scrollIntoView({ block: 'center' })` instead of `DOM.scrollIntoViewIfNeeded`
+/// to center the element in the viewport. This prevents edge cases where elements at
+/// the viewport edge are intercepted by sticky headers/footers (Playwright-style).
 async fn scroll_into_view_for_frame(
     cdp: &CdpSession,
     target_id: &str,
     node_id: i64,
     frame_id: Option<&str>,
 ) -> Result<(), ActionResult> {
+    let object_id = resolve_object_id_for_frame(cdp, target_id, node_id, frame_id).await?;
     execute_for_frame(
         cdp,
         target_id,
         frame_id,
-        "DOM.scrollIntoViewIfNeeded",
-        json!({ "nodeId": node_id }),
+        "Runtime.callFunctionOn",
+        json!({
+            "objectId": object_id,
+            "functionDeclaration": "function() { this.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' }); }",
+            "returnByValue": true,
+        }),
     )
     .await
     .map_err(|e| cdp_error_to_result(e, "CDP_ERROR"))?;

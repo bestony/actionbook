@@ -88,10 +88,15 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     };
 
     // Resolve the target element via shared resolver (CSS, XPath, @eN)
-    let (_node_id, object_id) = match ctx.resolve_object(&cmd.selector).await {
+    let (node_id, object_id) = match ctx.resolve_object(&cmd.selector).await {
         Ok(v) => v,
         Err(e) => return e,
     };
+
+    // Scroll element to viewport center before operating
+    if let Err(e) = ctx.scroll_into_view(node_id).await {
+        return e;
+    }
 
     // Build JS function + arguments based on mode
     let (fn_decl, call_args) = if cmd.by_ref {

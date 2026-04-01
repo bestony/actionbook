@@ -73,6 +73,11 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         Err(e) => return e,
     };
 
+    // Scroll element to viewport center before focusing
+    if let Err(e) = ctx.scroll_into_view(node_id).await {
+        return e;
+    }
+
     // Stash a reference to the current activeElement, focus the target,
     // then compare with === for true element identity (not a lossy string).
     if let Err(e) = ctx
