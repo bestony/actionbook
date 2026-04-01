@@ -663,11 +663,11 @@ pub fn wait_page_ready(session_id: &str, tab_id: &str) {
     }
 }
 
-/// Poll `browser url` until it contains the expected substring, up to 3s.
+/// Poll `browser url` until it contains the expected substring, up to 5s.
 /// Prevents flaky failures when `--open-url` navigation hasn't reflected yet.
 #[allow(dead_code)]
 pub fn wait_url_contains(session_id: &str, tab_id: &str, expected: &str) {
-    for _ in 0..15 {
+    for _ in 0..25 {
         let out = headless_json(
             &["browser", "url", "--session", session_id, "--tab", tab_id],
             5,

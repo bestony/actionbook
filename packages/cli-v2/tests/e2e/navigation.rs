@@ -111,8 +111,8 @@ fn nav_goto_text() {
         "header must contain [session_id tab_id]: got {text}"
     );
     assert!(
-        text.contains("ok browser.goto"),
-        "must contain ok browser.goto"
+        text.contains("ok browser goto"),
+        "must contain ok browser goto"
     );
     assert!(text.contains("title:"), "must contain title:");
 }
@@ -374,8 +374,8 @@ fn nav_back_text() {
         "header must contain [session_id tab_id]: got {text}"
     );
     assert!(
-        text.contains("ok browser.back"),
-        "must contain ok browser.back"
+        text.contains("ok browser back"),
+        "must contain ok browser back"
     );
     assert!(text.contains("title:"), "must contain title:");
 }
@@ -529,8 +529,8 @@ fn nav_forward_text() {
         "header must contain [session_id tab_id]: got {text}"
     );
     assert!(
-        text.contains("ok browser.forward"),
-        "must contain ok browser.forward"
+        text.contains("ok browser forward"),
+        "must contain ok browser forward"
     );
     assert!(text.contains("title:"), "must contain title:");
 }
@@ -657,8 +657,8 @@ fn nav_reload_text() {
         "header must contain [session_id tab_id]: got {text}"
     );
     assert!(
-        text.contains("ok browser.reload"),
-        "must contain ok browser.reload"
+        text.contains("ok browser reload"),
+        "must contain ok browser reload"
     );
     assert!(text.contains("title:"), "must contain title:");
 }
@@ -766,8 +766,13 @@ fn nav_back_navigation_failed_json() {
     let (sid, tid) = start_session(&url_a());
     let _guard = SessionGuard::new(&sid);
 
+    // Chrome keeps the initial newtab page in history, so first back succeeds.
+    let out1 = headless_json(&["browser", "back", "--session", &sid, "--tab", &tid], 15);
+    assert_success(&out1, "first back goes to newtab");
+
+    // Second back should fail — no more history.
     let out = headless_json(&["browser", "back", "--session", &sid, "--tab", &tid], 15);
-    assert_failure(&out, "back with no history");
+    assert_failure(&out, "back with no more history");
     let v = parse_json(&out);
 
     assert_eq!(v["command"], "browser back");
