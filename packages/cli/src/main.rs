@@ -324,11 +324,10 @@ Quick start (search Airbnb for a room in SF):
   actionbook get \"airbnb.com:/:default\"
   actionbook browser start --set-session-id s1
   actionbook browser goto https://airbnb.com --session s1 --tab t1
-  actionbook browser snapshot -i --session s1 --tab t1
+  actionbook browser snapshot --session s1 --tab t1
   actionbook browser fill @e3 \"San Francisco\" --session s1 --tab t1
   actionbook browser click @e7 --session s1 --tab t1
   actionbook browser wait navigation --session s1 --tab t1
-  actionbook browser snapshot -i --session s1 --tab t1
 
 Run actionbook browser --help to see all browser subcommands.";
 
