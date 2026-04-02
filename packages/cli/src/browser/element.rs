@@ -325,11 +325,11 @@ async fn get_element_center_for_frame(
     // For cross-origin iframes (OOPIF), DOM.getBoxModel returns iframe-internal
     // coordinates.  Input.dispatchMouseEvent needs page-absolute coordinates,
     // so we add the iframe's offset on the parent page.
-    if let Some(fid) = frame_id {
-        if let Ok((off_x, off_y)) = get_iframe_offset(cdp, target_id, fid).await {
-            cx += off_x;
-            cy += off_y;
-        }
+    if let Some(fid) = frame_id
+        && let Ok((off_x, off_y)) = get_iframe_offset(cdp, target_id, fid).await
+    {
+        cx += off_x;
+        cy += off_y;
     }
 
     Ok((cx, cy))
