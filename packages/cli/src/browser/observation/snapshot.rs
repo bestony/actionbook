@@ -178,13 +178,23 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         None, // main frame
     );
 
-    // Expand 1 level of iframe content (only from main frame, no recursion)
-    expand_iframes(&cdp, &target_id, &mut nodes, &mut ref_cache, &options).await;
+    // Expand 1 level of iframe content (only from main frame, no recursion).
+    // Returns the set of frame_ids expanded in this pass.
+    let expanded_frames =
+        expand_iframes(&cdp, &target_id, &mut nodes, &mut ref_cache, &options).await;
 
     // Expand OOPIF frames that weren't discovered via AX tree Iframe nodes
     // (e.g., iframes inside closed shadow roots — invisible to DOM but
     // Chrome still creates dedicated CDP sessions for them).
-    expand_undiscovered_oopifs(&cdp, &target_id, &mut nodes, &mut ref_cache, &options).await;
+    expand_undiscovered_oopifs(
+        &cdp,
+        &target_id,
+        &mut nodes,
+        &mut ref_cache,
+        &options,
+        &expanded_frames,
+    )
+    .await;
 
     // Apply token budget truncation (100K tokens max)
     const MAX_TOKENS: usize = 100_000;
@@ -319,13 +329,15 @@ async fn enable_iframe_sessions(cdp: &CdpSession) {
 /// Expand 1 level of iframe content into the snapshot node list.
 /// For each Iframe node with a ref, resolves its child frame, fetches the AX tree,
 /// and inserts child nodes right after the Iframe node with depth += iframe_depth + 1.
+/// Returns the set of frame_ids expanded in this pass.
 async fn expand_iframes(
     cdp: &CdpSession,
     target_id: &str,
     nodes: &mut Vec<snapshot_transform::AXNode>,
     ref_cache: &mut snapshot_transform::RefCache,
     options: &SnapshotOptions,
-) {
+) -> std::collections::HashSet<String> {
+    let mut expanded_frames = std::collections::HashSet::new();
     // Enable any pending iframe sessions first
     enable_iframe_sessions(cdp).await;
 
@@ -352,6 +364,7 @@ async fn expand_iframes(
             Ok(fid) => fid,
             Err(_) => continue,
         };
+        expanded_frames.insert(child_frame_id.clone());
 
         // Remap any refs that were parsed from the main AX tree (frame_id=None)
         // but actually belong to this iframe.  Chrome's AX tree penetrates
@@ -411,6 +424,7 @@ async fn expand_iframes(
         nodes.extend(child_nodes);
         nodes.extend(tail);
     }
+    expanded_frames
 }
 
 /// Expand OOPIF frames that weren't discovered via AX tree Iframe nodes.
@@ -427,15 +441,12 @@ async fn expand_undiscovered_oopifs(
     nodes: &mut Vec<snapshot_transform::AXNode>,
     ref_cache: &mut snapshot_transform::RefCache,
     options: &SnapshotOptions,
+    already_expanded: &std::collections::HashSet<String>,
 ) {
     let iframe_sessions = cdp.iframe_sessions().await;
     if iframe_sessions.is_empty() {
         return;
     }
-
-    // Collect frame_ids already expanded by expand_iframes
-    let already_expanded: std::collections::HashSet<String> =
-        ref_cache.all_frame_ids().into_iter().collect();
 
     for (frame_id, session_id) in &iframe_sessions {
         if already_expanded.contains(frame_id) {

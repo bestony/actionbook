@@ -718,10 +718,17 @@ impl RefCache {
     ) {
         for &bid in backend_node_ids {
             let old_key: RefKey = (None, bid);
+            let new_key: RefKey = (Some(new_frame_id.to_string()), bid);
+
+            // Skip if the new key already exists — preserve existing frame-keyed
+            // refs to maintain stable ref_ids across snapshots.
+            if self.id_to_ref.contains_key(&new_key) {
+                continue;
+            }
+
             if let Some(mut entry) = self.id_to_ref.remove(&old_key) {
                 let ref_id = entry.ref_id.clone();
                 entry.frame_id = Some(new_frame_id.to_string());
-                let new_key: RefKey = (Some(new_frame_id.to_string()), bid);
                 self.id_to_ref.insert(new_key.clone(), entry);
                 // Update reverse lookup
                 self.ref_to_id.insert(ref_id, new_key);
