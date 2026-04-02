@@ -6,7 +6,7 @@ use crate::config::ConfigFile;
 use crate::error::CliError;
 use crate::types::Mode;
 
-/// Configure browser mode (isolated/local vs extension), executable, and headless preference.
+/// Configure browser mode (local vs extension), executable, and headless preference.
 pub(crate) async fn configure_browser(
     json: bool,
     env: &EnvironmentInfo,
@@ -72,7 +72,7 @@ fn apply_existing_browser_mode(
                     })
                 );
             } else {
-                println!("  - Browser mode: isolated");
+                println!("  - Browser mode: local");
             }
         }
         Mode::Extension => {
@@ -99,7 +99,7 @@ fn apply_existing_browser_mode(
 /// Interactive prompt to select browser mode.
 fn select_browser_mode(current_mode: Mode) -> Result<Mode, CliError> {
     let options = vec![
-        "isolated   Launch a dedicated browser".to_string(),
+        "local      Launch a dedicated browser".to_string(),
         "extension  Use your existing Chrome extension".to_string(),
     ];
 
@@ -170,7 +170,7 @@ fn configure_local(
             })
         );
     } else {
-        println!("  - Browser mode: isolated");
+        println!("  - Browser mode: local");
     }
 
     Ok(())
@@ -261,7 +261,7 @@ fn apply_browser_mode(
         );
     } else {
         let mode_label = if mode == Mode::Local {
-            "isolated"
+            "local"
         } else {
             "extension"
         };

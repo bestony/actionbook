@@ -103,7 +103,7 @@ pub async fn execute(cmd: &Cmd, json: bool) -> Result<(), CliError> {
                 } else {
                     "visible"
                 };
-                format!("isolated ({browser_name}, {headless_label})")
+                format!("local ({browser_name}, {headless_label})")
             }
             Mode::Extension => "extension".to_string(),
             Mode::Cloud => "unsupported".to_string(),
@@ -227,10 +227,10 @@ fn parse_browser_flag(value: Option<&str>) -> Result<Option<Mode>, CliError> {
     };
 
     match value.trim().to_ascii_lowercase().as_str() {
-        "isolated" | "local" => Ok(Some(Mode::Local)),
+        "local" => Ok(Some(Mode::Local)),
         "extension" => Ok(Some(Mode::Extension)),
         other => Err(CliError::InvalidArgument(format!(
-            "invalid --browser value '{other}': expected isolated|local|extension"
+            "invalid --browser value '{other}': expected local|extension"
         ))),
     }
 }
@@ -306,7 +306,7 @@ fn print_completion(json: bool, config: &ConfigFile) {
             } else {
                 "visible"
             };
-            format!("isolated ({name}, {headless_str})")
+            format!("local ({name}, {headless_str})")
         }
         Mode::Extension => "extension".to_string(),
         Mode::Cloud => "unsupported".to_string(),
@@ -364,13 +364,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn parse_browser_flag_accepts_aliases() {
+    fn parse_browser_flag_accepts_supported_values() {
         assert_eq!(
             parse_browser_flag(Some("local")).unwrap(),
-            Some(Mode::Local)
-        );
-        assert_eq!(
-            parse_browser_flag(Some("isolated")).unwrap(),
             Some(Mode::Local)
         );
         assert_eq!(
@@ -382,6 +378,12 @@ mod tests {
     #[test]
     fn parse_browser_flag_rejects_unknown() {
         let err = parse_browser_flag(Some("invalid")).expect_err("should reject");
+        assert_eq!(err.error_code(), "INVALID_ARGUMENT");
+    }
+
+    #[test]
+    fn parse_browser_flag_rejects_isolated() {
+        let err = parse_browser_flag(Some("isolated")).expect_err("should reject");
         assert_eq!(err.error_code(), "INVALID_ARGUMENT");
     }
 

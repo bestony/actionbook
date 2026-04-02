@@ -19,7 +19,7 @@ fn setup_json_non_interactive_writes_config_without_daemon_side_effects() {
             "--api-key",
             "sk-test",
             "--browser",
-            "isolated",
+            "local",
         ])
         .output()
         .expect("run setup");
@@ -190,6 +190,36 @@ fn setup_invalid_browser_value_exits_non_zero() {
     assert!(
         !home.join("daemon.pid").exists(),
         "setup should not spawn a daemon process on failure"
+    );
+}
+
+#[test]
+fn setup_isolated_browser_value_exits_non_zero() {
+    let tmp = tempfile::tempdir().expect("tmpdir");
+    let home = tmp.path().join("actionbook-home");
+
+    let output = Command::cargo_bin("actionbook")
+        .expect("binary exists")
+        .env("ACTIONBOOK_HOME", &home)
+        .args([
+            "--json",
+            "setup",
+            "--non-interactive",
+            "--browser",
+            "isolated",
+        ])
+        .output()
+        .expect("run setup");
+
+    assert!(
+        !output.status.success(),
+        "expected isolated --browser to fail\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr),
+    );
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("invalid --browser value 'isolated'"),
+        "stderr should explain that isolated is no longer a valid browser value"
     );
 }
 
