@@ -719,6 +719,8 @@ fn install_fill_fixture(session_id: &str, tab_id: &str) {
 }
 
 fn install_select_fixture(session_id: &str, tab_id: &str) {
+    // Use DOM APIs instead of innerHTML to avoid Trusted Types restrictions
+    // that Chrome 146+ may enforce on certain pages.
     let expression = r#"
 (() => {
   const existing = document.getElementById('ab-select-fixture');
@@ -730,26 +732,23 @@ fn install_select_fixture(session_id: &str, tab_id: &str) {
 
   const root = document.createElement('div');
   root.id = 'ab-select-fixture';
-  root.innerHTML = `
-    <style>
-      #ab-select {
-        position: fixed;
-        top: 480px;
-        left: 40px;
-        width: 240px;
-        height: 36px;
-        z-index: 2147483647;
-      }
-    </style>
-    <select id="ab-select">
-      <option value="apple" selected>Apple</option>
-      <option value="banana">Banana</option>
-      <option value="citrus">Citrus Fruit</option>
-    </select>
-  `;
+
+  const style = document.createElement('style');
+  style.textContent = '#ab-select { position: fixed; top: 200px; left: 40px; width: 240px; height: 36px; z-index: 2147483647; }';
+  root.appendChild(style);
+
+  const select = document.createElement('select');
+  select.id = 'ab-select';
+  [['apple', 'Apple', true], ['banana', 'Banana', false], ['citrus', 'Citrus Fruit', false]].forEach(([val, txt, sel]) => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = txt;
+    opt.selected = sel;
+    select.appendChild(opt);
+  });
+  root.appendChild(select);
   document.body.appendChild(root);
 
-  const select = document.getElementById('ab-select');
   select.addEventListener('input', () => {
     window.__ab_select_input_count += 1;
     window.__ab_select_events.push('input:' + select.value);
