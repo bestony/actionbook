@@ -522,9 +522,34 @@ impl CdpSession {
                 }
 
                 // Maintain per-tab Network pending counter.
+                // Matches Playwright's behaviour: exclude WebSocket upgrades,
+                // favicon requests, and data: URLs from the inflight count so
+                // that persistent connections don't block network-idle.
                 if !session_id.is_empty() {
                     let delta: i64 = match method {
-                        "Network.requestWillBeSent" => 1,
+                        "Network.requestWillBeSent" => {
+                            let params = resp.get("params");
+                            let req_type = params
+                                .and_then(|p| p.get("type"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            let url = params
+                                .and_then(|p| p.pointer("/request/url"))
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("");
+                            // Skip requests that should not block network-idle:
+                            // - WebSocket upgrades never fire loadingFinished,
+                            //   so counting them leaves pending stuck at ≥1.
+                            // - Favicon and data: URLs match Playwright's exclusions.
+                            if req_type == "WebSocket"
+                                || url.ends_with("/favicon.ico")
+                                || url.starts_with("data:")
+                            {
+                                0
+                            } else {
+                                1
+                            }
+                        }
                         "Network.loadingFinished" | "Network.loadingFailed" => -1,
                         _ => 0,
                     };
