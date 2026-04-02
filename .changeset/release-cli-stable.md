@@ -8,13 +8,13 @@ Rebuilt browser automation runtime designed for AI agents. Stateless session mod
 
 ### Breaking Changes
 
-- **Stateless session model.** CLI now requires explicit `--session` and `--tab` flags for all browser commands. All state is caller-managed — no implicit browser state, no cross-call side effects. Agents can reason about browser state without tracking hidden side effects.
+- **Stateless session model.** CLI now requires explicit `--session` and `--tab` flags for browser commands. Stateless interface, stateful runtime — agents reason about browser state through explicit addressing, not hidden side effects.
 
 ### Design: Agent-First CLI
 
 This is not a browser automation tool adapted for agents — it is built for agents from the ground up.
 
-- **Structured, parseable output.** Every command returns JSON. No human-oriented formatting for agents to parse around.
+- **Structured, parseable output.** Supports JSON via --json, with stable text output by default. Both formats are part of the formal contract.
 - **Predictable command surface.** Consistent argument patterns and return shapes across all 50+ commands. Agents don't need per-command special-casing.
 - **Stateless by default.** Explicit `--session` and `--tab` addressing means agents manage state in their own context window, not in hidden browser-side state. This maps directly to how LLM agents work — every call is self-contained.
 - **Snapshot refs as stable handles.** Elements are labeled with refs (`@e3`, `@e7`) that persist across commands within a snapshot. Agents can plan multi-step interactions without re-observing the page after every action.
