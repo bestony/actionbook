@@ -371,8 +371,7 @@ async fn expand_iframes(
                 .collect();
 
             if !child_backend_ids.is_empty() {
-                ref_cache
-                    .remap_frame_id_for_backend_nodes(&child_backend_ids, &child_frame_id);
+                ref_cache.remap_frame_id_for_backend_nodes(&child_backend_ids, &child_frame_id);
             }
         }
 
@@ -435,10 +434,8 @@ async fn expand_undiscovered_oopifs(
     }
 
     // Collect frame_ids already expanded by expand_iframes
-    let already_expanded: std::collections::HashSet<String> = ref_cache
-        .all_frame_ids()
-        .into_iter()
-        .collect();
+    let already_expanded: std::collections::HashSet<String> =
+        ref_cache.all_frame_ids().into_iter().collect();
 
     for (frame_id, session_id) in &iframe_sessions {
         if already_expanded.contains(frame_id) {

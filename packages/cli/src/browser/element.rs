@@ -347,7 +347,11 @@ async fn get_iframe_offset(
 ) -> Result<(f64, f64), CliError> {
     // Get the iframe element's backendNodeId via DOM.getFrameOwner
     let owner = cdp
-        .execute_on_tab(target_id, "DOM.getFrameOwner", json!({ "frameId": frame_id }))
+        .execute_on_tab(
+            target_id,
+            "DOM.getFrameOwner",
+            json!({ "frameId": frame_id }),
+        )
         .await?;
 
     let backend_node_id = owner
