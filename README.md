@@ -45,7 +45,7 @@ so your agent operates any website instantly. One tab or dozens, concurrently.
 - **Accurate.** Built for virtual DOMs, SPAs, and streaming components. Agents operate reliably.
 - **Concurrent.** Stateless architecture. Operate dozens of tabs in parallel.
 
-An agent collects taglines from 192 First Round portfolio companies in 2 minutes.
+An agent visits 192 First Round portfolio company websites and collects their taglines in 2 minutes.
 
 https://github.com/user-attachments/assets/6bf4aa80-b1cc-4278-a248-37e3b38f0579
 
