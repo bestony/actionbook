@@ -320,7 +320,7 @@ Global flags:
   --timeout <ms>  Set command timeout
 
 Quick start:
-  actionbook search \"airbnb search\"
+  actionbook search \"find a room next week in SF on airbnb\" --domain airbnb.com
   actionbook get \"airbnb.com:/:default\"
   actionbook browser start --set-session-id my-session
   actionbook browser goto https://example.com --session my-session --tab t1
