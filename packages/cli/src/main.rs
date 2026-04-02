@@ -318,7 +318,6 @@ Commands:
 Global flags:
   --json          Output as JSON envelope
   --timeout <ms>  Set command timeout
-  --api-key       API key for authenticated access (env: ACTIONBOOK_API_KEY)
 
 Quick start:
   actionbook search \"airbnb search\"
