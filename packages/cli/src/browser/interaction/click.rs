@@ -164,8 +164,8 @@ async fn execute_single_click(
     ))
 }
 
-/// Fast click: resolve + dispatch only, no scrollIntoView or pre/post state detection.
-/// Uses DOM-engine-only CDP calls to avoid blocking on the JS main thread.
+/// Fast click: resolve + scroll + dispatch, but no pre/post state detection.
+/// Skips Runtime.evaluate calls for URL/title/focus comparison.
 /// Used by batch-click where per-click state tracking is unnecessary.
 pub(crate) async fn execute_fast_click(
     selector: &str,
@@ -176,7 +176,7 @@ pub(crate) async fn execute_fast_click(
     let (x, y) = match &target {
         ClickTarget::Coordinates(cx, cy) => (*cx, *cy),
         ClickTarget::Selector(sel) => {
-            let (_node_id, cx, cy) = ctx.resolve_center_no_scroll(sel).await?;
+            let (_node_id, cx, cy) = ctx.resolve_center(sel).await?;
             (cx, cy)
         }
     };
