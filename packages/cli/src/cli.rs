@@ -144,6 +144,8 @@ Examples:
     Reload(TabArgs),
 
     // ── Observation ────────────────────────────────────────────
+    /// Capture accessibility snapshots for multiple tabs
+    BatchSnapshot(observation::batch_snapshot::Cmd),
     /// Capture accessibility snapshot
     Snapshot(observation::snapshot::Cmd),
     /// Get current page title
@@ -386,6 +388,7 @@ impl BrowserCommands {
                 session: a.session.clone(),
                 tab: a.tab.clone(),
             }),
+            Self::BatchSnapshot(cmd) => Action::BatchSnapshot(cmd.clone()),
             Self::Snapshot(cmd) => Action::Snapshot(cmd.clone()),
             Self::Title(cmd) => Action::Title(cmd.clone()),
             Self::Url(cmd) => Action::Url(cmd.clone()),
@@ -460,6 +463,7 @@ impl BrowserCommands {
             Self::Back(_) => "browser back",
             Self::Forward(_) => "browser forward",
             Self::Reload(_) => "browser reload",
+            Self::BatchSnapshot(_) => observation::batch_snapshot::COMMAND_NAME,
             Self::Snapshot(_) => observation::snapshot::COMMAND_NAME,
             Self::Title(_) => observation::title::COMMAND_NAME,
             Self::Url(_) => observation::url::COMMAND_NAME,
@@ -531,6 +535,7 @@ impl BrowserCommands {
             Self::BatchNewTab(cmd) => tab::batch_open::context(cmd, result),
             Self::CloseTab(cmd) => tab::close::context(cmd, result),
             Self::Goto(cmd) => navigation::goto::context(cmd, result),
+            Self::BatchSnapshot(cmd) => observation::batch_snapshot::context(cmd, result),
             Self::Snapshot(cmd) => observation::snapshot::context(cmd, result),
             Self::Title(cmd) => observation::title::context(cmd, result),
             Self::Url(cmd) => observation::url::context(cmd, result),
