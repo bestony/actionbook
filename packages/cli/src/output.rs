@@ -196,6 +196,7 @@ pub fn format_text(
                     | "browser forward"
                     | "browser reload"
                     | "browser click"
+                    | "browser batch-click"
                     | "browser hover"
                     | "browser focus"
                     | "browser press"
@@ -387,7 +388,7 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(format!("by_ref: {by_ref}"));
             }
         }
-        "browser click" => {
+        "browser click" | "browser batch-click" => {
             // Batch response has "clicks" + "results" array
             if let Some(clicks) = data.get("clicks").and_then(|v| v.as_u64()) {
                 lines.push(format!("clicks: {clicks}"));
