@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use clap::Args;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::action_result::ActionResult;
 use crate::browser::element::{ClickTarget, TabContext, parse_target};
@@ -92,11 +92,7 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 }
 
 /// Click a single selector with the given context and command params.
-async fn execute_single_click(
-    selector: &str,
-    cmd: &Cmd,
-    ctx: &mut TabContext,
-) -> ActionResult {
+async fn execute_single_click(selector: &str, cmd: &Cmd, ctx: &mut TabContext) -> ActionResult {
     // Parse target
     let target = match parse_target(selector) {
         Ok(t) => t,
@@ -551,9 +547,21 @@ async fn get_full_tab_state(cdp: &CdpSession, target_id: &str) -> (String, Strin
                 .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
         });
 
-    let url = result.as_ref().and_then(|v| v["url"].as_str()).unwrap_or_default().to_string();
-    let title = result.as_ref().and_then(|v| v["title"].as_str()).unwrap_or_default().to_string();
-    let focus = result.as_ref().and_then(|v| v["focus"].as_str()).unwrap_or_default().to_string();
+    let url = result
+        .as_ref()
+        .and_then(|v| v["url"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let title = result
+        .as_ref()
+        .and_then(|v| v["title"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let focus = result
+        .as_ref()
+        .and_then(|v| v["focus"].as_str())
+        .unwrap_or_default()
+        .to_string();
     (url, title, focus)
 }
 
@@ -588,4 +596,3 @@ async fn get_tab_state(cdp: &CdpSession, target_id: &str) -> (String, String) {
         .to_string();
     (url, focus)
 }
-

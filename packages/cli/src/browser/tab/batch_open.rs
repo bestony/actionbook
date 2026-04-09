@@ -126,7 +126,13 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         {
             Ok(r) => r,
             Err(e) => {
-                return batch_error(i, final_url, cdp_error_to_result(e, "CDP_ERROR"), &results, cmd.urls.len());
+                return batch_error(
+                    i,
+                    final_url,
+                    cdp_error_to_result(e, "CDP_ERROR"),
+                    &results,
+                    cmd.urls.len(),
+                );
             }
         };
         let target_id = match resp.pointer("/result/targetId").and_then(|v| v.as_str()) {
@@ -150,7 +156,13 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
             let _ = cdp
                 .execute_browser("Target.closeTarget", json!({ "targetId": target_id }))
                 .await;
-            return batch_error(i, final_url, cdp_error_to_result(e, "CDP_ERROR"), &results, cmd.urls.len());
+            return batch_error(
+                i,
+                final_url,
+                cdp_error_to_result(e, "CDP_ERROR"),
+                &results,
+                cmd.urls.len(),
+            );
         }
 
         // Register the new tab
@@ -174,7 +186,13 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                                         json!({ "targetId": target_id }),
                                     )
                                     .await;
-                                return batch_error(i, final_url, err_result, &results, cmd.urls.len());
+                                return batch_error(
+                                    i,
+                                    final_url,
+                                    err_result,
+                                    &results,
+                                    cmd.urls.len(),
+                                );
                             }
                         }
                     } else {
@@ -189,7 +207,10 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                         .await;
                     return ActionResult::fatal(
                         "SESSION_NOT_FOUND",
-                        format!("session '{}' was closed during batch tab creation", cmd.session),
+                        format!(
+                            "session '{}' was closed during batch tab creation",
+                            cmd.session
+                        ),
                     );
                 }
             }

@@ -56,7 +56,10 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     if cmd.selectors.len() < 2 {
-        return ActionResult::fatal("INVALID_ARGUMENT", "batch-click requires at least 2 selectors");
+        return ActionResult::fatal(
+            "INVALID_ARGUMENT",
+            "batch-click requires at least 2 selectors",
+        );
     }
 
     let mut ctx = match TabContext::new(registry, &cmd.session, &cmd.tab).await {
