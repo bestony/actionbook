@@ -198,6 +198,7 @@ pub fn format_text(
                     | "browser reload"
                     | "browser click"
                     | "browser batch-click"
+                    | "browser batch-new-tab"
                     | "browser hover"
                     | "browser focus"
                     | "browser press"
@@ -239,7 +240,9 @@ pub fn format_text(
             format_data_fields(command, data, &mut lines);
         }
         ActionResult::Fatal { code, message, .. } => {
-            if command == "browser new-tab" && code == "PARTIAL_FAILURE" {
+            if (command == "browser new-tab" || command == "browser batch-new-tab")
+                && code == "PARTIAL_FAILURE"
+            {
                 if let Some(details) = result_details(result) {
                     format_new_tab_partial_failure(details, &mut lines);
                 } else {
@@ -359,6 +362,9 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
             {
                 lines.push(format!("title: {title}"));
             }
+        }
+        "browser batch-new-tab" => {
+            format_new_tab_batch_success(data, lines);
         }
         "browser close-tab" => {
             // No additional fields per §8.3 text format
