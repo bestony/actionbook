@@ -197,6 +197,8 @@ pub fn format_text(
                     | "browser forward"
                     | "browser reload"
                     | "browser click"
+                    | "browser batch-click"
+                    | "browser batch-new-tab"
                     | "browser hover"
                     | "browser focus"
                     | "browser press"
@@ -225,6 +227,8 @@ pub fn format_text(
                     | "browser session-storage set"
                     | "browser session-storage delete"
                     | "browser session-storage clear"
+                    | "browser network requests"
+                    | "browser network request"
             );
 
             if is_action {
@@ -238,7 +242,9 @@ pub fn format_text(
             format_data_fields(command, data, &mut lines);
         }
         ActionResult::Fatal { code, message, .. } => {
-            if command == "browser new-tab" && code == "PARTIAL_FAILURE" {
+            if (command == "browser new-tab" || command == "browser batch-new-tab")
+                && code == "PARTIAL_FAILURE"
+            {
                 if let Some(details) = result_details(result) {
                     format_new_tab_partial_failure(details, &mut lines);
                 } else {
@@ -359,6 +365,9 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(format!("title: {title}"));
             }
         }
+        "browser batch-new-tab" => {
+            format_new_tab_batch_success(data, lines);
+        }
         "browser close-tab" => {
             // No additional fields per §8.3 text format
         }
@@ -401,7 +410,7 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(format!("by_ref: {by_ref}"));
             }
         }
-        "browser click" => {
+        "browser click" | "browser batch-click" => {
             // Batch response has "clicks" + "results" array
             if let Some(clicks) = data.get("clicks").and_then(|v| v.as_u64()) {
                 lines.push(format!("clicks: {clicks}"));
@@ -686,6 +695,80 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 .and_then(|v| v.as_str())
             {
                 lines.push(format!("path: {path}"));
+            }
+        }
+        "browser network requests" => {
+            if data
+                .get("cleared")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+            {
+                let count = data.get("count").and_then(|v| v.as_u64()).unwrap_or(0);
+                lines.push(format!("cleared: {count} requests"));
+            } else {
+                let requests = data.get("requests").and_then(|v| v.as_array());
+                let filtered = requests.map(|r| r.len()).unwrap_or(0);
+                let total = data.get("total").and_then(|v| v.as_u64()).unwrap_or(0);
+                if filtered == total as usize {
+                    let label = if filtered == 1 { "request" } else { "requests" };
+                    lines.push(format!("{filtered} {label}"));
+                } else {
+                    lines.push(format!("{filtered} requests (of {total} total)"));
+                }
+                if let Some(requests) = requests {
+                    for req in requests {
+                        let id = req
+                            .get("request_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("-");
+                        let method = req.get("method").and_then(|v| v.as_str()).unwrap_or("-");
+                        let status = req
+                            .get("status")
+                            .map(|v| {
+                                if v.is_null() {
+                                    "pending".to_string()
+                                } else {
+                                    v.to_string()
+                                }
+                            })
+                            .unwrap_or_else(|| "pending".to_string());
+                        let url = req.get("url").and_then(|v| v.as_str()).unwrap_or("");
+                        let rtype = req
+                            .get("resource_type")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("");
+                        lines.push(format!("  {id} {method} {status} {url} [{rtype}]"));
+                    }
+                }
+            }
+        }
+        "browser network request" => {
+            if let Some(req) = data.get("request") {
+                let method = req.get("method").and_then(|v| v.as_str()).unwrap_or("-");
+                let status = req
+                    .get("status")
+                    .map(|v| {
+                        if v.is_null() {
+                            "pending".to_string()
+                        } else {
+                            v.to_string()
+                        }
+                    })
+                    .unwrap_or_else(|| "pending".to_string());
+                let url = req.get("url").and_then(|v| v.as_str()).unwrap_or("");
+                let rtype = req
+                    .get("resource_type")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                lines.push(format!("{method} {status} {url} [{rtype}]"));
+                if let Some(body) = req.get("response_body").and_then(|v| v.as_str()) {
+                    let preview = if body.len() > 200 {
+                        format!("{}...", &body[..200])
+                    } else {
+                        body.to_string()
+                    };
+                    lines.push(format!("body: {preview}"));
+                }
             }
         }
         "browser logs console" | "browser logs errors" => {

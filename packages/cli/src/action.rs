@@ -15,6 +15,7 @@ pub enum Action {
 
     // ── Tab management ─────────────────────────────────────────
     NewTab(tab::open::Cmd),
+    BatchOpen(tab::batch_open::Cmd),
     CloseTab(tab::close::Cmd),
     ListTabs(tab::list::Cmd),
 
@@ -25,6 +26,7 @@ pub enum Action {
     Reload(navigation::reload::Cmd),
 
     // ── Observation ────────────────────────────────────────────
+    BatchSnapshot(observation::batch_snapshot::Cmd),
     Snapshot(observation::snapshot::Cmd),
     Screenshot(observation::screenshot::Cmd),
     Title(observation::title::Cmd),
@@ -44,6 +46,8 @@ pub enum Action {
     Pdf(observation::pdf::Cmd),
     LogsConsole(observation::logs_console::Cmd),
     LogsErrors(observation::logs_errors::Cmd),
+    NetworkRequests(observation::network_requests::Cmd),
+    NetworkRequestDetail(observation::network_request_detail::Cmd),
 
     // ── Cookies ────────────────────────────────────────────────
     CookiesList(cookies::list::Cmd),
@@ -68,6 +72,7 @@ pub enum Action {
     // ── Interaction ────────────────────────────────────────────
     Eval(interaction::eval::Cmd),
     Click(interaction::click::Cmd),
+    BatchClick(interaction::batch_click::Cmd),
     Hover(interaction::hover::Cmd),
     Focus(interaction::focus::Cmd),
     Press(interaction::press::Cmd),
@@ -107,6 +112,7 @@ impl Action {
 
             // Tab management
             Action::NewTab(c) => s_only!(c),
+            Action::BatchOpen(c) => s_only!(c),
             Action::CloseTab(c) => st!(c),
             Action::ListTabs(c) => s_only!(c),
 
@@ -117,6 +123,7 @@ impl Action {
             Action::Reload(c) => st!(c),
 
             // Observation
+            Action::BatchSnapshot(c) => c.session.clone(),
             Action::Snapshot(c) => st!(c),
             Action::Screenshot(c) => st!(c),
             Action::Title(c) => st!(c),
@@ -136,6 +143,8 @@ impl Action {
             Action::Pdf(c) => st!(c),
             Action::LogsConsole(c) => st!(c),
             Action::LogsErrors(c) => st!(c),
+            Action::NetworkRequests(c) => st!(c),
+            Action::NetworkRequestDetail(c) => st!(c),
 
             // Cookies (session-level, no tab)
             Action::CookiesList(c) => s_only!(c),
@@ -160,6 +169,7 @@ impl Action {
             // Interaction
             Action::Eval(c) => st!(c),
             Action::Click(c) => st!(c),
+            Action::BatchClick(c) => st!(c),
             Action::Hover(c) => st!(c),
             Action::Focus(c) => st!(c),
             Action::Press(c) => st!(c),
@@ -183,12 +193,14 @@ impl Action {
             Action::Close(_) => session::close::COMMAND_NAME,
             Action::Restart(_) => session::restart::COMMAND_NAME,
             Action::NewTab(_) => tab::open::COMMAND_NAME,
+            Action::BatchOpen(_) => tab::batch_open::COMMAND_NAME,
             Action::CloseTab(_) => tab::close::COMMAND_NAME,
             Action::ListTabs(_) => tab::list::COMMAND_NAME,
             Action::Goto(_) => navigation::goto::COMMAND_NAME,
             Action::Back(_) => navigation::back::COMMAND_NAME,
             Action::Forward(_) => navigation::forward::COMMAND_NAME,
             Action::Reload(_) => navigation::reload::COMMAND_NAME,
+            Action::BatchSnapshot(_) => observation::batch_snapshot::COMMAND_NAME,
             Action::Snapshot(_) => observation::snapshot::COMMAND_NAME,
             Action::Screenshot(_) => observation::screenshot::COMMAND_NAME,
             Action::Title(_) => observation::title::COMMAND_NAME,
@@ -208,6 +220,8 @@ impl Action {
             Action::Pdf(_) => observation::pdf::COMMAND_NAME,
             Action::LogsConsole(_) => observation::logs_console::COMMAND_NAME,
             Action::LogsErrors(_) => observation::logs_errors::COMMAND_NAME,
+            Action::NetworkRequests(_) => observation::network_requests::COMMAND_NAME,
+            Action::NetworkRequestDetail(_) => observation::network_request_detail::COMMAND_NAME,
             Action::CookiesList(_) => cookies::list::COMMAND_NAME,
             Action::CookiesGet(_) => cookies::get::COMMAND_NAME,
             Action::CookiesSet(_) => cookies::set::COMMAND_NAME,
@@ -224,6 +238,7 @@ impl Action {
             Action::WaitCondition(_) => wait::condition::COMMAND_NAME,
             Action::Eval(_) => interaction::eval::COMMAND_NAME,
             Action::Click(_) => interaction::click::COMMAND_NAME,
+            Action::BatchClick(_) => interaction::batch_click::COMMAND_NAME,
             Action::Hover(_) => interaction::hover::COMMAND_NAME,
             Action::Focus(_) => interaction::focus::COMMAND_NAME,
             Action::Press(_) => interaction::press::COMMAND_NAME,

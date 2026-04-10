@@ -9,6 +9,7 @@
 //! Run with:
 //!   RUN_E2E_TESTS=true cargo test --test e2e -- --test-threads=1 --nocapture
 
+mod batch_snapshot;
 mod browser_lifecycle;
 mod cloud_mode;
 mod cookies;
@@ -21,6 +22,7 @@ mod inspect_point;
 mod interaction;
 mod logs;
 mod navigation;
+mod network;
 mod page_info;
 mod pdf;
 mod query;

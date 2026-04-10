@@ -118,6 +118,9 @@ pub enum BrowserCommands {
     /// Open a new tab
     #[command(alias = "open")]
     NewTab(tab::open::Cmd),
+    /// Open multiple tabs in one call (batch)
+    #[command(alias = "batch-open")]
+    BatchNewTab(tab::batch_open::Cmd),
     /// Close a tab
     CloseTab(tab::close::Cmd),
 
@@ -141,6 +144,8 @@ Examples:
     Reload(TabArgs),
 
     // ── Observation ────────────────────────────────────────────
+    /// Capture accessibility snapshots for multiple tabs
+    BatchSnapshot(observation::batch_snapshot::Cmd),
     /// Capture accessibility snapshot
     Snapshot(observation::snapshot::Cmd),
     /// Get current page title
@@ -181,6 +186,11 @@ Examples:
         #[command(subcommand)]
         command: LogsCommands,
     },
+    /// Observe network requests
+    Network {
+        #[command(subcommand)]
+        command: NetworkCommands,
+    },
     /// Take screenshot
     #[command(after_help = "\
 Examples:
@@ -220,6 +230,8 @@ Examples:
     Eval(interaction::eval::Cmd),
     /// Click an element
     Click(interaction::click::Cmd),
+    /// Click multiple elements in sequence (batch)
+    BatchClick(interaction::batch_click::Cmd),
     /// Hover over an element
     Hover(interaction::hover::Cmd),
     /// Focus an element
@@ -265,6 +277,15 @@ pub enum LogsCommands {
     Console(observation::logs_console::Cmd),
     /// Get error logs (window error events + unhandled rejections)
     Errors(observation::logs_errors::Cmd),
+}
+
+#[derive(Subcommand, Debug)]
+#[command(disable_help_subcommand = true)]
+pub enum NetworkCommands {
+    /// List tracked network requests for a tab
+    Requests(observation::network_requests::Cmd),
+    /// Get detail for a single network request (including response body)
+    Request(observation::network_request_detail::Cmd),
 }
 
 #[derive(Subcommand, Debug)]
@@ -366,6 +387,7 @@ impl BrowserCommands {
             Self::Restart(cmd) => Action::Restart(cmd.clone()),
             Self::ListTabs(cmd) => Action::ListTabs(cmd.clone()),
             Self::NewTab(cmd) => Action::NewTab(cmd.clone()),
+            Self::BatchNewTab(cmd) => Action::BatchOpen(cmd.clone()),
             Self::CloseTab(cmd) => Action::CloseTab(cmd.clone()),
             Self::Goto(cmd) => Action::Goto(cmd.clone()),
             Self::Back(a) => Action::Back(navigation::back::Cmd {
@@ -380,6 +402,7 @@ impl BrowserCommands {
                 session: a.session.clone(),
                 tab: a.tab.clone(),
             }),
+            Self::BatchSnapshot(cmd) => Action::BatchSnapshot(cmd.clone()),
             Self::Snapshot(cmd) => Action::Snapshot(cmd.clone()),
             Self::Title(cmd) => Action::Title(cmd.clone()),
             Self::Url(cmd) => Action::Url(cmd.clone()),
@@ -413,6 +436,10 @@ impl BrowserCommands {
                 LogsCommands::Console(cmd) => Action::LogsConsole(cmd.clone()),
                 LogsCommands::Errors(cmd) => Action::LogsErrors(cmd.clone()),
             },
+            Self::Network { command } => match command {
+                NetworkCommands::Requests(cmd) => Action::NetworkRequests(cmd.clone()),
+                NetworkCommands::Request(cmd) => Action::NetworkRequestDetail(cmd.clone()),
+            },
             Self::Wait { command } => match command {
                 WaitCommands::Element(cmd) => Action::WaitElement(cmd.clone()),
                 WaitCommands::Navigation(cmd) => Action::WaitNavigation(cmd.clone()),
@@ -422,6 +449,7 @@ impl BrowserCommands {
             Self::Screenshot(cmd) => Action::Screenshot(cmd.clone()),
             Self::Eval(cmd) => Action::Eval(cmd.clone()),
             Self::Click(cmd) => Action::Click(cmd.clone()),
+            Self::BatchClick(cmd) => Action::BatchClick(cmd.clone()),
             Self::Hover(cmd) => Action::Hover(cmd.clone()),
             Self::Focus(cmd) => Action::Focus(cmd.clone()),
             Self::Press(cmd) => Action::Press(cmd.clone()),
@@ -447,11 +475,13 @@ impl BrowserCommands {
             Self::Restart(_) => session::restart::COMMAND_NAME,
             Self::ListTabs(_) => tab::list::COMMAND_NAME,
             Self::NewTab(_) => tab::open::COMMAND_NAME,
+            Self::BatchNewTab(_) => tab::batch_open::COMMAND_NAME,
             Self::CloseTab(_) => tab::close::COMMAND_NAME,
             Self::Goto(_) => navigation::goto::COMMAND_NAME,
             Self::Back(_) => "browser back",
             Self::Forward(_) => "browser forward",
             Self::Reload(_) => "browser reload",
+            Self::BatchSnapshot(_) => observation::batch_snapshot::COMMAND_NAME,
             Self::Snapshot(_) => observation::snapshot::COMMAND_NAME,
             Self::Title(_) => observation::title::COMMAND_NAME,
             Self::Url(_) => observation::url::COMMAND_NAME,
@@ -485,6 +515,10 @@ impl BrowserCommands {
                 LogsCommands::Console(_) => observation::logs_console::COMMAND_NAME,
                 LogsCommands::Errors(_) => observation::logs_errors::COMMAND_NAME,
             },
+            Self::Network { command } => match command {
+                NetworkCommands::Requests(_) => observation::network_requests::COMMAND_NAME,
+                NetworkCommands::Request(_) => observation::network_request_detail::COMMAND_NAME,
+            },
             Self::Wait { command } => match command {
                 WaitCommands::Element(_) => wait::element::COMMAND_NAME,
                 WaitCommands::Navigation(_) => wait::navigation::COMMAND_NAME,
@@ -494,6 +528,7 @@ impl BrowserCommands {
             Self::Screenshot(_) => observation::screenshot::COMMAND_NAME,
             Self::Eval(_) => interaction::eval::COMMAND_NAME,
             Self::Click(_) => interaction::click::COMMAND_NAME,
+            Self::BatchClick(_) => interaction::batch_click::COMMAND_NAME,
             Self::Hover(_) => interaction::hover::COMMAND_NAME,
             Self::Focus(_) => interaction::focus::COMMAND_NAME,
             Self::Press(_) => interaction::press::COMMAND_NAME,
@@ -519,8 +554,10 @@ impl BrowserCommands {
             Self::Restart(cmd) => session::restart::context(cmd, result),
             Self::ListTabs(cmd) => tab::list::context(cmd, result),
             Self::NewTab(cmd) => tab::open::context(cmd, result),
+            Self::BatchNewTab(cmd) => tab::batch_open::context(cmd, result),
             Self::CloseTab(cmd) => tab::close::context(cmd, result),
             Self::Goto(cmd) => navigation::goto::context(cmd, result),
+            Self::BatchSnapshot(cmd) => observation::batch_snapshot::context(cmd, result),
             Self::Snapshot(cmd) => observation::snapshot::context(cmd, result),
             Self::Title(cmd) => observation::title::context(cmd, result),
             Self::Url(cmd) => observation::url::context(cmd, result),
@@ -554,6 +591,14 @@ impl BrowserCommands {
                 LogsCommands::Console(cmd) => observation::logs_console::context(cmd, result),
                 LogsCommands::Errors(cmd) => observation::logs_errors::context(cmd, result),
             },
+            Self::Network { command } => match command {
+                NetworkCommands::Requests(cmd) => {
+                    observation::network_requests::context(cmd, result)
+                }
+                NetworkCommands::Request(cmd) => {
+                    observation::network_request_detail::context(cmd, result)
+                }
+            },
             Self::Wait { command } => match command {
                 WaitCommands::Element(cmd) => wait::element::context(cmd, result),
                 WaitCommands::Navigation(cmd) => wait::navigation::context(cmd, result),
@@ -583,6 +628,7 @@ impl BrowserCommands {
                 result,
             ),
             Self::Click(cmd) => interaction::click::context(cmd, result),
+            Self::BatchClick(cmd) => interaction::batch_click::context(cmd, result),
             Self::Hover(cmd) => interaction::hover::context(cmd, result),
             Self::Focus(cmd) => interaction::focus::context(cmd, result),
             Self::Press(cmd) => interaction::press::context(cmd, result),
@@ -1059,6 +1105,82 @@ mod tests {
             result.is_err(),
             "--session and --set-session-id should conflict"
         );
+    }
+
+    #[test]
+    fn try_parse_from_accepts_browser_batch_new_tab() {
+        let cli = Cli::try_parse_from([
+            "actionbook",
+            "browser",
+            "batch-new-tab",
+            "--urls",
+            "https://a.com",
+            "https://b.com",
+            "--session",
+            "s1",
+        ])
+        .expect("batch-new-tab should parse");
+
+        match cli.command {
+            Some(Commands::Browser {
+                command: BrowserCommands::BatchNewTab(cmd),
+            }) => {
+                assert_eq!(cmd.urls, vec!["https://a.com", "https://b.com"]);
+                assert!(cmd.tabs.is_empty());
+                assert_eq!(cmd.session, "s1");
+            }
+            other => panic!("expected browser batch-new-tab, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_parse_from_accepts_browser_batch_new_tab_with_tabs() {
+        let cli = Cli::try_parse_from([
+            "actionbook",
+            "browser",
+            "batch-new-tab",
+            "--urls",
+            "https://a.com",
+            "https://b.com",
+            "--tabs",
+            "inbox",
+            "settings",
+            "--session",
+            "s1",
+        ])
+        .expect("batch-new-tab with --tabs should parse");
+
+        match cli.command {
+            Some(Commands::Browser {
+                command: BrowserCommands::BatchNewTab(cmd),
+            }) => {
+                assert_eq!(cmd.urls, vec!["https://a.com", "https://b.com"]);
+                assert_eq!(cmd.tabs, vec!["inbox", "settings"]);
+                assert_eq!(cmd.session, "s1");
+            }
+            other => panic!("expected browser batch-new-tab, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_parse_from_accepts_browser_batch_open_alias() {
+        let cli = Cli::try_parse_from([
+            "actionbook",
+            "browser",
+            "batch-open",
+            "--urls",
+            "https://a.com",
+            "--session",
+            "s1",
+        ]);
+        assert!(cli.is_ok(), "batch-open alias should parse");
+    }
+
+    #[test]
+    fn try_parse_from_rejects_batch_new_tab_no_urls() {
+        let cli =
+            Cli::try_parse_from(["actionbook", "browser", "batch-new-tab", "--session", "s1"]);
+        assert!(cli.is_err(), "batch-new-tab without --urls should fail");
     }
 
     #[test]

@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use clap::Args;
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::action_result::ActionResult;
 use crate::browser::element::{ClickTarget, TabContext, parse_target};
@@ -92,11 +92,7 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
 }
 
 /// Click a single selector with the given context and command params.
-async fn execute_single_click(
-    selector: &str,
-    cmd: &Cmd,
-    ctx: &mut TabContext,
-) -> ActionResult {
+async fn execute_single_click(selector: &str, cmd: &Cmd, ctx: &mut TabContext) -> ActionResult {
     // Parse target
     let target = match parse_target(selector) {
         Ok(t) => t,
@@ -162,6 +158,33 @@ async fn execute_single_click(
         Some(post_url),
         Some(post_title),
     ))
+}
+
+/// Fast click: resolve + scroll + dispatch, but no pre/post state detection.
+/// Skips Runtime.evaluate calls for URL/title/focus comparison.
+/// Used by batch-click where per-click state tracking is unnecessary.
+pub(crate) async fn execute_fast_click(
+    selector: &str,
+    ctx: &mut TabContext,
+) -> Result<(), ActionResult> {
+    let target = parse_target(selector)?;
+
+    let (x, y) = match &target {
+        ClickTarget::Coordinates(cx, cy) => (*cx, *cy),
+        ClickTarget::Selector(sel) => {
+            let (_node_id, cx, cy) = ctx.resolve_center(sel).await?;
+            (cx, cy)
+        }
+    };
+
+    dispatch_click(&ctx.cdp, &ctx.target_id, x, y, "left", 1).await?;
+
+    {
+        let mut reg = ctx.registry().lock().await;
+        reg.set_cursor_position(ctx.session_id(), ctx.tab_id(), x, y);
+    }
+
+    Ok(())
 }
 
 // ── Execute ────────────────────────────────────────────────────────
@@ -468,34 +491,40 @@ async fn dispatch_click(
 
 /// Wait for JS to settle after a click, then fetch url + title + focus in one evaluate.
 ///
-/// Polls at 50ms intervals until the URL stabilises or the timeout is reached,
-/// then reads all post-click state in a single Runtime.evaluate round-trip.
-/// This avoids separate get_tab_url / get_tab_title / get_active_element calls
-/// and ensures the evaluate runs after the JS main thread finishes its work.
+/// Strategy:
+///   1. sleep(50ms) — give the browser time to start processing the click event
+///   2. One Runtime.evaluate (blocks until JS main thread is free)
+///      - URL unchanged → DOM-only interaction (expand/toggle), return immediately (~100ms total)
+///      - URL changed   → navigation started, poll until URL stabilises (max 2s)
 async fn wait_and_get_post_state(
     cdp: &CdpSession,
     target_id: &str,
     pre_url: &str,
 ) -> (String, String, String) {
+    // Give the browser time to start processing the click event.
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    let state = get_full_tab_state(cdp, target_id).await;
+
+    // URL unchanged → DOM-only interaction, no navigation pending.
+    // The evaluate above already waited for the JS main thread to finish.
+    if pre_url.is_empty() || state.0 == pre_url {
+        return state;
+    }
+
+    // URL changed → navigation in progress; poll until the URL stabilises.
     const POLL_INTERVAL: Duration = Duration::from_millis(50);
     const TIMEOUT: Duration = Duration::from_millis(2000);
-
     let deadline = tokio::time::Instant::now() + TIMEOUT;
-    // Brief initial pause so the browser starts processing the click.
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    let mut current = state;
 
-    // Poll for URL change (early exit on navigation).
     loop {
-        let state = get_full_tab_state(cdp, target_id).await;
-        // URL changed — navigation happened, return immediately.
-        if !pre_url.is_empty() && state.0 != pre_url {
-            return state;
-        }
-        // Timeout — JS has had enough time to settle, return current state.
-        if tokio::time::Instant::now() >= deadline {
-            return state;
-        }
         tokio::time::sleep(POLL_INTERVAL).await;
+        let next = get_full_tab_state(cdp, target_id).await;
+        if next.0 == current.0 || tokio::time::Instant::now() >= deadline {
+            return next;
+        }
+        current = next;
     }
 }
 
@@ -518,9 +547,21 @@ async fn get_full_tab_state(cdp: &CdpSession, target_id: &str) -> (String, Strin
                 .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
         });
 
-    let url = result.as_ref().and_then(|v| v["url"].as_str()).unwrap_or_default().to_string();
-    let title = result.as_ref().and_then(|v| v["title"].as_str()).unwrap_or_default().to_string();
-    let focus = result.as_ref().and_then(|v| v["focus"].as_str()).unwrap_or_default().to_string();
+    let url = result
+        .as_ref()
+        .and_then(|v| v["url"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let title = result
+        .as_ref()
+        .and_then(|v| v["title"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let focus = result
+        .as_ref()
+        .and_then(|v| v["focus"].as_str())
+        .unwrap_or_default()
+        .to_string();
     (url, title, focus)
 }
 
@@ -555,4 +596,3 @@ async fn get_tab_state(cdp: &CdpSession, target_id: &str) -> (String, String) {
         .to_string();
     (url, focus)
 }
-
