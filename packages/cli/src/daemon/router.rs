@@ -18,7 +18,11 @@ pub async fn route(action: &Action, registry: &SharedRegistry) -> ActionResult {
         Action::Reload(cmd) => browser::navigation::reload::execute(cmd, registry).await,
         Action::ListTabs(cmd) => browser::tab::list::execute(cmd, registry).await,
         Action::NewTab(cmd) => browser::tab::open::execute(cmd, registry).await,
+        Action::BatchOpen(cmd) => browser::tab::batch_open::execute(cmd, registry).await,
         Action::CloseTab(cmd) => browser::tab::close::execute(cmd, registry).await,
+        Action::BatchSnapshot(cmd) => {
+            browser::observation::batch_snapshot::execute(cmd, registry).await
+        }
         Action::Snapshot(cmd) => browser::observation::snapshot::execute(cmd, registry).await,
         Action::Screenshot(cmd) => browser::observation::screenshot::execute(cmd, registry).await,
         Action::Title(cmd) => browser::observation::title::execute(cmd, registry).await,
@@ -58,6 +62,7 @@ pub async fn route(action: &Action, registry: &SharedRegistry) -> ActionResult {
         Action::WaitCondition(cmd) => browser::wait::condition::execute(cmd, registry).await,
         Action::Eval(cmd) => browser::interaction::eval::execute(cmd, registry).await,
         Action::Click(cmd) => browser::interaction::click::execute(cmd, registry).await,
+        Action::BatchClick(cmd) => browser::interaction::batch_click::execute(cmd, registry).await,
         Action::Hover(cmd) => browser::interaction::hover::execute(cmd, registry).await,
         Action::Focus(cmd) => browser::interaction::focus::execute(cmd, registry).await,
         Action::Press(cmd) => browser::interaction::press::execute(cmd, registry).await,

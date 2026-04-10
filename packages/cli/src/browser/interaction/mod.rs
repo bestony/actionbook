@@ -1,3 +1,4 @@
+pub mod batch_click;
 pub mod click;
 pub mod cursor_position;
 pub mod drag;

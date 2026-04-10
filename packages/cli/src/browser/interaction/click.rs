@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use clap::Args;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::action_result::ActionResult;
 use crate::browser::element::{ClickTarget, TabContext, parse_target};
@@ -19,7 +19,7 @@ fn default_count() -> u32 {
     1
 }
 
-/// Click an element or coordinates
+/// Click one or more elements or coordinates
 #[derive(Args, Debug, Clone, Serialize, Deserialize)]
 #[command(after_help = "\
 Examples:
@@ -28,13 +28,16 @@ Examples:
   actionbook browser click 420,310 --session s1 --tab t1
   actionbook browser click \"a.link\" --new-tab --session s1 --tab t1
   actionbook browser click \"#item\" --count 2 --session s1 --tab t1
+  actionbook browser click \"#close-banner\" \"#main-btn\" \"#confirm\" --session s1 --tab t1
 
 Accepts a CSS selector, XPath, snapshot ref (@eN), or x,y coordinates.
+When multiple selectors are provided, they are clicked sequentially in order.
 Refs come from snapshot output (e.g. [ref=e5]).
 Use --count 2 for double-click. Use --new-tab to open links in a new tab.")]
 pub struct Cmd {
-    /// CSS selector, XPath, @ref, or x,y coordinates
-    pub selector: String,
+    /// CSS selector, XPath, @ref, or x,y coordinates (one or more)
+    #[arg(num_args(1..))]
+    pub selectors: Vec<String>,
     /// Session ID
     #[arg(long)]
     #[serde(rename = "session_id")]
@@ -88,9 +91,110 @@ pub fn context(cmd: &Cmd, result: &ActionResult) -> Option<ResponseContext> {
     })
 }
 
+/// Click a single selector with the given context and command params.
+async fn execute_single_click(selector: &str, cmd: &Cmd, ctx: &mut TabContext) -> ActionResult {
+    // Parse target
+    let target = match parse_target(selector) {
+        Ok(t) => t,
+        Err(e) => return e,
+    };
+
+    // Resolve element to (x, y) coordinates
+    let (x, y) = match &target {
+        ClickTarget::Coordinates(cx, cy) => (*cx, *cy),
+        ClickTarget::Selector(sel) => match ctx.resolve_center(sel).await {
+            Ok((_node_id, cx, cy)) => (cx, cy),
+            Err(e) => return e,
+        },
+    };
+
+    // Handle --new-tab: if the target is a link, open href in a new tab
+    if cmd.new_tab
+        && let Some(href) = get_element_href(ctx, &target, x, y).await
+    {
+        return match open_in_new_tab(&ctx.cdp, &href, ctx.session_id(), ctx.registry()).await {
+            Ok(()) => {
+                let url = navigation::get_tab_url(&ctx.cdp, &ctx.target_id).await;
+                let title = navigation::get_tab_title(&ctx.cdp, &ctx.target_id).await;
+                ActionResult::ok(build_response(
+                    selector,
+                    &target,
+                    false,
+                    false,
+                    Some(url),
+                    Some(title),
+                ))
+            }
+            Err(e) => e,
+        };
+    }
+
+    // Pre-click state: one evaluate for url + focus
+    let (pre_url, pre_focus) = get_tab_state(&ctx.cdp, &ctx.target_id).await;
+
+    // Dispatch click events
+    if let Err(e) = dispatch_click(&ctx.cdp, &ctx.target_id, x, y, &cmd.button, cmd.count).await {
+        return e;
+    }
+
+    // Store cursor position in registry for cursor-position command
+    {
+        let mut reg = ctx.registry().lock().await;
+        reg.set_cursor_position(ctx.session_id(), ctx.tab_id(), x, y);
+    }
+
+    // Post-click state: wait for JS to settle, then one evaluate for url + title + focus
+    let (post_url, post_title, post_focus) =
+        wait_and_get_post_state(&ctx.cdp, &ctx.target_id, &pre_url).await;
+
+    let url_changed = !pre_url.is_empty() && pre_url != post_url;
+    let focus_changed = pre_focus != post_focus;
+
+    ActionResult::ok(build_response(
+        selector,
+        &target,
+        url_changed,
+        focus_changed,
+        Some(post_url),
+        Some(post_title),
+    ))
+}
+
+/// Fast click: resolve + scroll + dispatch, but no pre/post state detection.
+/// Skips Runtime.evaluate calls for URL/title/focus comparison.
+/// Used by batch-click where per-click state tracking is unnecessary.
+pub(crate) async fn execute_fast_click(
+    selector: &str,
+    ctx: &mut TabContext,
+) -> Result<(), ActionResult> {
+    let target = parse_target(selector)?;
+
+    let (x, y) = match &target {
+        ClickTarget::Coordinates(cx, cy) => (*cx, *cy),
+        ClickTarget::Selector(sel) => {
+            let (_node_id, cx, cy) = ctx.resolve_center(sel).await?;
+            (cx, cy)
+        }
+    };
+
+    dispatch_click(&ctx.cdp, &ctx.target_id, x, y, "left", 1).await?;
+
+    {
+        let mut reg = ctx.registry().lock().await;
+        reg.set_cursor_position(ctx.session_id(), ctx.tab_id(), x, y);
+    }
+
+    Ok(())
+}
+
 // ── Execute ────────────────────────────────────────────────────────
 
 pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
+    // Validate selectors
+    if cmd.selectors.is_empty() {
+        return ActionResult::fatal("INVALID_ARGUMENT", "at least one selector required");
+    }
+
     // Validate count
     if cmd.count == 0 {
         return ActionResult::fatal("INVALID_ARGUMENT", "count must be at least 1");
@@ -107,81 +211,64 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         );
     }
 
-    // Parse target
-    let target = match parse_target(&cmd.selector) {
-        Ok(t) => t,
-        Err(e) => return e,
-    };
-
     // Get CDP session and verify tab
     let mut ctx = match TabContext::new(registry, &cmd.session, &cmd.tab).await {
         Ok(v) => v,
         Err(e) => return e,
     };
 
-    // Resolve element to (x, y) coordinates
-    let (x, y) = match &target {
-        ClickTarget::Coordinates(cx, cy) => (*cx, *cy),
-        ClickTarget::Selector(sel) => match ctx.resolve_center(sel).await {
-            Ok((_node_id, cx, cy)) => (cx, cy),
-            Err(e) => return e,
-        },
-    };
+    // Single selector: same response shape as before (backwards compat)
+    if cmd.selectors.len() == 1 {
+        return execute_single_click(&cmd.selectors[0], cmd, &mut ctx).await;
+    }
 
-    // Handle --new-tab: if the target is a link, open href in a new tab
-    if cmd.new_tab
-        && let Some(href) = get_element_href(&mut ctx, &target, x, y).await
-    {
-        return match open_in_new_tab(&ctx.cdp, &href, ctx.session_id(), ctx.registry()).await {
-            Ok(()) => {
-                let url = navigation::get_tab_url(&ctx.cdp, &ctx.target_id).await;
-                let title = navigation::get_tab_title(&ctx.cdp, &ctx.target_id).await;
-                ActionResult::ok(build_response(
-                    &cmd.selector,
-                    &target,
-                    false,
-                    false,
-                    Some(url),
-                    Some(title),
-                ))
+    // Batch: sequential, fail-fast
+    let mut results = Vec::new();
+    for (i, selector) in cmd.selectors.iter().enumerate() {
+        match execute_single_click(selector, cmd, &mut ctx).await {
+            ActionResult::Ok { data } => {
+                results.push(json!({
+                    "index": i,
+                    "selector": selector,
+                    "url_changed": data["changed"]["url_changed"],
+                    "focus_changed": data["changed"]["focus_changed"],
+                    "post_url": data.get("post_url"),
+                    "post_title": data.get("post_title"),
+                }));
             }
-            Err(e) => e,
-        };
+            _err => {
+                return ActionResult::fatal_with_details(
+                    "BATCH_CLICK_ERROR",
+                    format!("click failed at index {i} (selector: {selector})"),
+                    format!(
+                        "completed {}/{}, retry from index {i}",
+                        results.len(),
+                        cmd.selectors.len()
+                    ),
+                    json!({
+                        "failed_index": i,
+                        "failed_selector": selector,
+                        "completed": results.len()
+                    }),
+                );
+            }
+        }
     }
 
-    // Pre-click state
-    let pre_url = navigation::get_tab_url(&ctx.cdp, &ctx.target_id).await;
-    let pre_focus = get_active_element_id(&ctx.cdp, &ctx.target_id).await;
-
-    // Dispatch click events
-    if let Err(e) = dispatch_click(&ctx.cdp, &ctx.target_id, x, y, &cmd.button, cmd.count).await {
-        return e;
+    // Final state from last result
+    let last = results.last().cloned().unwrap_or(Value::Null);
+    let mut data = json!({
+        "action": "click",
+        "clicks": results.len(),
+        "results": results,
+    });
+    if let Some(url) = last.get("post_url").and_then(|v| v.as_str()) {
+        data["post_url"] = json!(url);
     }
-
-    // Store cursor position in registry for cursor-position command
-    {
-        let mut reg = ctx.registry().lock().await;
-        reg.set_cursor_position(ctx.session_id(), ctx.tab_id(), x, y);
+    if let Some(title) = last.get("post_title").and_then(|v| v.as_str()) {
+        data["post_title"] = json!(title);
     }
-
-    // Wait for potential navigation: poll for URL change with early exit.
-    // Check at short intervals so fast navigations aren't delayed, but
-    // keep polling long enough for slow navigations (SPA routers, redirects).
-    let post_url = wait_for_navigation(&ctx.cdp, &ctx.target_id, &pre_url).await;
-    let post_title = navigation::get_tab_title(&ctx.cdp, &ctx.target_id).await;
-    let post_focus = get_active_element_id(&ctx.cdp, &ctx.target_id).await;
-
-    let url_changed = !pre_url.is_empty() && pre_url != post_url;
-    let focus_changed = pre_focus != post_focus;
-
-    ActionResult::ok(build_response(
-        &cmd.selector,
-        &target,
-        url_changed,
-        focus_changed,
-        Some(post_url),
-        Some(post_title),
-    ))
+    ActionResult::ok(data)
 }
 
 // ── Response builder ───────────────────────────────────────────────
@@ -402,52 +489,110 @@ async fn dispatch_click(
     Ok(())
 }
 
-/// Poll for a URL change after a click.
+/// Wait for JS to settle after a click, then fetch url + title + focus in one evaluate.
 ///
-/// Returns the final URL. If the URL changes within the polling window,
-/// returns immediately. Otherwise returns after the timeout with
-/// whatever URL the page currently has.
-///
-/// Intervals are short (50 ms) so fast navigations resolve quickly.
-/// Total timeout (2 s) covers SPA routers and JS redirects without
-/// the unconditional 500 ms penalty of a fixed sleep.
-async fn wait_for_navigation(cdp: &CdpSession, target_id: &str, pre_url: &str) -> String {
+/// Strategy:
+///   1. sleep(50ms) — give the browser time to start processing the click event
+///   2. One Runtime.evaluate (blocks until JS main thread is free)
+///      - URL unchanged → DOM-only interaction (expand/toggle), return immediately (~100ms total)
+///      - URL changed   → navigation started, poll until URL stabilises (max 2s)
+async fn wait_and_get_post_state(
+    cdp: &CdpSession,
+    target_id: &str,
+    pre_url: &str,
+) -> (String, String, String) {
+    // Give the browser time to start processing the click event.
+    tokio::time::sleep(Duration::from_millis(50)).await;
+
+    let state = get_full_tab_state(cdp, target_id).await;
+
+    // URL unchanged → DOM-only interaction, no navigation pending.
+    // The evaluate above already waited for the JS main thread to finish.
+    if pre_url.is_empty() || state.0 == pre_url {
+        return state;
+    }
+
+    // URL changed → navigation in progress; poll until the URL stabilises.
     const POLL_INTERVAL: Duration = Duration::from_millis(50);
     const TIMEOUT: Duration = Duration::from_millis(2000);
-
     let deadline = tokio::time::Instant::now() + TIMEOUT;
-    // Brief initial pause: give the browser a moment to start navigation
-    // before the first poll so we don't immediately read stale state.
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    let mut current = state;
 
     loop {
-        let current = navigation::get_tab_url(cdp, target_id).await;
-        if !pre_url.is_empty() && current != pre_url {
-            return current;
-        }
-        if tokio::time::Instant::now() >= deadline {
-            return current;
-        }
         tokio::time::sleep(POLL_INTERVAL).await;
+        let next = get_full_tab_state(cdp, target_id).await;
+        if next.0 == current.0 || tokio::time::Instant::now() >= deadline {
+            return next;
+        }
+        current = next;
     }
 }
 
-/// Snapshot of the active element for focus-change detection.
-async fn get_active_element_id(cdp: &CdpSession, target_id: &str) -> String {
-    cdp.execute_on_tab(
-        target_id,
-        "Runtime.evaluate",
-        json!({
-            "expression": "(() => { const a = document.activeElement; return a ? a.tagName + '#' + (a.id || '') : ''; })()",
-            "returnByValue": true,
-        }),
-    )
-    .await
-    .ok()
-    .and_then(|v| {
-        v.pointer("/result/result/value")
-            .and_then(|v| v.as_str())
-            .map(String::from)
-    })
-    .unwrap_or_default()
+/// Fetch url + title + active-element in one evaluate round-trip.
+async fn get_full_tab_state(cdp: &CdpSession, target_id: &str) -> (String, String, String) {
+    let result = cdp
+        .execute_on_tab(
+            target_id,
+            "Runtime.evaluate",
+            json!({
+                "expression": "(() => { const a = document.activeElement; return JSON.stringify({ url: document.URL, title: document.title, focus: a ? a.tagName + '#' + (a.id || '') : '' }); })()",
+                "returnByValue": true,
+            }),
+        )
+        .await
+        .ok()
+        .and_then(|v| {
+            v.pointer("/result/result/value")
+                .and_then(|v| v.as_str())
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+        });
+
+    let url = result
+        .as_ref()
+        .and_then(|v| v["url"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let title = result
+        .as_ref()
+        .and_then(|v| v["title"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let focus = result
+        .as_ref()
+        .and_then(|v| v["focus"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    (url, title, focus)
+}
+
+/// Fetch url + active-element in one evaluate, saving one JS-main-thread round-trip.
+async fn get_tab_state(cdp: &CdpSession, target_id: &str) -> (String, String) {
+    let result = cdp
+        .execute_on_tab(
+            target_id,
+            "Runtime.evaluate",
+            json!({
+                "expression": "(() => { const a = document.activeElement; return JSON.stringify({ url: document.URL, focus: a ? a.tagName + '#' + (a.id || '') : '' }); })()",
+                "returnByValue": true,
+            }),
+        )
+        .await
+        .ok()
+        .and_then(|v| {
+            v.pointer("/result/result/value")
+                .and_then(|v| v.as_str())
+                .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+        });
+
+    let url = result
+        .as_ref()
+        .and_then(|v| v["url"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    let focus = result
+        .as_ref()
+        .and_then(|v| v["focus"].as_str())
+        .unwrap_or_default()
+        .to_string();
+    (url, focus)
 }

@@ -197,6 +197,8 @@ pub fn format_text(
                     | "browser forward"
                     | "browser reload"
                     | "browser click"
+                    | "browser batch-click"
+                    | "browser batch-new-tab"
                     | "browser hover"
                     | "browser focus"
                     | "browser press"
@@ -238,7 +240,9 @@ pub fn format_text(
             format_data_fields(command, data, &mut lines);
         }
         ActionResult::Fatal { code, message, .. } => {
-            if command == "browser new-tab" && code == "PARTIAL_FAILURE" {
+            if (command == "browser new-tab" || command == "browser batch-new-tab")
+                && code == "PARTIAL_FAILURE"
+            {
                 if let Some(details) = result_details(result) {
                     format_new_tab_partial_failure(details, &mut lines);
                 } else {
@@ -359,6 +363,9 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(format!("title: {title}"));
             }
         }
+        "browser batch-new-tab" => {
+            format_new_tab_batch_success(data, lines);
+        }
         "browser close-tab" => {
             // No additional fields per §8.3 text format
         }
@@ -401,13 +408,26 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(format!("by_ref: {by_ref}"));
             }
         }
-        "browser click" => {
-            if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
-                lines.push(format!("target: {sel}"));
-            } else if let Some(coords) =
-                data.pointer("/target/coordinates").and_then(|v| v.as_str())
-            {
-                lines.push(format!("target: {coords}"));
+        "browser click" | "browser batch-click" => {
+            // Batch response has "clicks" + "results" array
+            if let Some(clicks) = data.get("clicks").and_then(|v| v.as_u64()) {
+                lines.push(format!("clicks: {clicks}"));
+                if let Some(results) = data.get("results").and_then(|v| v.as_array()) {
+                    for r in results {
+                        if let Some(sel) = r.get("selector").and_then(|v| v.as_str()) {
+                            lines.push(format!("  target: {sel}"));
+                        }
+                    }
+                }
+            } else {
+                // Single click (existing behavior)
+                if let Some(sel) = data.pointer("/target/selector").and_then(|v| v.as_str()) {
+                    lines.push(format!("target: {sel}"));
+                } else if let Some(coords) =
+                    data.pointer("/target/coordinates").and_then(|v| v.as_str())
+                {
+                    lines.push(format!("target: {coords}"));
+                }
             }
         }
         "browser hover" | "browser focus" => {
