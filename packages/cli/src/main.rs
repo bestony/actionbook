@@ -308,6 +308,8 @@ No \"current tab\" — run commands on any session/tab in parallel.
 Usage: actionbook <command> [options]
 
 Commands:
+  search     Search for action manuals by keyword
+  manual     Get detailed manual for a site, group, or action (alias: man)
   browser    Control browser sessions, tabs, and page interactions
   setup      Configure actionbook
   help       Show this help
