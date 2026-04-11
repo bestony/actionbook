@@ -1,6 +1,7 @@
 pub mod api_key;
 pub mod browser_cfg;
 pub mod detect;
+pub mod skills;
 pub mod theme;
 
 use std::time::Duration;
@@ -9,6 +10,7 @@ use clap::Args;
 use dialoguer::Select;
 use indicatif::{ProgressBar, ProgressStyle};
 
+use self::skills::{SetupTarget, SkillsAction, SkillsResult};
 use self::theme::setup_theme;
 use crate::config::{self, ConfigFile};
 use crate::error::CliError;
@@ -16,11 +18,20 @@ use crate::types::Mode;
 
 #[derive(Args, Debug, Clone, Default, PartialEq, Eq)]
 pub struct Cmd {
-    /// Configuration target
-    #[arg(long)]
-    pub target: Option<String>,
+    /// AI coding tool target. When set, skips the wizard and only installs
+    /// skills for the given agent via `npx skills add` (quick mode).
+    ///
+    /// Mutually exclusive with full setup options like `--api-key`,
+    /// `--browser`, and `--reset` to avoid silently ignoring them.
+    #[arg(
+        short = 't',
+        long,
+        value_enum,
+        conflicts_with_all = ["api_key", "browser", "reset"]
+    )]
+    pub target: Option<SetupTarget>,
 
-    /// API key
+    /// API key (non-interactive). Overrides the global --api-key / ACTIONBOOK_API_KEY.
     #[arg(long)]
     pub api_key: Option<String>,
 
@@ -28,20 +39,30 @@ pub struct Cmd {
     #[arg(long)]
     pub browser: Option<String>,
 
-    /// Non-interactive mode
+    /// Skip all interactive prompts. Requires that every value be resolvable
+    /// from flags, env vars, or an existing config.
     #[arg(long)]
     pub non_interactive: bool,
 
-    /// Reset configuration
+    /// Reset existing configuration and start fresh
     #[arg(long)]
     pub reset: bool,
 }
 
-const TOTAL_STEPS: u8 = 4;
+const TOTAL_STEPS: u8 = 5;
 
 /// Run the setup wizard. Orchestrates all steps in order.
+///
+/// Quick mode: if `--target` is set, the full wizard is skipped and only
+/// `npx skills add` runs for the specified agent. This matches the CI /
+/// non-interactive "one-shot install" path from the previous CLI.
 pub async fn execute(cmd: &Cmd, json: bool) -> Result<(), CliError> {
     let non_interactive = cmd.non_interactive || json;
+
+    // Quick mode: --target only → install skills for that target and exit.
+    if let Some(target) = cmd.target {
+        return run_target_only(json, target);
+    }
 
     // Handle existing config (re-run protection)
     let mut config = handle_existing_config(json, non_interactive, cmd.reset)?;
@@ -125,13 +146,113 @@ pub async fn execute(cmd: &Cmd, json: bool) -> Result<(), CliError> {
         println!("  - Configuration saved to {}", path.display());
     }
 
-    // TODO: Step 5: Health check (API connectivity) — requires ApiClient
-    // TODO: Step 6: Install Skills — requires SetupTarget + npx skills integration
+    // TODO: Health check (API connectivity) — requires ApiClient
+
+    // Step 5: Install Skills
+    if !json {
+        print_step_connector();
+        print_step_header(5, "Skills");
+    }
+    let skills_result = skills::install_skills(json, &env, non_interactive)?;
 
     // Completion summary
-    print_completion(json, &config);
+    print_completion(json, &config, &skills_result);
+
+    // Propagate skills failure so non-interactive / CI callers see a non-zero exit.
+    if skills_result.action == SkillsAction::Failed {
+        return Err(CliError::Internal(
+            "Skills installation failed.".to_string(),
+        ));
+    }
 
     Ok(())
+}
+
+/// Quick mode: only install skills for the given target via `npx skills add`.
+/// Used by `actionbook setup --target <agent>` for one-shot CI / bootstrap runs.
+fn run_target_only(json: bool, target: SetupTarget) -> Result<(), CliError> {
+    // Standalone = CLI only, no agent integration.
+    if target == SetupTarget::Standalone {
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({
+                    "command": "setup",
+                    "mode": "target_only",
+                    "target": "Standalone CLI",
+                    "action": "skipped",
+                    "reason": "no_agent_integration_needed",
+                })
+            );
+        } else {
+            println!();
+            println!("  - Standalone CLI requires no skills integration.");
+            println!("     Run `actionbook setup` to configure the CLI.");
+            println!();
+        }
+        return Ok(());
+    }
+
+    if !json {
+        println!();
+        println!(
+            "  +  Installing skills for {}",
+            skills::target_display_name(&target)
+        );
+        println!("  |");
+    }
+
+    let result = skills::install_skills_for_target(json, &target)?;
+
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "command": "setup",
+                "mode": "target_only",
+                "target": skills::target_display_name(&target),
+                "npx_available": result.npx_available,
+                "action": format!("{}", result.action),
+                "skills_command": result.command,
+            })
+        );
+    } else if result.action == SkillsAction::Installed {
+        println!("  +  Done!");
+        println!();
+    }
+
+    target_only_exit_status(&result, &target)
+}
+
+/// Decide the exit status of `run_target_only` based on the skills outcome.
+///
+/// Quick mode is an explicit "install for this agent now" request, so any
+/// outcome other than `Installed` must surface as an error. This differs from
+/// the full-wizard Skills step, which treats `Prompted` (npx missing) as a
+/// soft prompt — there the user can still complete setup by hand. In quick
+/// mode the user's entire intent was to install; there's no other work to do.
+fn target_only_exit_status(
+    result: &skills::SkillsResult,
+    target: &SetupTarget,
+) -> Result<(), CliError> {
+    match result.action {
+        SkillsAction::Installed => Ok(()),
+        SkillsAction::Failed => Err(CliError::Internal(format!(
+            "Skills installation failed for {}.",
+            skills::target_display_name(target)
+        ))),
+        SkillsAction::Prompted => Err(CliError::Internal(format!(
+            "Skills installation skipped for {}: npx is not available. \
+             Install Node.js (https://nodejs.org) and re-run, or run \
+             `{}` manually.",
+            skills::target_display_name(target),
+            result.command,
+        ))),
+        SkillsAction::Skipped => Err(CliError::Internal(format!(
+            "Skills installation skipped for {}.",
+            skills::target_display_name(target)
+        ))),
+    }
 }
 
 /// Print a step header, e.g. `◆  Environment`
@@ -271,33 +392,52 @@ fn print_welcome() {
     println!("  |");
 }
 
+fn setup_completion_status(skills_result: &SkillsResult) -> &'static str {
+    match skills_result.action {
+        SkillsAction::Failed => "failed",
+        SkillsAction::Installed | SkillsAction::Skipped | SkillsAction::Prompted => "complete",
+    }
+}
+
 /// Print the completion summary with next steps.
-fn print_completion(json: bool, config: &ConfigFile) {
+fn print_completion(json: bool, config: &ConfigFile, skills_result: &SkillsResult) {
     if json {
-        println!(
-            "{}",
-            serde_json::json!({
-                "command": "setup",
-                "status": "complete",
-                "config_path": config::config_path().display().to_string(),
-                "browser_mode": format!("{}", config.browser.mode),
-                "browser": match config.browser.mode {
-                    Mode::Local => config.browser.executable_path.as_deref().unwrap_or("built-in"),
-                    Mode::Cloud => config
-                        .browser
-                        .cdp_endpoint
-                        .as_deref()
-                        .unwrap_or("endpoint not configured"),
-                    Mode::Extension => "extension (bridge)",
-                },
-                "headless": config.browser.headless,
-            })
-        );
+        let mut payload = serde_json::json!({
+            "command": "setup",
+            "status": setup_completion_status(skills_result),
+            "config_path": config::config_path().display().to_string(),
+            "browser_mode": format!("{}", config.browser.mode),
+            "browser": match config.browser.mode {
+                Mode::Local => config.browser.executable_path.as_deref().unwrap_or("built-in"),
+                Mode::Cloud => config
+                    .browser
+                    .cdp_endpoint
+                    .as_deref()
+                    .unwrap_or("endpoint not configured"),
+                Mode::Extension => "extension (bridge)",
+            },
+            "headless": config.browser.headless,
+            "skills": {
+                "npx_available": skills_result.npx_available,
+                "action": format!("{}", skills_result.action),
+                "command": skills_result.command,
+            },
+        });
+
+        if skills_result.action == SkillsAction::Failed {
+            payload["error"] = serde_json::Value::String("Skills installation failed.".to_string());
+        }
+
+        println!("{}", payload);
         return;
     }
 
     println!("  |");
-    println!("  +  Setup completed.");
+    match skills_result.action {
+        SkillsAction::Installed => println!("  +  Actionbook is ready!"),
+        SkillsAction::Failed => println!("  +  Setup completed with errors."),
+        SkillsAction::Skipped | SkillsAction::Prompted => println!("  +  Setup completed."),
+    }
 
     // Configuration recap
     let api_display = config
@@ -381,6 +521,62 @@ fn shorten_browser_path(path: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn make_skills_result(action: SkillsAction) -> skills::SkillsResult {
+        skills::SkillsResult {
+            npx_available: action != SkillsAction::Prompted,
+            action,
+            command: "npx skills add actionbook/actionbook -a claude-code".to_string(),
+        }
+    }
+
+    #[test]
+    fn target_only_installed_returns_ok() {
+        let result = make_skills_result(SkillsAction::Installed);
+        assert!(target_only_exit_status(&result, &SetupTarget::Claude).is_ok());
+    }
+
+    #[test]
+    fn target_only_failed_returns_err() {
+        let result = make_skills_result(SkillsAction::Failed);
+        let err = target_only_exit_status(&result, &SetupTarget::Claude)
+            .expect_err("failed must propagate");
+        assert!(err.to_string().contains("Claude Code"));
+    }
+
+    #[test]
+    fn target_only_prompted_returns_err_when_npx_missing() {
+        // P1 regression guard: quick mode must not silently succeed when
+        // npx is unavailable. `install_skills_for_target` returns Prompted
+        // in that case, and CI bootstrap relying on `--target` needs a
+        // non-zero exit to notice the missing prereq.
+        let result = make_skills_result(SkillsAction::Prompted);
+        let err = target_only_exit_status(&result, &SetupTarget::Codex)
+            .expect_err("prompted must propagate in quick mode");
+        assert!(err.to_string().contains("npx is not available"));
+        assert!(err.to_string().contains("Codex"));
+    }
+
+    #[test]
+    fn target_only_skipped_returns_err() {
+        // Skipped shouldn't happen in quick mode (auto_confirm=true is passed
+        // to run_npx_skills), but if it ever surfaces, quick mode must still
+        // fail loudly rather than silently exit 0.
+        let result = make_skills_result(SkillsAction::Skipped);
+        assert!(target_only_exit_status(&result, &SetupTarget::Cursor).is_err());
+    }
+
+    #[test]
+    fn setup_completion_status_is_complete_when_skills_install_succeeds() {
+        let result = make_skills_result(SkillsAction::Installed);
+        assert_eq!(setup_completion_status(&result), "complete");
+    }
+
+    #[test]
+    fn setup_completion_status_is_failed_when_skills_install_fails() {
+        let result = make_skills_result(SkillsAction::Failed);
+        assert_eq!(setup_completion_status(&result), "failed");
+    }
 
     #[test]
     fn parse_browser_flag_accepts_supported_values() {

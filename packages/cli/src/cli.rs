@@ -752,31 +752,73 @@ mod tests {
     use super::*;
 
     #[test]
-    fn try_parse_from_parses_setup_non_interactive_flags() {
-        let cli = Cli::try_parse_from([
+    fn try_parse_from_parses_setup_target_only_flags() {
+        let cli = Cli::try_parse_from(["actionbook", "setup", "--target", "codex"])
+            .expect("parse setup target-only");
+
+        match cli.command {
+            Some(Commands::Setup(cmd)) => {
+                assert_eq!(cmd.target, Some(setup::skills::SetupTarget::Codex));
+                assert!(cmd.api_key.is_none());
+                assert!(cmd.browser.is_none());
+                assert!(!cmd.non_interactive);
+                assert!(!cmd.reset);
+            }
+            other => panic!("expected setup command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_parse_from_parses_setup_target_short_flag() {
+        let cli = Cli::try_parse_from(["actionbook", "setup", "-t", "claude"])
+            .expect("parse setup quick mode");
+
+        match cli.command {
+            Some(Commands::Setup(cmd)) => {
+                assert_eq!(cmd.target, Some(setup::skills::SetupTarget::Claude));
+                assert!(cmd.api_key.is_none());
+                assert!(!cmd.non_interactive);
+            }
+            other => panic!("expected setup command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_parse_from_rejects_unknown_setup_target() {
+        let result = Cli::try_parse_from(["actionbook", "setup", "--target", "vim"]);
+        assert!(result.is_err(), "expected clap to reject unknown target");
+    }
+
+    #[test]
+    fn try_parse_from_rejects_setup_target_with_api_key() {
+        let result = Cli::try_parse_from([
             "actionbook",
             "setup",
             "--target",
             "codex",
             "--api-key",
-            "sk-test",
+            "sk",
+        ]);
+        assert!(result.is_err(), "expected clap to reject conflicting flags");
+    }
+
+    #[test]
+    fn try_parse_from_rejects_setup_target_with_browser() {
+        let result = Cli::try_parse_from([
+            "actionbook",
+            "setup",
+            "--target",
+            "codex",
             "--browser",
             "local",
-            "--non-interactive",
-            "--reset",
-        ])
-        .expect("parse setup");
+        ]);
+        assert!(result.is_err(), "expected clap to reject conflicting flags");
+    }
 
-        match cli.command {
-            Some(Commands::Setup(cmd)) => {
-                assert_eq!(cmd.target.as_deref(), Some("codex"));
-                assert_eq!(cmd.api_key.as_deref(), Some("sk-test"));
-                assert_eq!(cmd.browser.as_deref(), Some("local"));
-                assert!(cmd.non_interactive);
-                assert!(cmd.reset);
-            }
-            other => panic!("expected setup command, got {other:?}"),
-        }
+    #[test]
+    fn try_parse_from_rejects_setup_target_with_reset() {
+        let result = Cli::try_parse_from(["actionbook", "setup", "--target", "codex", "--reset"]);
+        assert!(result.is_err(), "expected clap to reject conflicting flags");
     }
 
     #[test]
