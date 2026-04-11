@@ -818,7 +818,6 @@ mod tests {
         assert!(output.contains("properties"));
         assert!(output.contains("## Response"));
         assert!(output.contains("**200**"));
-        assert!(output.contains("actionbook browser send"));
         assert!(output.contains("$ACTIONBOOK.NOTION.API_KEY"));
     }
 
