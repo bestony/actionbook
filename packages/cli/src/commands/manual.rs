@@ -591,18 +591,6 @@ fn format_action_detail(data: &ActionDetail) -> String {
         }
     }
 
-    output.push_str("\n  ---\n\n");
-    output.push_str(
-        "  Next step: use `actionbook browser send <CURL_QUERY>` to send an HTTP request with curl-style syntax.\n",
-    );
-    if data.authentication.is_some() {
-        let key_var = format!("$ACTIONBOOK.{}.API_KEY", data.site.to_uppercase());
-        output.push_str(&format!(
-            "  `actionbook browser send` will replace {} with your saved credentials.\n",
-            key_var
-        ));
-    }
-
     output.trim_end().to_string()
 }
 
