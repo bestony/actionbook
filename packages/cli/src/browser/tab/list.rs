@@ -63,61 +63,74 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         }
     };
 
-    // Extension mode: Target.getTargets is not available — return tabs
-    // from the registry directly.
-    if mode == Mode::Extension {
-        let tabs: Vec<serde_json::Value> = {
-            let reg = registry.lock().await;
-            match reg.get(&cmd.session) {
-                Some(entry) => entry
-                    .tabs
-                    .iter()
-                    .map(|t| {
-                        json!({
-                            "tab_id": t.id.0,
-                            "native_tab_id": t.native_id,
-                            "url": t.url,
-                            "title": t.title,
-                        })
-                    })
-                    .collect(),
-                None => {
-                    return ActionResult::fatal_with_hint(
-                        "SESSION_NOT_FOUND",
-                        format!("session '{}' not found", cmd.session),
-                        "run `actionbook browser list-sessions` to see available sessions",
-                    );
-                }
-            }
+    // Fetch live tab list — method depends on session mode.
+    // Extension mode uses Extension.listTabs; local/cloud uses Target.getTargets.
+    let live_pages: Vec<(String, String, String)> = if mode == Mode::Extension {
+        let resp = match cdp
+            .execute_browser("Extension.listTabs", json!({}))
+            .await
+        {
+            Ok(r) => r,
+            Err(e) => return cdp_error_to_result(e, "CDP_CONNECTION_FAILED"),
         };
-        return ActionResult::ok(json!({
-            "total_tabs": tabs.len(),
-            "tabs": tabs,
-        }));
-    }
-
-    // Local/Cloud: real-time fetch via CDP Target.getTargets
-    let resp = match cdp.execute_browser("Target.getTargets", json!({})).await {
-        Ok(r) => r,
-        Err(e) => return cdp_error_to_result(e, "CDP_CONNECTION_FAILED"),
+        resp.pointer("/result/tabs")
+            .and_then(|v| v.as_array())
+            .map(|tabs| {
+                tabs.iter()
+                    .map(|t| {
+                        let id = t
+                            .get("id")
+                            .and_then(|v| v.as_i64())
+                            .map(|n| n.to_string())
+                            .unwrap_or_default();
+                        let url = t
+                            .get("url")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let title = t
+                            .get("title")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        (id, url, title)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    } else {
+        let resp = match cdp.execute_browser("Target.getTargets", json!({})).await {
+            Ok(r) => r,
+            Err(e) => return cdp_error_to_result(e, "CDP_CONNECTION_FAILED"),
+        };
+        resp.pointer("/result/targetInfos")
+            .and_then(|v| v.as_array())
+            .map(|infos| {
+                infos
+                    .iter()
+                    .filter(|tgt| tgt.get("type").and_then(|v| v.as_str()) == Some("page"))
+                    .map(|tgt| {
+                        let native_id = tgt
+                            .get("targetId")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let url = tgt
+                            .get("url")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let title = tgt
+                            .get("title")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        (native_id, url, title)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     };
-
-    let target_infos = resp
-        .pointer("/result/targetInfos")
-        .and_then(|v| v.as_array())
-        .cloned()
-        .unwrap_or_default();
-
-    let live_pages: Vec<(&str, &str, &str)> = target_infos
-        .iter()
-        .filter(|tgt| tgt.get("type").and_then(|v| v.as_str()) == Some("page"))
-        .map(|tgt| {
-            let native_id = tgt.get("targetId").and_then(|v| v.as_str()).unwrap_or("");
-            let url = tgt.get("url").and_then(|v| v.as_str()).unwrap_or("");
-            let title = tgt.get("title").and_then(|v| v.as_str()).unwrap_or("");
-            (native_id, url, title)
-        })
-        .collect();
 
     // Sync registry with live CDP state:
     // - Matching native_id → keep short tab ID, update url/title
