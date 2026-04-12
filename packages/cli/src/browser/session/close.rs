@@ -92,16 +92,18 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     }
 
     if let Some(child) = chrome_process {
-        crate::daemon::chrome_reaper::kill_and_reap_async(child).await;
-
-        // On Windows, Chrome's sandboxed child processes may be re-parented
-        // by the OS, so taskkill /T cannot reach them.  Kill stragglers by
-        // matching the --user-data-dir command-line argument.
+        // On Windows, kill ALL Chrome processes matching this profile BEFORE
+        // terminating the main process.  Chrome's sandboxed children are
+        // created with PROC_THREAD_ATTRIBUTE_PARENT_PROCESS which re-parents
+        // them; after the main process dies they enter a transient state that
+        // can make them temporarily invisible to WMI.  Querying while the
+        // process tree is intact ensures all children are found and killed.
         #[cfg(windows)]
         {
             let user_data_dir = crate::config::profiles_dir().join(&_profile_name);
             crate::daemon::chrome_reaper::kill_chrome_by_user_data_dir(&user_data_dir);
         }
+        crate::daemon::chrome_reaper::kill_and_reap_async(child).await;
     }
 
     // Remove non-default profile directory after Chrome has fully exited.

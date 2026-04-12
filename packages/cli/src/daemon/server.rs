@@ -403,12 +403,12 @@ pub async fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
             cdp.close().await;
         }
         if let Some(child) = chrome {
-            crate::daemon::chrome_reaper::kill_and_reap_async(child).await;
             #[cfg(windows)]
             {
                 let user_data_dir = crate::config::profiles_dir().join(&_profile);
                 crate::daemon::chrome_reaper::kill_chrome_by_user_data_dir(&user_data_dir);
             }
+            crate::daemon::chrome_reaper::kill_and_reap_async(child).await;
         }
     }
 
@@ -573,12 +573,12 @@ pub async fn run_daemon() -> Result<(), Box<dyn std::error::Error>> {
             cdp.close().await;
         }
         if let Some(child) = chrome {
-            crate::daemon::chrome_reaper::kill_and_reap_async(child).await;
             #[cfg(windows)]
             {
                 let user_data_dir = crate::config::profiles_dir().join(&_profile);
                 crate::daemon::chrome_reaper::kill_chrome_by_user_data_dir(&user_data_dir);
             }
+            crate::daemon::chrome_reaper::kill_and_reap_async(child).await;
         }
     }
 
