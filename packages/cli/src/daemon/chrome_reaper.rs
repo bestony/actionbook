@@ -91,14 +91,16 @@ use windows_sys::Win32::{
     Foundation::{CloseHandle, FALSE, HANDLE},
     System::{
         JobObjects::{
-            AssignProcessToJobObject, CreateJobObjectW, JOB_OBJECT_TERMINATE, OpenJobObjectW,
-            TerminateJobObject,
+            AssignProcessToJobObject, CreateJobObjectW, OpenJobObjectW, TerminateJobObject,
         },
-        Threading::{
-            OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_TERMINATE,
-        },
+        Threading::{OpenProcess, TerminateProcess, WaitForSingleObject, PROCESS_TERMINATE},
     },
 };
+
+// JOB_OBJECT_TERMINATE (0x0004) — required access right for OpenJobObjectW.
+// Not exported by windows-sys 0.59's Win32_System_JobObjects feature.
+#[cfg(windows)]
+const JOB_OBJECT_TERMINATE: u32 = 0x0004;
 
 /// `SYNCHRONIZE` access right (0x00100000) — required by `WaitForSingleObject`
 /// on a process handle.
