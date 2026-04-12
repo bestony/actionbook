@@ -1218,11 +1218,19 @@ fn daemon_singleton_concurrent_start() {
     let pid_path = std::path::Path::new(&env.actionbook_home).join("daemon.pid");
     let pid_str = std::fs::read_to_string(&pid_path).expect("PID file should exist");
     let pid: u32 = pid_str.trim().parse().expect("PID should be a number");
-    let status = std::process::Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .output()
-        .unwrap();
-    assert!(status.status.success(), "daemon PID {pid} should be alive");
+    #[cfg(unix)]
+    {
+        let status = std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .output()
+            .unwrap();
+        assert!(status.status.success(), "daemon PID {pid} should be alive");
+    }
+    #[cfg(windows)]
+    assert!(
+        pid_is_alive(pid),
+        "daemon PID {pid} should be alive"
+    );
 }
 
 /// Daemon exits after idle timeout when no sessions are active.
@@ -1265,11 +1273,7 @@ fn daemon_idle_timeout() {
     let start = std::time::Instant::now();
     let mut exited = false;
     while start.elapsed() < Duration::from_secs(15) {
-        let status = std::process::Command::new("kill")
-            .args(["-0", &pid.to_string()])
-            .output()
-            .unwrap();
-        if !status.status.success() {
+        if !pid_is_alive(pid) {
             exited = true;
             break;
         }
@@ -1312,12 +1316,8 @@ fn daemon_no_idle_exit_with_active_session() {
     std::thread::sleep(Duration::from_secs(10));
 
     // Daemon should still be alive because the session was never closed
-    let status = std::process::Command::new("kill")
-        .args(["-0", &pid.to_string()])
-        .output()
-        .unwrap();
     assert!(
-        status.status.success(),
+        pid_is_alive(pid),
         "daemon should still be alive with active session"
     );
 }
@@ -1349,9 +1349,7 @@ fn daemon_crash_recovery() {
     let pid_path = std::path::Path::new(&env.actionbook_home).join("daemon.pid");
     let pid_str = std::fs::read_to_string(&pid_path).expect("PID file should exist");
     let pid: u32 = pid_str.trim().parse().expect("PID should be a number");
-    let _ = std::process::Command::new("kill")
-        .args(["-9", &pid.to_string()])
-        .output();
+    force_kill_pid(pid);
 
     // Wait for daemon to exit
     std::thread::sleep(Duration::from_secs(1));
@@ -1359,9 +1357,7 @@ fn daemon_crash_recovery() {
     // Kill orphaned Chrome processes (SIGKILL skips daemon's graceful cleanup)
     let profiles_dir = std::path::Path::new(&env.actionbook_home).join("profiles");
     if profiles_dir.exists() {
-        let _ = std::process::Command::new("pkill")
-            .args(["-f", &format!("--user-data-dir={}", profiles_dir.display())])
-            .output();
+        kill_chrome_for_dir(&profiles_dir);
         std::thread::sleep(Duration::from_millis(500));
     }
 
@@ -1436,6 +1432,7 @@ fn close_kills_chrome_process() {
 
 /// After daemon graceful shutdown, no Chrome processes should remain.
 #[test]
+#[cfg_attr(windows, ignore = "SIGTERM-based graceful shutdown is Unix-only")]
 fn daemon_shutdown_kills_all_chrome() {
     if skip() {
         return;
@@ -1544,12 +1541,8 @@ fn restart_kills_old_chrome_and_spawns_new() {
 
     // Verify: old PIDs should all be gone
     for old_pid in &pids_before {
-        let alive = std::process::Command::new("kill")
-            .args(["-0", &old_pid.to_string()])
-            .output()
-            .is_ok_and(|o| o.status.success());
         assert!(
-            !alive,
+            !pid_is_alive(*old_pid),
             "old Chrome PID {old_pid} should be dead after restart"
         );
     }
@@ -1653,9 +1646,7 @@ fn lifecycle_daemon_sigkill_orphan_recovered() {
         .trim()
         .parse()
         .expect("daemon.pid should be a number");
-    let _ = std::process::Command::new("kill")
-        .args(["-9", &daemon_pid.to_string()])
-        .output();
+    force_kill_pid(daemon_pid);
 
     // Wait for daemon to die.
     std::thread::sleep(Duration::from_millis(500));
@@ -1695,6 +1686,7 @@ fn lifecycle_daemon_sigkill_orphan_recovered() {
 /// When SIGHUP is sent to the daemon (terminal closed), it should trigger
 /// graceful shutdown — Chrome processes must be killed, same as SIGTERM.
 #[test]
+#[cfg_attr(windows, ignore = "SIGHUP does not exist on Windows")]
 fn lifecycle_daemon_sighup_closes_chrome() {
     if skip() {
         return;
@@ -1992,28 +1984,116 @@ fn lifecycle_session_flag_reuses_when_exists() {
 
 fn find_chrome_pids_for_dir(profiles_dir: &std::path::Path) -> Vec<u32> {
     let pattern = format!("--user-data-dir={}", profiles_dir.display());
-    let output = std::process::Command::new("pgrep")
-        .args(["-f", "--", &pattern])
+
+    #[cfg(unix)]
+    {
+        let output = std::process::Command::new("pgrep")
+            .args(["-f", "--", &pattern])
+            .output();
+        match output {
+            Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter_map(|l| l.trim().parse::<u32>().ok())
+                .collect(),
+            Ok(o) if o.status.code() == Some(1) => {
+                // Exit code 1 = no matches found (not an error)
+                vec![]
+            }
+            Ok(o) => {
+                panic!(
+                    "pgrep returned unexpected exit code {:?}: {}",
+                    o.status.code(),
+                    String::from_utf8_lossy(&o.stderr)
+                );
+            }
+            Err(e) => {
+                panic!("failed to run pgrep: {e}");
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        // On Windows, use wmic to find Chrome processes by command-line argument.
+        // WQL LIKE patterns: backslashes must be doubled to avoid being treated as
+        // escape characters for the wildcard characters (% and _).
+        let escaped = pattern.replace('\\', "\\\\");
+        let wmic_filter = format!("commandline like '%{}%'", escaped);
+        let output = std::process::Command::new("wmic")
+            .args(["process", "where", &wmic_filter, "get", "processid", "/format:value"])
+            .output();
+        match output {
+            Ok(o) => String::from_utf8_lossy(&o.stdout)
+                .lines()
+                .filter_map(|line| {
+                    line.trim()
+                        .strip_prefix("ProcessId=")
+                        .and_then(|s| s.trim().parse::<u32>().ok())
+                        .filter(|&pid| pid > 0)
+                })
+                .collect(),
+            Err(e) => panic!("failed to run wmic: {e}"),
+        }
+    }
+}
+
+/// Returns true if the given PID is still alive.
+fn pid_is_alive(pid: u32) -> bool {
+    #[cfg(unix)]
+    {
+        std::process::Command::new("kill")
+            .args(["-0", &pid.to_string()])
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
+
+    #[cfg(windows)]
+    {
+        let out = std::process::Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+            .output();
+        match out {
+            Ok(o) => String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()),
+            Err(_) => false,
+        }
+    }
+}
+
+/// Force-kill a process by PID (equivalent to SIGKILL on Unix).
+fn force_kill_pid(pid: u32) {
+    #[cfg(unix)]
+    let _ = std::process::Command::new("kill")
+        .args(["-9", &pid.to_string()])
         .output();
-    match output {
-        Ok(o) if o.status.success() => String::from_utf8_lossy(&o.stdout)
-            .lines()
-            .filter_map(|l| l.trim().parse::<u32>().ok())
-            .collect(),
-        Ok(o) if o.status.code() == Some(1) => {
-            // Exit code 1 = no matches found (not an error)
-            vec![]
-        }
-        Ok(o) => {
-            // Unexpected exit code — surface it so infra failures aren't silent
-            panic!(
-                "pgrep returned unexpected exit code {:?}: {}",
-                o.status.code(),
-                String::from_utf8_lossy(&o.stderr)
-            );
-        }
-        Err(e) => {
-            panic!("failed to run pgrep: {e}");
-        }
+
+    #[cfg(windows)]
+    let _ = std::process::Command::new("taskkill")
+        .args(["/F", "/PID", &pid.to_string()])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .output();
+}
+
+/// Kill all Chrome processes whose user-data-dir is under `profiles_dir`.
+fn kill_chrome_for_dir(profiles_dir: &std::path::Path) {
+    #[cfg(unix)]
+    let _ = std::process::Command::new("pkill")
+        .args([
+            "-f",
+            &format!("--user-data-dir={}", profiles_dir.display()),
+        ])
+        .output();
+
+    #[cfg(windows)]
+    {
+        // On Windows we kill by image name since wmic-based targeted killing is
+        // unreliable in CI; each SoloEnv has its own isolated profile dir so
+        // killing all chrome.exe instances is safe within a single test.
+        let _ = std::process::Command::new("taskkill")
+            .args(["/F", "/IM", "chrome.exe"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .output();
+        let _ = profiles_dir; // suppress unused warning
     }
 }
