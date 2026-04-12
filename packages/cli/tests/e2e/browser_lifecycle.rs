@@ -2042,11 +2042,22 @@ fn find_chrome_pids_for_dir(profiles_dir: &std::path::Path) -> Vec<u32> {
             .args(["-NoProfile", "-Command", &ps_cmd])
             .output();
         match output {
-            Ok(o) => String::from_utf8_lossy(&o.stdout)
-                .lines()
-                .filter_map(|line| line.trim().parse::<u32>().ok())
-                .filter(|&pid| pid > 0)
-                .collect(),
+            Ok(o) => {
+                if !o.status.success() {
+                    // Log non-zero exit for diagnostics but still parse stdout —
+                    // Get-CimInstance returns exit 1 when the result set is empty
+                    // on some Windows Server versions.
+                    let stderr = String::from_utf8_lossy(&o.stderr);
+                    if !stderr.is_empty() {
+                        eprintln!("powershell chrome_pids_for_profile: {stderr}");
+                    }
+                }
+                String::from_utf8_lossy(&o.stdout)
+                    .lines()
+                    .filter_map(|line| line.trim().parse::<u32>().ok())
+                    .filter(|&pid| pid > 0)
+                    .collect()
+            }
             Err(e) => panic!("failed to run powershell: {e}"),
         }
     }
