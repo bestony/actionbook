@@ -96,10 +96,7 @@ fn find_chrome_executable() -> String {
                 "{}\\Google\\Chrome\\Application\\chrome.exe",
                 program_files_x86
             ),
-            format!(
-                "{}\\Google\\Chrome\\Application\\chrome.exe",
-                local_appdata
-            ),
+            format!("{}\\Google\\Chrome\\Application\\chrome.exe", local_appdata),
         ];
         for c in &candidates {
             if std::path::Path::new(c).exists() {

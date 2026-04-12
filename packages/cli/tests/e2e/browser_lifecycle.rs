@@ -1227,10 +1227,7 @@ fn daemon_singleton_concurrent_start() {
         assert!(status.status.success(), "daemon PID {pid} should be alive");
     }
     #[cfg(windows)]
-    assert!(
-        pid_is_alive(pid),
-        "daemon PID {pid} should be alive"
-    );
+    assert!(pid_is_alive(pid), "daemon PID {pid} should be alive");
 }
 
 /// Daemon exits after idle timeout when no sessions are active.
@@ -2020,7 +2017,14 @@ fn find_chrome_pids_for_dir(profiles_dir: &std::path::Path) -> Vec<u32> {
         let escaped = pattern.replace('\\', "\\\\");
         let wmic_filter = format!("commandline like '%{}%'", escaped);
         let output = std::process::Command::new("wmic")
-            .args(["process", "where", &wmic_filter, "get", "processid", "/format:value"])
+            .args([
+                "process",
+                "where",
+                &wmic_filter,
+                "get",
+                "processid",
+                "/format:value",
+            ])
             .output();
         match output {
             Ok(o) => String::from_utf8_lossy(&o.stdout)
@@ -2078,10 +2082,7 @@ fn force_kill_pid(pid: u32) {
 fn kill_chrome_for_dir(profiles_dir: &std::path::Path) {
     #[cfg(unix)]
     let _ = std::process::Command::new("pkill")
-        .args([
-            "-f",
-            &format!("--user-data-dir={}", profiles_dir.display()),
-        ])
+        .args(["-f", &format!("--user-data-dir={}", profiles_dir.display())])
         .output();
 
     #[cfg(windows)]
