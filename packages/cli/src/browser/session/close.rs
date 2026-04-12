@@ -119,7 +119,6 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         };
         let tabs = entry.tabs_count();
         let entry_mode = entry.mode;
-        let profile = entry.profile.clone();
 
         // Only delete non-default profile directories for local sessions.
         // The default profile ("actionbook") is long-lived and preserves
