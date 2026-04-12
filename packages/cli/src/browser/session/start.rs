@@ -295,6 +295,12 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
     // so Chrome is left alive using the same user-data-dir. A new Chrome
     // launched against the same dir would race with the orphan and likely crash,
     // causing discover_ws_url to time out with CDP_CONNECTION_FAILED.
+    //
+    // Windows: remember the orphan PID so we can give an actionable error
+    // message if Chrome still fails to start (kill may fail in some environments).
+    #[cfg(windows)]
+    let mut orphan_pid_hint: Option<u32> = None;
+
     let chrome_pid_file = user_data_dir.join("chrome.pid");
     if let Ok(pid_str) = std::fs::read_to_string(&chrome_pid_file) {
         if let Ok(_pid) = pid_str.trim().parse::<i32>() {
@@ -329,6 +335,9 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
                 // Fallback: directly kill the known orphan PID in case the Job
                 // Object was already released (e.g. Chrome exited on its own).
                 crate::daemon::chrome_reaper::terminate_pid_and_wait(_pid as u32);
+                // Remember the PID in case the kill failed and Chrome still holds
+                // the user-data-dir lock; used for a clearer error message below.
+                orphan_pid_hint = Some(_pid as u32);
             }
         }
         let _ = std::fs::remove_file(&chrome_pid_file);
@@ -407,6 +416,24 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
         let ws_url = match browser::discover_ws_url(port).await {
             Ok(ws) => ws,
             Err(e) => {
+                // On Windows, if we detected an orphan PID but couldn't kill it
+                // (e.g. Job Object nesting restrictions in CI), give an actionable
+                // error instead of a generic CDP_CONNECTION_FAILED timeout.
+                #[cfg(windows)]
+                if let Some(orphan_pid) = orphan_pid_hint {
+                    return fail_reserved_start_with_chrome(
+                        registry,
+                        &session_id,
+                        Some(chrome),
+                        "CHROME_ORPHAN_STILL_RUNNING",
+                        format!(
+                            "Chrome from a previous session (PID {orphan_pid}) is still \
+                             running and holding the profile lock. Kill it manually: \
+                             taskkill /F /IM chrome.exe"
+                        ),
+                    )
+                    .await;
+                }
                 return fail_reserved_start_with_chrome(
                     registry,
                     &session_id,
