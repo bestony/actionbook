@@ -140,13 +140,13 @@ fn extract_bundled(dst: &Path) -> ActionResult {
 
     for (relative_path, bytes) in BUNDLED_EXTENSION {
         let out = dst.join(relative_path);
-        if let Some(parent) = out.parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                return ActionResult::fatal(
-                    "IO_ERROR",
-                    format!("failed to create directory '{}': {e}", parent.display()),
-                );
-            }
+        if let Some(parent) = out.parent()
+            && let Err(e) = std::fs::create_dir_all(parent)
+        {
+            return ActionResult::fatal(
+                "IO_ERROR",
+                format!("failed to create directory '{}': {e}", parent.display()),
+            );
         }
         if let Err(e) = std::fs::write(&out, bytes) {
             return ActionResult::fatal(
