@@ -118,6 +118,77 @@ pub fn new_bridge_state() -> SharedBridgeState {
     Arc::new(Mutex::new(BridgeState::new()))
 }
 
+// ─── Bridge errors ──────────────────────────────────────────────────────
+
+/// Information about a process holding a port we tried to bind.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PortHolder {
+    pub pid: u32,
+    /// Process name, or `<unknown>` if the process owner is another user
+    /// or the OS denied the lookup.
+    pub command: String,
+}
+
+/// Error returned by [`ensure_bridge`].
+#[derive(Debug)]
+pub enum BridgeError {
+    /// Every retry of `bind_with_retry` failed.
+    BindFailed {
+        port: u16,
+        source: std::io::Error,
+        /// Best-effort holder identification (None on lookup failure).
+        holder: Option<PortHolder>,
+    },
+}
+
+impl std::fmt::Display for BridgeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BridgeError::BindFailed {
+                port,
+                source,
+                holder,
+            } => {
+                if let Some(h) = holder {
+                    write!(
+                        f,
+                        "extension bridge failed to bind port {port} (held by {} pid {}): {source}",
+                        h.command, h.pid
+                    )
+                } else {
+                    write!(f, "extension bridge failed to bind port {port}: {source}")
+                }
+            }
+        }
+    }
+}
+
+impl std::error::Error for BridgeError {}
+
+/// Lazily ensure the extension bridge is bound and listening.
+///
+/// Idempotent: concurrent first-callers are serialized through Registry's
+/// `bridge_init_lock`; subsequent callers observe `Listening` and return
+/// immediately. A previously `Failed` bridge is retried (allowing recovery
+/// after the holding process releases the port).
+///
+/// Stub: real implementation lands in Phase 3 (bridge lazy + recovery).
+pub async fn ensure_bridge(
+    _reg: &crate::daemon::registry::SharedRegistry,
+) -> Result<SharedBridgeState, BridgeError> {
+    unimplemented!("ensure_bridge: implemented in Phase 3")
+}
+
+/// Identify the process listening on `port` (best effort).
+///
+/// Returns `None` when the port is free, or when the lookup fails (e.g. the
+/// holder is owned by another user and the OS denies access).
+///
+/// Stub: real implementation lands in Phase 3 (netstat2-based diagnosis).
+pub fn diagnose_port_holder(_port: u16) -> Option<PortHolder> {
+    unimplemented!("diagnose_port_holder: implemented in Phase 3")
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────
 
 /// Spawn the bridge server as a background tokio task.
@@ -621,5 +692,119 @@ mod tests {
             .await
             .expect_err("should fail while port is held");
         assert_eq!(err.kind(), std::io::ErrorKind::AddrInUse);
+    }
+
+    // ─── ensure_bridge contract (Phase 3 lazy + recovery) ───────────────
+
+    use crate::daemon::registry::{SharedRegistry, new_shared_registry};
+
+    /// Concurrent first-callers must observe the same `SharedBridgeState` —
+    /// `ensure_bridge` binds at most once per daemon, no matter how many
+    /// callers race in. The fix relies on `Registry::bridge_init_lock`.
+    #[tokio::test]
+    async fn ensure_idempotent_under_contention() {
+        let reg: SharedRegistry = new_shared_registry();
+        let mut handles = Vec::new();
+        for _ in 0..10 {
+            let r = reg.clone();
+            handles.push(tokio::spawn(async move { ensure_bridge(&r).await }));
+        }
+        let mut firsts: Vec<*const Mutex<BridgeState>> = Vec::new();
+        for h in handles {
+            let bs = h.await.expect("task panicked").expect("ensure_bridge ok");
+            firsts.push(Arc::as_ptr(&bs));
+        }
+        let unique: std::collections::HashSet<_> = firsts.iter().collect();
+        assert_eq!(
+            unique.len(),
+            1,
+            "all concurrent callers must share one bridge state, got {} distinct",
+            unique.len()
+        );
+    }
+
+    /// When the bridge is already `Listening`, `ensure_bridge` must take the
+    /// fast path and return the existing state — no second `bind_with_retry`.
+    #[tokio::test]
+    async fn ensure_skip_when_already_listening() {
+        let reg: SharedRegistry = new_shared_registry();
+        // First call: binds.
+        let first = ensure_bridge(&reg).await.expect("first bind ok");
+        // Mutate state externally to prove the second call returns the same Arc
+        // rather than creating a fresh one.
+        first.lock().await.connection_id = 999;
+        let second = ensure_bridge(&reg).await.expect("second call ok");
+        assert!(
+            Arc::ptr_eq(&first, &second),
+            "second ensure must reuse listening bridge state"
+        );
+        assert_eq!(
+            second.lock().await.connection_id,
+            999,
+            "marker preserved → same instance"
+        );
+    }
+
+    /// A bridge previously left in `Failed` (port-was-busy at first call) must
+    /// be recoverable: a later `ensure_bridge` re-enters the bind ladder and
+    /// transitions to `Listening`. This is the behavior PR #517 still lacks.
+    #[tokio::test]
+    async fn ensure_recovers_from_failed() {
+        let reg: SharedRegistry = new_shared_registry();
+        // Seed Failed manually (the production path that produces it is the
+        // bind-retry-exhausted branch; we shortcut for unit-test brevity).
+        {
+            let stub = new_bridge_state();
+            stub.lock()
+                .await
+                .set_listener_status(BridgeListenerStatus::Failed);
+            reg.lock().await.set_bridge_state(stub);
+        }
+        let recovered = ensure_bridge(&reg).await.expect("should recover");
+        assert_eq!(
+            recovered.lock().await.listener_status(),
+            BridgeListenerStatus::Listening,
+            "after recovery, status must be Listening"
+        );
+    }
+
+    #[tokio::test]
+    async fn diagnose_port_holder_returns_pid_for_occupied() {
+        // Bind a real listener so the port has a known holder = this process.
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let holder = diagnose_port_holder(port).expect("should find holder");
+        assert_eq!(
+            holder.pid,
+            std::process::id(),
+            "holder pid must match current test process"
+        );
+        assert!(
+            !holder.command.is_empty(),
+            "holder command must be populated (got empty)"
+        );
+        // Defensive: the placeholder for unknown owners is "<unknown>"; ensure
+        // we got a real name when the port is owned by us.
+        assert_ne!(
+            holder.command, "<unknown>",
+            "lookup should resolve current process command"
+        );
+    }
+
+    #[tokio::test]
+    async fn diagnose_port_holder_returns_none_for_free_port() {
+        // Take a free port number from the kernel, then release it. The port is
+        // very likely still free at the moment of the call (test is racy in
+        // principle, but rare in practice because the kernel won't reissue this
+        // port within the same process for a while).
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        drop(listener);
+        // Give the kernel a moment to fully release.
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        assert!(
+            diagnose_port_holder(port).is_none(),
+            "free port must return None"
+        );
     }
 }
