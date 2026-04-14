@@ -1343,12 +1343,23 @@ async fn execute_extension(
                         h.command, h.pid, h.pid
                     ),
                 ),
-                None => (
-                    format!("extension bridge failed to bind port {port}: {source}"),
-                    format!(
-                        "another process is holding port {port} — run `lsof -iTCP:{port} -sTCP:LISTEN` to find it, then `actionbook daemon restart`"
-                    ),
-                ),
+                None => {
+                    // Platform-specific diagnostic command in the hint:
+                    // `lsof` ships on macOS/Linux by default; Windows users
+                    // need `netstat -ano` + tasklist.
+                    #[cfg(unix)]
+                    let diag = format!("lsof -iTCP:{port} -sTCP:LISTEN");
+                    #[cfg(windows)]
+                    let diag = format!("netstat -ano | findstr :{port}");
+                    #[cfg(not(any(unix, windows)))]
+                    let diag = format!("your system's port-lookup tool for port {port}");
+                    (
+                        format!("extension bridge failed to bind port {port}: {source}"),
+                        format!(
+                            "another process is holding port {port} — run `{diag}` to find it, then `actionbook daemon restart`"
+                        ),
+                    )
+                }
             };
             return ActionResult::fatal_with_hint("BRIDGE_BIND_FAILED", message, hint);
         }
