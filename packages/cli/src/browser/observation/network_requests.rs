@@ -149,25 +149,24 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
 
         let mut dump_requests: Vec<Value> = Vec::with_capacity(matched.len());
         for req in &matched {
-            let (response_body, body_error): (Value, Value) =
-                match cdp
-                    .execute_on_tab(
-                        &target_id,
-                        "Network.getResponseBody",
-                        json!({ "requestId": req.request_id }),
-                    )
-                    .await
-                {
-                    Ok(resp) => {
-                        let body = resp
-                            .pointer("/result/body")
-                            .and_then(|v| v.as_str())
-                            .map(|s| Value::String(s.to_string()))
-                            .unwrap_or(Value::Null);
-                        (body, Value::Null)
-                    }
-                    Err(e) => (Value::Null, Value::String(e.to_string())),
-                };
+            let (response_body, body_error): (Value, Value) = match cdp
+                .execute_on_tab(
+                    &target_id,
+                    "Network.getResponseBody",
+                    json!({ "requestId": req.request_id }),
+                )
+                .await
+            {
+                Ok(resp) => {
+                    let body = resp
+                        .pointer("/result/body")
+                        .and_then(|v| v.as_str())
+                        .map(|s| Value::String(s.to_string()))
+                        .unwrap_or(Value::Null);
+                    (body, Value::Null)
+                }
+                Err(e) => (Value::Null, Value::String(e.to_string())),
+            };
 
             dump_requests.push(json!({
                 "request_id": req.request_id,

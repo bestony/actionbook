@@ -1420,7 +1420,9 @@ async fn execute_extension(
     };
 
     // Connect CdpSession to bridge (transparent relay to extension).
-    let cdp = match CdpSession::connect_with_config(&bridge_ws_url, &[], cmd.max_tracked_requests).await {
+    let cdp = match CdpSession::connect_with_config(&bridge_ws_url, &[], cmd.max_tracked_requests)
+        .await
+    {
         Ok(c) => c,
         Err(e) => {
             return fail_reserved_start(
