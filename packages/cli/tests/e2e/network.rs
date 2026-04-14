@@ -398,8 +398,8 @@ fn start_with_custom_buffer_size() {
         .filter_map(|req| req["url"].as_str())
         .collect();
     assert!(
-        !urls.iter().any(|url| url.contains("buffer-0"))
-            && !urls.iter().any(|url| url.contains("buffer-1")),
+        !urls.iter().any(|url| url.ends_with("source=buffer-0"))
+            && !urls.iter().any(|url| url.ends_with("source=buffer-1")),
         "oldest requests should be evicted: {urls:?}"
     );
     assert!(
