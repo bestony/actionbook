@@ -96,7 +96,7 @@ fn issue_bulk_requests(session_id: &str, tab_id: &str, count: usize, prefix: &st
     let expression = format!(
         "await Promise.all(Array.from({{ length: {count} }}, (_, i) => fetch(`{api_prefix}{prefix}-${{i}}`).then(r => r.text())))"
     );
-    let argv = vec![
+    let argv = [
         "browser".to_string(),
         "eval".to_string(),
         expression,
