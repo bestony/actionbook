@@ -1,4 +1,3 @@
-use std::io::Cursor;
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
@@ -10,7 +9,75 @@ pub const COMMAND_NAME_PATH: &str = "extension path";
 pub const COMMAND_NAME_INSTALL: &str = "extension install";
 pub const COMMAND_NAME_UNINSTALL: &str = "extension uninstall";
 
-const GITHUB_REPO: &str = "actionbook/actionbook";
+/// Extension files bundled at compile time from packages/actionbook-extension/.
+///
+/// Using include_bytes! ties the installed extension to the CLI version it was
+/// built from — no network dependency, always consistent.
+static BUNDLED_EXTENSION: &[(&str, &[u8])] = &[
+    (
+        "manifest.json",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/manifest.json"
+        )),
+    ),
+    (
+        "background.js",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/background.js"
+        )),
+    ),
+    (
+        "popup.html",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/popup.html"
+        )),
+    ),
+    (
+        "popup.js",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/popup.js"
+        )),
+    ),
+    (
+        "offscreen.html",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/offscreen.html"
+        )),
+    ),
+    (
+        "offscreen.js",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/offscreen.js"
+        )),
+    ),
+    (
+        "icons/icon-16.png",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/icons/icon-16.png"
+        )),
+    ),
+    (
+        "icons/icon-48.png",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/icons/icon-48.png"
+        )),
+    ),
+    (
+        "icons/icon-128.png",
+        include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../actionbook-extension/icons/icon-128.png"
+        )),
+    ),
+];
 
 fn extension_dir() -> PathBuf {
     config::actionbook_home().join("extension")
@@ -33,7 +100,7 @@ pub fn execute_path() -> ActionResult {
     }))
 }
 
-pub async fn execute_install(force: bool) -> ActionResult {
+pub fn execute_install(force: bool) -> ActionResult {
     let dir = extension_dir();
 
     if dir.exists() && !force {
@@ -46,13 +113,54 @@ pub async fn execute_install(force: bool) -> ActionResult {
         );
     }
 
-    // Test seam: copy from local source directory
+    // Test seam: copy from local source directory (used in e2e tests)
     if let Ok(src) = std::env::var("ACTIONBOOK_EXTENSION_TEST_SOURCE_DIR") {
         return copy_from_dir(Path::new(&src), &dir);
     }
 
-    // Production: download from GitHub Releases
-    download_from_github(&dir).await
+    // Production: extract bundled extension files
+    extract_bundled(&dir)
+}
+
+fn extract_bundled(dst: &Path) -> ActionResult {
+    if let Err(e) = std::fs::remove_dir_all(dst)
+        && e.kind() != std::io::ErrorKind::NotFound
+    {
+        return ActionResult::fatal(
+            "IO_ERROR",
+            format!("failed to remove existing install: {e}"),
+        );
+    }
+    if let Err(e) = std::fs::create_dir_all(dst) {
+        return ActionResult::fatal(
+            "IO_ERROR",
+            format!("failed to create install directory: {e}"),
+        );
+    }
+
+    for (relative_path, bytes) in BUNDLED_EXTENSION {
+        let out = dst.join(relative_path);
+        if let Some(parent) = out.parent() {
+            if let Err(e) = std::fs::create_dir_all(parent) {
+                return ActionResult::fatal(
+                    "IO_ERROR",
+                    format!("failed to create directory '{}': {e}", parent.display()),
+                );
+            }
+        }
+        if let Err(e) = std::fs::write(&out, bytes) {
+            return ActionResult::fatal(
+                "IO_ERROR",
+                format!("failed to write '{}': {e}", out.display()),
+            );
+        }
+    }
+
+    let version = read_version(dst).unwrap_or_default();
+    ActionResult::ok(json!({
+        "path": dst.to_string_lossy(),
+        "version": version,
+    }))
 }
 
 fn copy_from_dir(src: &Path, dst: &Path) -> ActionResult {
@@ -93,177 +201,6 @@ fn copy_dir_all(src: &Path, dst: &Path) -> std::io::Result<()> {
         }
     }
     Ok(())
-}
-
-async fn download_from_github(dst: &Path) -> ActionResult {
-    let client = match reqwest::Client::builder()
-        .user_agent(format!("actionbook-cli/{}", crate::BUILD_VERSION))
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            return ActionResult::fatal(
-                "INTERNAL_ERROR",
-                format!("failed to build HTTP client: {e}"),
-            );
-        }
-    };
-
-    // Query the latest release for the extension asset
-    let api_url = format!("https://api.github.com/repos/{GITHUB_REPO}/releases/latest");
-    let release: serde_json::Value = match client
-        .get(&api_url)
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await
-    {
-        Ok(r) => match r.json().await {
-            Ok(v) => v,
-            Err(e) => {
-                return ActionResult::fatal(
-                    "DOWNLOAD_ERROR",
-                    format!("failed to parse GitHub release response: {e}"),
-                );
-            }
-        },
-        Err(e) => {
-            return ActionResult::fatal(
-                "DOWNLOAD_ERROR",
-                format!("failed to fetch latest release from GitHub: {e}"),
-            );
-        }
-    };
-
-    // Find the extension zip asset
-    let download_url = match release["assets"].as_array().and_then(|assets| {
-        assets.iter().find(|a| {
-            a["name"]
-                .as_str()
-                .map(|n| n.starts_with("actionbook-extension-") && n.ends_with(".zip"))
-                .unwrap_or(false)
-        })
-    }) {
-        Some(asset) => match asset["browser_download_url"].as_str() {
-            Some(u) => u.to_string(),
-            None => {
-                return ActionResult::fatal(
-                    "DOWNLOAD_ERROR",
-                    "extension asset has no download URL",
-                );
-            }
-        },
-        None => {
-            return ActionResult::fatal(
-                "NOT_AVAILABLE",
-                "extension zip not found in the latest GitHub release; \
-                 install manually by extracting to ~/.actionbook/extension/",
-            );
-        }
-    };
-
-    // Download the zip bytes
-    let zip_bytes = match client.get(&download_url).send().await {
-        Ok(r) => match r.bytes().await {
-            Ok(b) => b,
-            Err(e) => {
-                return ActionResult::fatal(
-                    "DOWNLOAD_ERROR",
-                    format!("failed to read extension zip: {e}"),
-                );
-            }
-        },
-        Err(e) => {
-            return ActionResult::fatal(
-                "DOWNLOAD_ERROR",
-                format!("failed to download extension: {e}"),
-            );
-        }
-    };
-
-    // Remove existing install and recreate directory
-    if let Err(e) = std::fs::remove_dir_all(dst)
-        && e.kind() != std::io::ErrorKind::NotFound
-    {
-        return ActionResult::fatal(
-            "IO_ERROR",
-            format!("failed to remove existing install: {e}"),
-        );
-    }
-    if let Err(e) = std::fs::create_dir_all(dst) {
-        return ActionResult::fatal(
-            "IO_ERROR",
-            format!("failed to create install directory: {e}"),
-        );
-    }
-
-    // Extract zip
-    let cursor = Cursor::new(zip_bytes);
-    let mut archive = match zip::ZipArchive::new(cursor) {
-        Ok(a) => a,
-        Err(e) => {
-            return ActionResult::fatal(
-                "EXTRACT_ERROR",
-                format!("failed to open extension zip: {e}"),
-            );
-        }
-    };
-
-    for i in 0..archive.len() {
-        let mut file = match archive.by_index(i) {
-            Ok(f) => f,
-            Err(e) => {
-                return ActionResult::fatal(
-                    "EXTRACT_ERROR",
-                    format!("failed to read zip entry {i}: {e}"),
-                );
-            }
-        };
-
-        // Sanitize path: skip entries with absolute or traversal paths
-        let out_path = match file.enclosed_name() {
-            Some(p) => dst.join(p),
-            None => continue,
-        };
-
-        if file.is_dir() {
-            if let Err(e) = std::fs::create_dir_all(&out_path) {
-                return ActionResult::fatal(
-                    "EXTRACT_ERROR",
-                    format!("failed to create directory '{}': {e}", out_path.display()),
-                );
-            }
-        } else {
-            if let Some(parent) = out_path.parent() {
-                if let Err(e) = std::fs::create_dir_all(parent) {
-                    return ActionResult::fatal(
-                        "EXTRACT_ERROR",
-                        format!("failed to create parent directory: {e}"),
-                    );
-                }
-            }
-            let mut out_file = match std::fs::File::create(&out_path) {
-                Ok(f) => f,
-                Err(e) => {
-                    return ActionResult::fatal(
-                        "EXTRACT_ERROR",
-                        format!("failed to create '{}': {e}", out_path.display()),
-                    );
-                }
-            };
-            if let Err(e) = std::io::copy(&mut file, &mut out_file) {
-                return ActionResult::fatal(
-                    "EXTRACT_ERROR",
-                    format!("failed to extract '{}': {e}", out_path.display()),
-                );
-            }
-        }
-    }
-
-    let version = read_version(dst).unwrap_or_default();
-    ActionResult::ok(json!({
-        "path": dst.to_string_lossy(),
-        "version": version,
-    }))
 }
 
 pub fn execute_uninstall() -> ActionResult {

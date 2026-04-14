@@ -34,11 +34,8 @@ toml = "0.8"
 # Error handling
 thiserror = "2"
 
-# HTTP (for Chrome CDP discovery endpoints and extension downloads)
+# HTTP (for Chrome CDP discovery endpoints)
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-
-# Zip extraction (for extension install)
-zip = { version = "2", default-features = false, features = ["deflate"] }
 
 # Base64 (screenshot/PDF decoding)
 base64 = "0.22"
