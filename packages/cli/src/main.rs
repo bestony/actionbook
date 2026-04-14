@@ -167,7 +167,7 @@ async fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
             handle_browser(command, json_mode, timeout_ms).await?;
         }
         Commands::Daemon { command } => {
-            handle_daemon(command, json_mode).await?;
+            handle_daemon(command, json_mode, timeout_ms).await?;
         }
         Commands::Setup(cmd) => {
             actionbook_cli::setup::execute(&cmd, json_mode).await?;
@@ -320,11 +320,26 @@ async fn handle_browser(
 async fn handle_daemon(
     command: DaemonCommands,
     json_mode: bool,
+    timeout_ms: Option<u64>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     match command {
         DaemonCommands::Restart => {
-            let outcome = actionbook_cli::utils::client::restart_daemon_now().await;
+            // Honor --timeout: restart_daemon_now can block up to ~15s
+            // (5s SIGTERM wait + 10s readiness wait). Without an outer
+            // timeout, automation that sets --timeout to cap latency is
+            // ignored for this command.
+            let restart_call = actionbook_cli::utils::client::restart_daemon_now();
+            let outcome = if let Some(ms) = timeout_ms {
+                match tokio::time::timeout(Duration::from_millis(ms), restart_call).await {
+                    Ok(r) => r,
+                    Err(_) => Err(actionbook_cli::error::CliError::Internal(format!(
+                        "daemon restart timed out after {ms}ms"
+                    ))),
+                }
+            } else {
+                restart_call.await
+            };
             let duration = start.elapsed();
             match outcome {
                 Ok(()) => {
