@@ -530,7 +530,8 @@ async function handleExtensionCommand(id, method, params) {
 
     case "Extension.detachTab": {
       // Without explicit tabId, detach ALL attached tabs (used during
-      // session close). With tabId, detach just that one.
+      // session close). With tabId, detach just that one. Does NOT close
+      // the tab itself — see Extension.closeTabs for that.
       const targets = (typeof params.tabId === "number")
         ? [params.tabId]
         : Array.from(attachedTabs);
@@ -542,6 +543,37 @@ async function handleExtensionCommand(id, method, params) {
       }
       broadcastState();
       return { id, result: { detached: true, detachedTabIds: targets } };
+    }
+
+    case "Extension.closeTabs": {
+      // Detach + chrome.tabs.remove for the given tabIds (or all attached
+      // tabs if none specified). Used by `actionbook browser close` so a
+      // session that opened tabs cleans them up — symmetric with how
+      // local mode kills the chrome process at session close.
+      const targets = (Array.isArray(params.tabIds) && params.tabIds.length)
+        ? params.tabIds.filter((t) => typeof t === "number")
+        : Array.from(attachedTabs);
+      // Detach debugger first (chrome.tabs.remove on an attached tab works
+      // but the debugger detach event would arrive after, racing with our
+      // bookkeeping).
+      for (const t of targets) {
+        if (attachedTabs.has(t)) {
+          try { await chrome.debugger.detach({ tabId: t }); } catch (_) {}
+          attachedTabs.delete(t);
+        }
+      }
+      const closed = [];
+      const failed = [];
+      for (const t of targets) {
+        try {
+          await chrome.tabs.remove(t);
+          closed.push(t);
+        } catch (err) {
+          failed.push({ tabId: t, error: err && err.message ? err.message : String(err) });
+        }
+      }
+      broadcastState();
+      return { id, result: { closed, failed } };
     }
 
     case "Extension.status": {
