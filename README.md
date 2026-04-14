@@ -59,7 +59,7 @@ Or build from source:
 cargo install --git https://github.com/actionbook/actionbook --path packages/cli --locked
 ```
 
-The Rust-based CLI uses your existing system browser (Chrome, Brave, Edge, Arc, Chromium), so no extra browser install step is required.
+The Rust-based CLI uses your existing system browser (Chrome, Brave, Edge, Arc, Chromium). Reuse your logged-in sessions for convenience, or launch a clean profile for privacy.
 
 ## Quick Start
 
