@@ -357,6 +357,10 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
             {
                 lines.push(format!("extension_connected: {extension_connected}"));
             }
+            lines.push(format!(
+                "required_version: >= {}",
+                crate::EXTENSION_PROTOCOL_MIN_VERSION
+            ));
         }
         "extension ping" => {
             if let Some(bridge) = data.get("bridge").and_then(|v| v.as_str()) {
@@ -376,6 +380,9 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
             if let Some(version) = data.get("version").and_then(|v| v.as_str()) {
                 lines.push(format!("version: {version}"));
             }
+            if let Some(required) = data.get("required_version").and_then(|v| v.as_str()) {
+                lines.push(format!("required_version: >= {required}"));
+            }
         }
         "extension install" => {
             if let Some(path) = data.get("path").and_then(|v| v.as_str()) {
@@ -383,6 +390,9 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
             }
             if let Some(version) = data.get("version").and_then(|v| v.as_str()) {
                 lines.push(format!("version: {version}"));
+            }
+            if let Some(required) = data.get("required_version").and_then(|v| v.as_str()) {
+                lines.push(format!("required_version: >= {required}"));
             }
             lines.push(String::new());
             lines.push("To load the extension in Chrome:".to_string());
@@ -1187,13 +1197,14 @@ mod tests {
         let result = ActionResult::ok(json!({
             "path": "/Users/test/.actionbook/extension",
             "version": "1.4.3-alpha",
+            "required_version": "0.3.0",
         }));
 
         let text = format_text("extension install", &None, &result);
 
         assert_eq!(
             text,
-            "ok extension install\npath: /Users/test/.actionbook/extension\nversion: 1.4.3-alpha\n\nTo load the extension in Chrome:\n  1. Open chrome://extensions/\n  2. Enable Developer mode\n  3. If a previous version is loaded, click Remove first\n  4. Click \"Load unpacked\" and select the path above"
+            "ok extension install\npath: /Users/test/.actionbook/extension\nversion: 1.4.3-alpha\nrequired_version: >= 0.3.0\n\nTo load the extension in Chrome:\n  1. Open chrome://extensions/\n  2. Enable Developer mode\n  3. If a previous version is loaded, click Remove first\n  4. Click \"Load unpacked\" and select the path above"
         );
     }
 
@@ -1206,7 +1217,10 @@ mod tests {
 
         let text = format_text("extension status", &None, &result);
 
-        assert_eq!(text, "bridge: listening\nextension_connected: true");
+        assert_eq!(
+            text,
+            "bridge: listening\nextension_connected: true\nrequired_version: >= 0.3.0"
+        );
     }
 
     #[test]
@@ -1215,13 +1229,14 @@ mod tests {
             "path": "/Users/test/.actionbook/extension",
             "installed": false,
             "version": null,
+            "required_version": "0.3.0",
         }));
 
         let text = format_text("extension path", &None, &result);
 
         assert_eq!(
             text,
-            "path: /Users/test/.actionbook/extension\ninstalled: false"
+            "path: /Users/test/.actionbook/extension\ninstalled: false\nrequired_version: >= 0.3.0"
         );
     }
 }

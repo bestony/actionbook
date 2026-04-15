@@ -151,6 +151,7 @@ pub fn execute_path() -> ActionResult {
         "path": dir.to_string_lossy(),
         "installed": installed,
         "version": version,
+        "required_version": crate::EXTENSION_PROTOCOL_MIN_VERSION,
     }))
 }
 
@@ -214,6 +215,7 @@ fn extract_bundled(dst: &Path) -> ActionResult {
     ActionResult::ok(json!({
         "path": dst.to_string_lossy(),
         "version": version,
+        "required_version": crate::EXTENSION_PROTOCOL_MIN_VERSION,
     }))
 }
 
@@ -237,6 +239,7 @@ fn copy_from_dir(src: &Path, dst: &Path) -> ActionResult {
     ActionResult::ok(json!({
         "path": dst.to_string_lossy(),
         "version": version,
+        "required_version": crate::EXTENSION_PROTOCOL_MIN_VERSION,
     }))
 }
 

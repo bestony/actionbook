@@ -47,7 +47,7 @@ const BIND_RETRY_DELAYS_MS: &[u64] = &[100, 500, 1_000, 2_000, 5_000];
 /// - extension uses `attachedTabs: Set<number>` instead of a single attach
 /// - older extensions (0.2.x) are rejected and asked to reload — the
 ///   single-attach protocol cannot be mixed with the multi-attach client.
-const PROTOCOL_VERSION: &str = "0.3.0";
+const PROTOCOL_VERSION: &str = crate::EXTENSION_PROTOCOL_MIN_VERSION;
 
 /// Known Actionbook Chrome extension IDs.
 const EXTENSION_ID_CWS: &str = "bebchpafpemheedhcdabookaifcijmfo";
