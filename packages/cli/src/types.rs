@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Semantic session identifier.
 /// Auto-generated format: `sN` (e.g. `s1`, `s2`, `s3`). Global counter, mode-agnostic.
-/// Manual format (--set-session-id): `^[a-z][a-z0-9-]{1,63}$`.
+/// Manual format (--set-session-id): `^[a-z][a-z0-9_-]{1,63}$`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SessionId(pub String);
 
@@ -22,7 +22,7 @@ impl SessionId {
         if id.len() < 2 || id.len() > 64 {
             return false;
         }
-        // All session IDs: lowercase start, then lowercase/digit/hyphen.
+        // All session IDs: lowercase start, then lowercase/digit/hyphen/underscore.
         // Auto-generated `sN` (e.g. s1, s42) satisfies this naturally.
         let bytes = id.as_bytes();
         if !bytes[0].is_ascii_lowercase() {
@@ -30,7 +30,7 @@ impl SessionId {
         }
         bytes[1..]
             .iter()
-            .all(|&b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+            .all(|&b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
     }
 
     pub fn new_unchecked(id: impl Into<String>) -> Self {
@@ -75,7 +75,7 @@ impl SessionId {
         let mapped: String = lowered
             .chars()
             .map(|c| {
-                if c.is_ascii_lowercase() || c.is_ascii_digit() {
+                if c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' {
                     c
                 } else {
                     '-'
@@ -205,7 +205,7 @@ impl fmt::Display for ParseIdError {
             ParseIdError::InvalidNumber(e) => write!(f, "invalid number: {e}"),
             ParseIdError::InvalidSessionId(id) => write!(
                 f,
-                "invalid session id '{id}': must match ^[a-z][a-z0-9-]{{1,63}}$"
+                "invalid session id '{id}': must match ^[a-z][a-z0-9_-]{{1,63}}$"
             ),
         }
     }
@@ -238,5 +238,18 @@ mod tests {
         assert!(SessionId::new("SLOCAL-1").is_err());
         assert!(SessionId::new("SCLOUD-42").is_err());
         assert!(SessionId::new("SEXT-9999").is_err());
+    }
+
+    #[test]
+    fn session_id_accepts_underscores() {
+        assert!(SessionId::new("my_session").is_ok());
+        assert!(SessionId::new("browser_1").is_ok());
+        assert!(SessionId::new("test_abc_123").is_ok());
+        assert!(SessionId::new("a_b").is_ok());
+    }
+
+    #[test]
+    fn session_id_rejects_leading_underscore() {
+        assert!(SessionId::new("_session").is_err());
     }
 }

@@ -53,10 +53,10 @@
 
 - **Type:** String
 - **Auto-generated format:** `sN` (e.g. `s1`, `s2`, `s3`) — global counter, mode-agnostic
-- **Manual format:** via `actionbook browser start --set-session-id <SID>` — must match `^[a-z][a-z0-9-]{1,63}$`
+- **Manual format:** via `actionbook browser start --set-session-id <SID>` — must match `^[a-z][a-z0-9_-]{1,63}$`
 - **Requirements:**
   - Uniquely identifies a session within the current CLI lifecycle and persisted state
-- **Examples (manual):** `research-google`, `github-login-debug`, `airbnb-form-fill`
+- **Examples (manual):** `research-google`, `github_login_debug`, `airbnb-form-fill`
 
 #### tab_id
 
