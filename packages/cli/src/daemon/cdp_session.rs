@@ -11,10 +11,12 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{Value, json};
 use tokio::sync::{Mutex, mpsc, oneshot};
+use tokio::task::JoinHandle;
 use tokio_tungstenite::connect_async;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::http;
+use tracing::warn;
 
 use crate::error::CliError;
 
@@ -70,7 +72,11 @@ fn normalize_headers(headers: Option<&Value>) -> HashMap<String, String> {
         .collect()
 }
 
-fn record_request_will_be_sent(requests: &mut VecDeque<TrackedRequest>, params: &Value) {
+fn record_request_will_be_sent(
+    requests: &mut VecDeque<TrackedRequest>,
+    params: &Value,
+    max_tracked_requests: usize,
+) {
     let request_id = params
         .get("requestId")
         .and_then(|v| v.as_str())
@@ -128,7 +134,7 @@ fn record_request_will_be_sent(requests: &mut VecDeque<TrackedRequest>, params: 
         return;
     }
 
-    if requests.len() >= MAX_TRACKED_REQUESTS {
+    if requests.len() >= max_tracked_requests {
         requests.pop_front();
     }
     requests.push_back(TrackedRequest {
@@ -261,6 +267,11 @@ pub struct CdpSession {
     /// Wrapped in Option so `close()` can take it out, closing the channel
     /// and propagating shutdown to both reader and writer background tasks.
     writer_tx: Arc<Mutex<Option<mpsc::Sender<String>>>>,
+    /// Writer task handle. Awaited by `close()` so the graceful WS close
+    /// frame is delivered before the next caller tries to reconnect — without
+    /// it, the peer (e.g. bridge) still sees the old client as connected and
+    /// rejects the new CDP client.
+    writer_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
     /// In-flight requests keyed by message ID.
     pending: PendingRequests,
     /// Atomic counter for generating unique message IDs.
@@ -282,18 +293,33 @@ pub struct CdpSession {
     /// Per-tab ring buffer of tracked network requests, keyed by CDP session ID.
     /// Populated by reader_loop from Network events; capacity capped at MAX_TRACKED_REQUESTS.
     tab_net_requests: TabNetRequests,
+    /// `true` when this session speaks the extension-bridge protocol (0.3.0+).
+    /// Flipped by `register_extension_tab`. In extension mode every per-tab
+    /// command injects a root-level `tabId` instead of a CDP `sessionId`, and
+    /// the bridge/extension routes by that. Local/cloud sessions keep the
+    /// normal CDP flat-session protocol.
+    is_extension_bridge: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl CdpSession {
     /// Connect to a browser-level WebSocket endpoint and spawn background tasks.
     pub async fn connect(ws_url: &str) -> Result<Self, CliError> {
-        Self::connect_with_headers(ws_url, &[]).await
+        Self::connect_with_config(ws_url, &[], MAX_TRACKED_REQUESTS).await
     }
 
     /// Connect with custom headers (for cloud mode auth).
     pub async fn connect_with_headers(
         ws_url: &str,
         headers: &[(String, String)],
+    ) -> Result<Self, CliError> {
+        Self::connect_with_config(ws_url, headers, MAX_TRACKED_REQUESTS).await
+    }
+
+    /// Connect with custom headers and a configurable network request buffer size.
+    pub async fn connect_with_config(
+        ws_url: &str,
+        headers: &[(String, String)],
+        max_tracked_requests: usize,
     ) -> Result<Self, CliError> {
         let mut request = ws_url
             .into_client_request()
@@ -324,8 +350,9 @@ impl CdpSession {
         let tab_sessions: Arc<Mutex<HashMap<String, String>>> =
             Arc::new(Mutex::new(HashMap::new()));
         let tab_net_requests: TabNetRequests = Arc::new(Mutex::new(HashMap::new()));
+        let is_extension_bridge = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-        tokio::spawn(Self::writer_loop(ws_writer, writer_rx));
+        let writer_handle = tokio::spawn(Self::writer_loop(ws_writer, writer_rx));
         tokio::spawn(Self::reader_loop(
             ws_reader,
             pending.clone(),
@@ -335,10 +362,13 @@ impl CdpSession {
             pending_iframe_enables.clone(),
             tab_sessions.clone(),
             tab_net_requests.clone(),
+            max_tracked_requests,
+            is_extension_bridge.clone(),
         ));
 
         Ok(CdpSession {
             writer_tx: Arc::new(Mutex::new(Some(writer_tx))),
+            writer_handle: Arc::new(Mutex::new(Some(writer_handle))),
             pending,
             next_id,
             tab_sessions,
@@ -347,6 +377,7 @@ impl CdpSession {
             iframe_sessions,
             pending_iframe_enables,
             tab_net_requests,
+            is_extension_bridge,
         })
     }
 
@@ -483,19 +514,26 @@ impl CdpSession {
         // (real users have 1366x768, 2560x1440, 3440x1440, etc.).
     }
 
-    /// Register a tab for extension mode (no CDP flat-session handshake needed).
+    /// Register a tab for extension mode (protocol 0.3.0+).
     ///
-    /// The extension bridge relays CDP commands to a single attached tab and
-    /// ignores the `sessionId` field entirely.  We insert an empty-string
-    /// session ID so that `execute_on_tab` can look it up and the resulting
-    /// WS message simply omits `sessionId` (because `execute()` only adds it
-    /// when `Some`).  Actually we store `""` but `execute_on_tab` passes
-    /// `Some("")` which adds `"sessionId":""` — the bridge ignores it.
+    /// Flips this session into "extension bridge" mode (one-way; local/cloud
+    /// sessions never call this), and derives a per-tab routing key
+    /// `tab:{native_id}` that is used uniformly by:
+    ///   - `execute_on_tab` to look up the tab (miss → `INTERNAL_ERROR`)
+    ///   - `get_cdp_session_id` to return a stable per-tab key for
+    ///     `subscribe_events`, `network_pending`, `network_requests`
+    ///   - `reader_loop` to bucket incoming events carrying the bridge's
+    ///     root-level `tabId` field
+    ///
+    /// Idempotent: calling again for the same `native_id` is a no-op.
     pub async fn register_extension_tab(&self, native_id: &str) {
+        self.is_extension_bridge
+            .store(true, std::sync::atomic::Ordering::Release);
+        let key = format!("tab:{native_id}");
         self.tab_sessions
             .lock()
             .await
-            .insert(native_id.to_string(), String::new());
+            .insert(native_id.to_string(), key);
     }
 
     /// Detach from a CDP target (tab).
@@ -537,24 +575,113 @@ impl CdpSession {
 
     /// Execute a CDP command on a specific tab (by target_id).
     ///
-    /// Looks up the CDP sessionId for the target and includes it in the message.
+    /// * **Local / cloud (CDP flat sessions)**: looks up the CDP `sessionId`
+    ///   for the target and includes it in the message.
+    /// * **Extension bridge (protocol 0.3.0+)**: parses `target_id` as the
+    ///   Chrome numeric tab id and injects a root-level `tabId`. The
+    ///   extension routes to `chrome.debugger.sendCommand({tabId}, …)`.
+    ///   On the extension's "Tab N not attached" error (can happen after
+    ///   extension reload or when the user cancels the debug banner),
+    ///   attempts exactly one lazy `Extension.attachTab` + retry.
     pub async fn execute_on_tab(
         &self,
         target_id: &str,
         method: &str,
         params: Value,
     ) -> Result<Value, CliError> {
-        let session_id = self
-            .tab_sessions
-            .lock()
-            .await
-            .get(target_id)
-            .cloned()
-            .ok_or_else(|| {
-                CliError::CdpError(format!("no CDP session for target '{target_id}'"))
+        if self
+            .is_extension_bridge
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            let tab_id: u64 = target_id.parse().map_err(|e| {
+                CliError::CdpError(format!("non-numeric extension tab id '{target_id}': {e}"))
             })?;
 
-        self.execute(method, params, Some(&session_id)).await
+            match self
+                .execute_extension_tab(tab_id, method, params.clone())
+                .await
+            {
+                Ok(v) => Ok(v),
+                Err(CliError::CdpError(ref msg))
+                    // keep in sync with error messages in background.js
+                    // handleCdpCommand ("Tab N not attached") and the
+                    // chrome.debugger catch block ("Debugger detached from tab")
+                    if msg.contains(&format!("Tab {tab_id} not attached"))
+                        || msg.contains("Debugger detached from tab") =>
+                {
+                    // Self-heal: extension reload / user-dismissed banner.
+                    // Re-attach, retry once. If that fails too, bubble up.
+                    self.execute("Extension.attachTab", json!({ "tabId": tab_id }), None)
+                        .await?;
+                    self.execute_extension_tab(tab_id, method, params).await
+                }
+                Err(e) => Err(e),
+            }
+        } else {
+            let session_id = self
+                .tab_sessions
+                .lock()
+                .await
+                .get(target_id)
+                .cloned()
+                .ok_or_else(|| {
+                    CliError::CdpError(format!("no CDP session for target '{target_id}'"))
+                })?;
+            self.execute(method, params, Some(&session_id)).await
+        }
+    }
+
+    /// Send a CDP command with a root-level `tabId` (extension bridge path).
+    async fn execute_extension_tab(
+        &self,
+        tab_id: u64,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, CliError> {
+        let id = self.next_id.fetch_add(1, Ordering::Relaxed);
+        let msg = json!({
+            "id": id,
+            "method": method,
+            "params": params,
+            "tabId": tab_id,
+        });
+
+        let (tx, rx) = oneshot::channel();
+        self.pending.lock().await.insert(id, tx);
+
+        let writer = self.writer_tx.lock().await.clone();
+        let send_result = match writer {
+            Some(tx) => tx.send(msg.to_string()).await,
+            None => Err(mpsc::error::SendError(msg.to_string())),
+        };
+        if send_result.is_err() {
+            self.pending.lock().await.remove(&id);
+            return Err(CliError::SessionClosed(
+                "session was closed while command was pending".to_string(),
+            ));
+        }
+
+        let resp = tokio::time::timeout(std::time::Duration::from_secs(60), rx)
+            .await
+            .map_err(|_| {
+                let pending = self.pending.clone();
+                tokio::spawn(async move {
+                    pending.lock().await.remove(&id);
+                });
+                CliError::Timeout
+            })?
+            .map_err(|_| CliError::CdpError("response channel dropped".to_string()))??;
+
+        if let Some(err) = resp.get("error") {
+            let code = err.get("code").and_then(|v| v.as_i64()).unwrap_or(0);
+            let message = err
+                .get("message")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown CDP error");
+            return Err(CliError::CdpError(format!("CDP error {code}: {message}")));
+        }
+
+        Ok(resp)
     }
 
     /// Execute a browser-level CDP command (no sessionId).
@@ -678,17 +805,39 @@ impl CdpSession {
     /// Drops the writer channel sender, which causes the writer loop to exit,
     /// which closes the WS connection, which causes the reader loop to exit,
     /// which fails all pending requests with `SessionClosed`.
+    ///
+    /// Waits up to 500ms for the writer task to finish so the WS close
+    /// handshake has propagated to the peer before returning. Without this,
+    /// a peer like the extension bridge may still see the old client as
+    /// connected and reject an immediately-following reconnect. If the
+    /// writer is stalled on network I/O (broken CDP connection, half-open
+    /// socket) we abort it so `browser close` and daemon shutdown stay
+    /// bounded — the OS reclaims the socket when the task drops.
     pub async fn close(&self) {
         // Take and drop the writer sender — closes the channel.
         self.writer_tx.lock().await.take();
 
         // Fail all pending requests immediately instead of waiting for
         // the reader loop to notice the connection drop.
-        let mut map = self.pending.lock().await;
-        for (_, tx) in map.drain() {
-            let _ = tx.send(Err(CliError::SessionClosed(
-                "session was closed".to_string(),
-            )));
+        {
+            let mut map = self.pending.lock().await;
+            for (_, tx) in map.drain() {
+                let _ = tx.send(Err(CliError::SessionClosed(
+                    "session was closed".to_string(),
+                )));
+            }
+        }
+
+        // Bounded wait for the writer to flush its Close frame.
+        if let Some(handle) = self.writer_handle.lock().await.take() {
+            let aborter = handle.abort_handle();
+            if tokio::time::timeout(std::time::Duration::from_millis(500), handle)
+                .await
+                .is_err()
+            {
+                aborter.abort();
+                warn!("cdp_session: writer task exceeded 500ms shutdown budget; aborted");
+            }
         }
     }
 
@@ -766,6 +915,8 @@ impl CdpSession {
         pending_iframe_enables: PendingIframeEnables,
         _tab_sessions: Arc<Mutex<HashMap<String, String>>>,
         tab_net_requests: TabNetRequests,
+        max_tracked_requests: usize,
+        is_extension_bridge: Arc<std::sync::atomic::AtomicBool>,
     ) where
         S: StreamExt<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
     {
@@ -788,8 +939,25 @@ impl CdpSession {
                     let _ = tx.send(Ok(resp));
                 }
             } else if let Some(method) = resp.get("method").and_then(|v| v.as_str()) {
-                // Event: extract sessionId (empty string for browser-level events).
-                let session_id = resp.get("sessionId").and_then(|v| v.as_str()).unwrap_or("");
+                // Event routing key:
+                // - extension bridge (protocol 0.3.0): event frame carries a
+                //   root-level `tabId` that identifies the source tab; derive
+                //   `tab:{tabId}` so per-tab subscribers stay separated.
+                // - local/cloud: CDP flat session — key by `sessionId`
+                //   (empty string for browser-level events).
+                // Guard on is_extension_bridge so local/cloud events that happen
+                // to carry a numeric `tabId` field (e.g. Target.* params) are
+                // never mis-routed by the extension key path.
+                let session_id_str = resp.get("sessionId").and_then(|v| v.as_str()).unwrap_or("");
+                let ext_tab_key: Option<String> =
+                    if is_extension_bridge.load(std::sync::atomic::Ordering::Acquire) {
+                        resp.get("tabId")
+                            .and_then(|v| v.as_u64())
+                            .map(|n| format!("tab:{n}"))
+                    } else {
+                        None
+                    };
+                let session_id = ext_tab_key.as_deref().unwrap_or(session_id_str);
 
                 // Track cross-origin iframe sessions from Target.setAutoAttach.
                 match method {
@@ -868,7 +1036,7 @@ impl CdpSession {
                             if let Some(params) = params {
                                 let mut tnr = tab_net_requests.lock().await;
                                 let requests = tnr.entry(session_id.to_string()).or_default();
-                                record_request_will_be_sent(requests, params);
+                                record_request_will_be_sent(requests, params, max_tracked_requests);
                             }
                         }
                         "Network.responseReceived" => {
@@ -922,15 +1090,25 @@ impl CdpSession {
     }
 
     /// Background task: forward channel messages to WS writer.
+    ///
+    /// When the channel closes (on drop / `close()`), send a WebSocket Close
+    /// frame so the peer tears down promptly. Without this, dropping the
+    /// writer half alone leaves the reader half holding the TCP connection
+    /// open; the peer never sees EOF and keeps us registered as "still
+    /// connected", which breaks immediate reconnects (e.g. the extension
+    /// bridge rejecting a second CDP client).
     async fn writer_loop<S>(mut writer: S, mut rx: mpsc::Receiver<String>)
     where
         S: SinkExt<Message> + Unpin,
     {
         while let Some(text) = rx.recv().await {
             if writer.send(Message::Text(text.into())).await.is_err() {
-                break;
+                return;
             }
         }
+        // Graceful shutdown: send Close frame then close the sink.
+        let _ = writer.send(Message::Close(None)).await;
+        let _ = writer.close().await;
     }
 }
 
@@ -2032,6 +2210,7 @@ mod tests {
                     "headers": { "accept": "application/json" }
                 }
             }),
+            MAX_TRACKED_REQUESTS,
         );
         record_response_received(
             &mut requests,
@@ -2079,6 +2258,7 @@ mod tests {
                         "headers": {}
                     }
                 }),
+                MAX_TRACKED_REQUESTS,
             );
         }
 

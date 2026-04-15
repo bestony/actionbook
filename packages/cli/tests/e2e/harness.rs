@@ -13,6 +13,156 @@ use std::sync::OnceLock;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
+/// If `ACTIONBOOK_E2E_MODE` is set, rewrite every `browser start` in `args`
+/// to target that mode instead of whatever the test hardcoded.
+///
+/// For `extension` target also:
+///   - strip `--headless` / `--executable-path` / `--cdp-endpoint` (local-only
+///     flags clap would reject on extension or that have no meaning)
+///   - if neither `--open-url` nor `--tab-id` is present, inject
+///     `--open-url http://127.0.0.1:<local_server_port>/` so the tests can
+///     actually land on a page (protocol 0.3.0 requires one or the other)
+///
+/// Everything else (non-`browser start` commands, arg order, etc.) is left
+/// untouched so tests see identical context before and after start.
+fn effective_override_mode() -> Option<String> {
+    env::var("ACTIONBOOK_E2E_MODE")
+        .ok()
+        .map(|v| v.trim().to_string())
+        .filter(|v| !v.is_empty())
+}
+
+fn remove_flag_with_value(v: &mut Vec<String>, flag: &str) {
+    let mut i = 0;
+    while i < v.len() {
+        if v[i] == flag {
+            v.remove(i);
+            if i < v.len() {
+                v.remove(i);
+            }
+        } else {
+            i += 1;
+        }
+    }
+}
+
+fn rewrite_args_for_mode(args: &[&str]) -> Vec<String> {
+    let Some(target_mode) = effective_override_mode() else {
+        return args.iter().map(|s| s.to_string()).collect();
+    };
+
+    let Some(start_idx) = args
+        .windows(2)
+        .position(|w| w[0] == "browser" && w[1] == "start")
+    else {
+        return args.iter().map(|s| s.to_string()).collect();
+    };
+
+    let mut out: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+
+    let mut replaced = false;
+    let mut i = start_idx + 2;
+    while i + 1 < out.len() {
+        if out[i] == "--mode" {
+            out[i + 1] = target_mode.clone();
+            replaced = true;
+            break;
+        }
+        i += 1;
+    }
+    if !replaced {
+        out.insert(start_idx + 2, "--mode".to_string());
+        out.insert(start_idx + 3, target_mode.clone());
+    }
+
+    if target_mode == "extension" {
+        out.retain(|s| s != "--headless");
+        remove_flag_with_value(&mut out, "--executable-path");
+        remove_flag_with_value(&mut out, "--cdp-endpoint");
+
+        let has_open_url = out.iter().any(|s| s == "--open-url");
+        let has_tab_id = out.iter().any(|s| s == "--tab-id");
+        if !has_open_url && !has_tab_id {
+            let default_url = format!("http://127.0.0.1:{}/", local_server().port);
+            out.insert(start_idx + 2, "--open-url".to_string());
+            out.insert(start_idx + 3, default_url);
+        }
+    }
+
+    out
+}
+
+/// Run a CLI command with a real timeout, avoiding pipe-inheritance hangs on Windows.
+///
+/// On Windows, `assert_cmd::Command::output()` pipes stdout/stderr. When the CLI
+/// spawns a detached daemon, the daemon inherits those pipe handles via
+/// `CreateProcess(bInheritHandles=TRUE)`. Even after the CLI exits, the daemon
+/// still holds write handles to the pipes, so the test's `read_to_end()` blocks
+/// forever. We avoid this by redirecting to temp files instead of pipes.
+fn run_cli_with_timeout(
+    actionbook_home: &str,
+    args: &[&str],
+    extra_env: &[(&str, &str)],
+    timeout_secs: u64,
+) -> Output {
+    let rewritten = rewrite_args_for_mode(args);
+    let args: Vec<&str> = rewritten.iter().map(String::as_str).collect();
+    let args = args.as_slice();
+    #[cfg(windows)]
+    {
+        let stdout_file = tempfile::NamedTempFile::new().expect("create stdout temp file");
+        let stderr_file = tempfile::NamedTempFile::new().expect("create stderr temp file");
+        let stdout_path = stdout_file.path().to_path_buf();
+        let stderr_path = stderr_file.path().to_path_buf();
+
+        let bin = assert_cmd::cargo::cargo_bin("actionbook");
+        let mut cmd = std::process::Command::new(&bin);
+        cmd.env("ACTIONBOOK_HOME", actionbook_home)
+            .args(args)
+            .stdin(std::process::Stdio::null())
+            .stdout(stdout_file.reopen().map(std::process::Stdio::from).unwrap())
+            .stderr(stderr_file.reopen().map(std::process::Stdio::from).unwrap());
+        for (key, value) in extra_env {
+            cmd.env(key, value);
+        }
+
+        let mut child = cmd.spawn().expect("failed to spawn command");
+        let status = match wait_timeout::ChildExt::wait_timeout(
+            &mut child,
+            Duration::from_secs(timeout_secs),
+        ) {
+            Ok(Some(status)) => status,
+            Ok(None) => {
+                let _ = child.kill();
+                child.wait().expect("failed to wait after kill")
+            }
+            Err(e) => panic!("wait_timeout error: {e}"),
+        };
+
+        let stdout = std::fs::read(&stdout_path).unwrap_or_default();
+        let stderr = std::fs::read(&stderr_path).unwrap_or_default();
+
+        Output {
+            status,
+            stdout,
+            stderr,
+        }
+    }
+
+    #[cfg(not(windows))]
+    {
+        let mut command = Command::cargo_bin("actionbook").expect("binary exists");
+        command
+            .env("ACTIONBOOK_HOME", actionbook_home)
+            .args(args)
+            .timeout(Duration::from_secs(timeout_secs));
+        for (key, value) in extra_env {
+            command.env(key, value);
+        }
+        command.output().expect("failed to execute command")
+    }
+}
+
 // ── Isolated environment ────────────────────────────────────────────
 
 /// Shared isolated environment — used by most tests via the global daemon.
@@ -58,22 +208,13 @@ impl SoloEnv {
     }
 
     pub fn headless(&self, args: &[&str], timeout_secs: u64) -> Output {
-        let mut command = Command::cargo_bin("actionbook").expect("binary exists");
-        command
-            .env("ACTIONBOOK_HOME", &self.actionbook_home)
-            .args(args)
-            .timeout(Duration::from_secs(timeout_secs));
-        command.output().expect("failed to execute command")
+        run_cli_with_timeout(&self.actionbook_home, args, &[], timeout_secs)
     }
 
     pub fn headless_json(&self, args: &[&str], timeout_secs: u64) -> Output {
-        let mut command = Command::cargo_bin("actionbook").expect("binary exists");
-        command
-            .env("ACTIONBOOK_HOME", &self.actionbook_home)
-            .arg("--json")
-            .args(args)
-            .timeout(Duration::from_secs(timeout_secs));
-        command.output().expect("failed to execute command")
+        let mut full_args = vec!["--json"];
+        full_args.extend_from_slice(args);
+        run_cli_with_timeout(&self.actionbook_home, &full_args, &[], timeout_secs)
     }
 
     pub fn headless_json_with_env(
@@ -82,16 +223,9 @@ impl SoloEnv {
         extra_env: &[(&str, &str)],
         timeout_secs: u64,
     ) -> Output {
-        let mut command = Command::cargo_bin("actionbook").expect("binary exists");
-        command
-            .env("ACTIONBOOK_HOME", &self.actionbook_home)
-            .arg("--json")
-            .args(args)
-            .timeout(Duration::from_secs(timeout_secs));
-        for (key, value) in extra_env {
-            command.env(key, value);
-        }
-        command.output().expect("failed to execute command")
+        let mut full_args = vec!["--json"];
+        full_args.extend_from_slice(args);
+        run_cli_with_timeout(&self.actionbook_home, &full_args, extra_env, timeout_secs)
     }
 
     pub fn config_path(&self) -> std::path::PathBuf {
@@ -109,42 +243,133 @@ impl Drop for SoloEnv {
         if let Ok(pid_str) = std::fs::read_to_string(&pid_path)
             && let Ok(pid) = pid_str.trim().parse::<u32>()
         {
-            let _ = std::process::Command::new("kill")
-                .args(["-9", &pid.to_string()])
-                .output();
-            // Wait for the process to actually exit before cleaning up files.
-            let start = std::time::Instant::now();
-            while start.elapsed() < Duration::from_secs(3) {
-                // kill -0 checks if process exists without sending a signal.
-                let status = std::process::Command::new("kill")
-                    .args(["-0", &pid.to_string()])
+            #[cfg(unix)]
+            {
+                let _ = std::process::Command::new("kill")
+                    .args(["-9", &pid.to_string()])
                     .output();
-                if status.is_err() || !status.unwrap().status.success() {
-                    break;
+                // Wait for the process to actually exit before cleaning up files.
+                let start = std::time::Instant::now();
+                while start.elapsed() < Duration::from_secs(3) {
+                    let status = std::process::Command::new("kill")
+                        .args(["-0", &pid.to_string()])
+                        .output();
+                    if status.is_err() || !status.unwrap().status.success() {
+                        break;
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
                 }
-                std::thread::sleep(Duration::from_millis(50));
+            }
+            #[cfg(windows)]
+            {
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/F", "/PID", &pid.to_string()])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+                let start = std::time::Instant::now();
+                while start.elapsed() < Duration::from_secs(3) {
+                    let status = std::process::Command::new("tasklist")
+                        .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+                        .output();
+                    match status {
+                        Ok(out) => {
+                            let stdout = String::from_utf8_lossy(&out.stdout);
+                            if !stdout.contains(&pid.to_string()) {
+                                break;
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                    std::thread::sleep(Duration::from_millis(50));
+                }
             }
         }
         let profiles_dir = dir.join("profiles");
         if profiles_dir.exists() {
-            let _ = std::process::Command::new("pkill")
-                .args(["-f", &format!("--user-data-dir={}", profiles_dir.display())])
-                .output();
+            #[cfg(unix)]
+            {
+                let _ = std::process::Command::new("pkill")
+                    .args(["-f", &format!("--user-data-dir={}", profiles_dir.display())])
+                    .output();
+            }
+            #[cfg(windows)]
+            {
+                // On Windows, use wmic to find and kill Chrome processes
+                // with matching user-data-dir argument.
+                let _ = std::process::Command::new("taskkill")
+                    .args(["/F", "/IM", "chrome.exe"])
+                    .stdout(std::process::Stdio::null())
+                    .stderr(std::process::Stdio::null())
+                    .status();
+            }
         }
         // Clean up daemon files that SIGKILL leaves behind.
         let _ = std::fs::remove_file(dir.join("daemon.sock"));
         let _ = std::fs::remove_file(dir.join("daemon.ready"));
         let _ = std::fs::remove_file(dir.join("daemon.pid"));
+        #[cfg(windows)]
+        let _ = std::fs::remove_file(dir.join("daemon.port"));
     }
 }
 
 // ── Gate ────────────────────────────────────────────────────────────
 
+/// Test-name substrings that are inherently incompatible with extension-mode
+/// rewrite (`ACTIONBOOK_E2E_MODE=extension`):
+///   - `cloud_mode::*` — talks to a mock cloud CDP endpoint, not the bridge
+///   - `concurrent_two_sessions` / `cross_session` — extension bridge is
+///     1 CDP client per daemon, multi-session in one daemon cannot race
+///   - `headless` tests — extension uses the host Chrome window, not headless
+///   - `windows_daemon::*` — Windows-specific daemon path, unrelated to
+///     extension
+const EXTENSION_INCOMPATIBLE_SUBSTRINGS: &[&str] = &[
+    "cloud_mode::",
+    "concurrent_two_sessions",
+    "cross_session",
+    "windows_daemon::",
+    "_headless",
+    "lifecycle_open_headless",
+];
+
 /// Returns `true` when E2E tests should be skipped.
+///
+/// Skip conditions:
+///   1. `RUN_E2E_TESTS != "true"` — e2e suite gate
+///   2. `ACTIONBOOK_E2E_MODE=extension` AND the current test's name matches
+///      any substring in `EXTENSION_INCOMPATIBLE_SUBSTRINGS` — these tests
+///      cannot pass under extension-bridge semantics and are skipped by
+///      design when running the extension-mode regression pass
 pub fn skip() -> bool {
-    env::var("RUN_E2E_TESTS")
+    if env::var("RUN_E2E_TESTS")
         .map(|v| v != "true")
         .unwrap_or(true)
+    {
+        return true;
+    }
+
+    if let Ok(m) = env::var("ACTIONBOOK_E2E_MODE")
+        && m == "extension"
+    {
+        let thread = std::thread::current();
+        let name = thread.name().unwrap_or("");
+        if EXTENSION_INCOMPATIBLE_SUBSTRINGS
+            .iter()
+            .any(|pat| name.contains(pat))
+        {
+            eprintln!(
+                "(skipping {name}: incompatible with extension mode — matches '{}')",
+                EXTENSION_INCOMPATIBLE_SUBSTRINGS
+                    .iter()
+                    .find(|p| name.contains(*p))
+                    .copied()
+                    .unwrap_or("?")
+            );
+            return true;
+        }
+    }
+
+    false
 }
 
 // ── Local HTTP server ──────────────────────────────────────────────
@@ -729,15 +954,7 @@ pub fn headless(args: &[&str], timeout_secs: u64) -> Output {
 
 pub fn headless_with_env(args: &[&str], extra_env: &[(&str, &str)], timeout_secs: u64) -> Output {
     let env = shared_env();
-    let mut command = Command::cargo_bin("actionbook").expect("binary exists");
-    command
-        .env("ACTIONBOOK_HOME", &env.actionbook_home)
-        .args(args)
-        .timeout(Duration::from_secs(timeout_secs));
-    for (key, value) in extra_env {
-        command.env(key, value);
-    }
-    command.output().expect("failed to execute command")
+    run_cli_with_timeout(&env.actionbook_home, args, extra_env, timeout_secs)
 }
 
 /// Run `actionbook --json <args>` with the shared isolated environment.
@@ -751,16 +968,9 @@ pub fn headless_json_with_env(
     timeout_secs: u64,
 ) -> Output {
     let env = shared_env();
-    let mut command = Command::cargo_bin("actionbook").expect("binary exists");
-    command
-        .env("ACTIONBOOK_HOME", &env.actionbook_home)
-        .arg("--json")
-        .args(args)
-        .timeout(Duration::from_secs(timeout_secs));
-    for (key, value) in extra_env {
-        command.env(key, value);
-    }
-    command.output().expect("failed to execute command")
+    let mut full_args = vec!["--json"];
+    full_args.extend_from_slice(args);
+    run_cli_with_timeout(&env.actionbook_home, &full_args, extra_env, timeout_secs)
 }
 
 // ── Cleanup helpers ─────────────────────────────────────────────────

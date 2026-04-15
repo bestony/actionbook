@@ -229,6 +229,8 @@ pub fn format_text(
                     | "browser session-storage clear"
                     | "browser network requests"
                     | "browser network request"
+                    | "extension install"
+                    | "extension uninstall"
             );
 
             if is_action {
@@ -241,7 +243,12 @@ pub fn format_text(
             // Emit key-value fields from data
             format_data_fields(command, data, &mut lines);
         }
-        ActionResult::Fatal { code, message, .. } => {
+        ActionResult::Fatal {
+            code,
+            message,
+            hint,
+            ..
+        } => {
             if (command == "browser new-tab" || command == "browser batch-new-tab")
                 && code == "PARTIAL_FAILURE"
             {
@@ -253,12 +260,21 @@ pub fn format_text(
             } else {
                 lines.push(format!("error {code}: {message}"));
             }
+            if !hint.is_empty() {
+                lines.push(format!("hint: {hint}"));
+            }
         }
-        ActionResult::Retryable { reason, .. } => {
+        ActionResult::Retryable { reason, hint } => {
             lines.push(format!("error RETRYABLE: {reason}"));
+            if !hint.is_empty() {
+                lines.push(format!("hint: {hint}"));
+            }
         }
-        ActionResult::UserAction { action, .. } => {
+        ActionResult::UserAction { action, hint } => {
             lines.push(format!("error USER_ACTION: {action}"));
+            if !hint.is_empty() {
+                lines.push(format!("hint: {hint}"));
+            }
         }
     }
 
@@ -281,6 +297,13 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 .and_then(|v| v.as_str())
             {
                 lines.push(format!("status: {status}"));
+            }
+            if let Some(provider) = data
+                .get("session")
+                .and_then(|s| s.get("provider"))
+                .and_then(|v| v.as_str())
+            {
+                lines.push(format!("provider: {provider}"));
             }
             if let Some(title) = data
                 .get("tab")
@@ -317,9 +340,73 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 if let Some(mode) = s.get("mode").and_then(|v| v.as_str()) {
                     lines.push(format!("mode: {mode}"));
                 }
+                if let Some(provider) = s.get("provider").and_then(|v| v.as_str()) {
+                    lines.push(format!("provider: {provider}"));
+                }
                 if let Some(tabs) = s.get("tabs_count").and_then(|v| v.as_u64()) {
                     lines.push(format!("tabs: {tabs}"));
                 }
+            }
+        }
+        "extension status" => {
+            if let Some(bridge) = data.get("bridge").and_then(|v| v.as_str()) {
+                lines.push(format!("bridge: {bridge}"));
+            }
+            if let Some(extension_connected) =
+                data.get("extension_connected").and_then(|v| v.as_bool())
+            {
+                lines.push(format!("extension_connected: {extension_connected}"));
+            }
+            lines.push(format!(
+                "required_version: >= {}",
+                crate::EXTENSION_PROTOCOL_MIN_VERSION
+            ));
+            lines.push("  (check version at chrome://extensions/)".to_string());
+        }
+        "extension ping" => {
+            if let Some(bridge) = data.get("bridge").and_then(|v| v.as_str()) {
+                lines.push(format!("bridge: {bridge}"));
+            }
+            if let Some(rtt_ms) = data.get("rtt_ms").and_then(|v| v.as_u64()) {
+                lines.push(format!("rtt_ms: {rtt_ms}"));
+            }
+        }
+        "extension path" => {
+            if let Some(path) = data.get("path").and_then(|v| v.as_str()) {
+                lines.push(format!("path: {path}"));
+            }
+            if let Some(installed) = data.get("installed").and_then(|v| v.as_bool()) {
+                lines.push(format!("installed: {installed}"));
+            }
+            if let Some(version) = data.get("version").and_then(|v| v.as_str()) {
+                lines.push(format!("version: {version}"));
+            }
+            if let Some(required) = data.get("required_version").and_then(|v| v.as_str()) {
+                lines.push(format!("required_version: >= {required}"));
+                lines.push("  (check version at chrome://extensions/)".to_string());
+            }
+        }
+        "extension install" => {
+            if let Some(path) = data.get("path").and_then(|v| v.as_str()) {
+                lines.push(format!("path: {path}"));
+            }
+            if let Some(version) = data.get("version").and_then(|v| v.as_str()) {
+                lines.push(format!("version: {version}"));
+            }
+            if let Some(required) = data.get("required_version").and_then(|v| v.as_str()) {
+                lines.push(format!("required_version: >= {required}"));
+                lines.push("  (check version at chrome://extensions/)".to_string());
+            }
+            lines.push(String::new());
+            lines.push("To load the extension in Chrome:".to_string());
+            lines.push("  1. Open chrome://extensions/".to_string());
+            lines.push("  2. Enable Developer mode".to_string());
+            lines.push("  3. If a previous version is loaded, click Remove first".to_string());
+            lines.push("  4. Click \"Load unpacked\" and select the path above".to_string());
+        }
+        "extension uninstall" => {
+            if let Some(uninstalled) = data.get("uninstalled").and_then(|v| v.as_bool()) {
+                lines.push(format!("uninstalled: {uninstalled}"));
             }
         }
         "browser close" => {
@@ -1105,6 +1192,54 @@ mod tests {
         assert_eq!(
             text,
             "1/2 tabs opened in session s0\n[s0 t2] https://a.com\n[failed] javascript:alert(1) - INVALID_ARGUMENT: dangerous URL protocol blocked: javascript:alert(1)"
+        );
+    }
+
+    #[test]
+    fn extension_install_text_renders_action_header_and_fields() {
+        let result = ActionResult::ok(json!({
+            "path": "/Users/test/.actionbook/extension",
+            "version": "1.4.3-alpha",
+            "required_version": "0.3.0",
+        }));
+
+        let text = format_text("extension install", &None, &result);
+
+        assert_eq!(
+            text,
+            "ok extension install\npath: /Users/test/.actionbook/extension\nversion: 1.4.3-alpha\nrequired_version: >= 0.3.0\n  (check version at chrome://extensions/)\n\nTo load the extension in Chrome:\n  1. Open chrome://extensions/\n  2. Enable Developer mode\n  3. If a previous version is loaded, click Remove first\n  4. Click \"Load unpacked\" and select the path above"
+        );
+    }
+
+    #[test]
+    fn extension_status_text_renders_bridge_state() {
+        let result = ActionResult::ok(json!({
+            "bridge": "listening",
+            "extension_connected": true,
+        }));
+
+        let text = format_text("extension status", &None, &result);
+
+        assert_eq!(
+            text,
+            "bridge: listening\nextension_connected: true\nrequired_version: >= 0.3.0\n  (check version at chrome://extensions/)"
+        );
+    }
+
+    #[test]
+    fn extension_path_text_renders_install_state() {
+        let result = ActionResult::ok(json!({
+            "path": "/Users/test/.actionbook/extension",
+            "installed": false,
+            "version": null,
+            "required_version": "0.3.0",
+        }));
+
+        let text = format_text("extension path", &None, &result);
+
+        assert_eq!(
+            text,
+            "path: /Users/test/.actionbook/extension\ninstalled: false\nrequired_version: >= 0.3.0\n  (check version at chrome://extensions/)"
         );
     }
 }

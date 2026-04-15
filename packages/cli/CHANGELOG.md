@@ -1,5 +1,77 @@
 # @actionbookdev/cli
 
+## 1.4.3
+
+### Patch Changes
+
+- Restore and harden extension mode commands.
+
+  - Restore `extension install`, `extension uninstall`, `extension path`, `extension status`, and `extension ping` commands. Extension files are now bundled directly in the CLI binary at compile time — no network dependency, version always matches the CLI build.
+  - Protocol 0.3.0: concurrent multi-tab debug. Each CDP request carries a root-level `tabId`; bridge and extension route by it. Removes implicit "active tab" default — `browser start --mode extension` now requires `--open-url` or `--tab-id`. Older extension (0.2.x) is hard-rejected with a reload prompt.
+  - Expand CDP allowlist by 14 methods (DOM.resolveNode, DOM.describeNode, Runtime.callFunctionOn, Accessibility.queryAXTree, etc.) that were silently rejected, fixing every ref-based `click`/`inspect` call.
+  - `browser open` in extension mode now uses `Extension.createTab` instead of the blocked `Target.createTarget`.
+  - Add bridge health check on `browser start --mode extension` so the command waits up to 5s for the extension to reconnect after a daemon restart.
+  - Fix `browser close-tab` in extension mode to detach only the target tab, not all attached tabs.
+  - Fix `browser restart` in extension mode to avoid `MISSING_TAB_TARGET` when the previous session URL was filtered out.
+
+## 1.4.2
+
+### Patch Changes
+
+- [#518](https://github.com/actionbook/actionbook/pull/518) [`2d4fc6d`](https://github.com/actionbook/actionbook/commit/2d4fc6daa80fe9d764e07f7bd19f4eb898dcc619) Thanks [@Senke0x](https://github.com/Senke0x)! - Harden extension bridge startup and surface actionable error hints.
+
+  - Retry bridge port bind with exponential backoff (up to ~8.6s) to recover from `TIME_WAIT` after daemon restart
+  - Move bridge bind to a background task so daemon cold start is no longer blocked by extension port contention (local/cloud modes were incorrectly delayed)
+  - Add `BridgeListenerStatus` (Binding / Listening / Failed) so `browser start --mode extension` can distinguish still-binding from bind-failed
+  - Wait up to 5s (polling every 100ms) for the extension to reconnect on `browser start`, eliminating a race where the bridge bound slightly before the extension completed its WS handshake
+  - Surface `chrome://`, `devtools://` and other restricted schemes as `RESTRICTED_ACTIVE_TAB` with hint `pass --open-url <url>` instead of an opaque debugger.attach failure
+  - Close `CdpSession` WebSocket gracefully on failed session start (writer sends a Close frame, session awaits the writer task) so the bridge sees EOF and releases its 1:1 gate — previously the next start attempt would instantly fail with `SessionClosed`
+  - Print `hint:` line for Fatal/Retryable/UserAction error results in text output (previously only `--json` surfaced the hint field)
+
+- [#518](https://github.com/actionbook/actionbook/pull/518) [`2d4fc6d`](https://github.com/actionbook/actionbook/commit/2d4fc6daa80fe9d764e07f7bd19f4eb898dcc619) Thanks [@Senke0x](https://github.com/Senke0x)! - Add Hermes agent integration.
+
+  - New `SetupTarget::Hermes` variant invokes `hermes skills install` directly instead of routing through `npx skills add`, targeting Hermes's native skill registry at `~/.hermes/skills/`
+  - Missing-binary error now points users to install Hermes (not Node.js) when the target is Hermes
+  - Post-install verification parses `hermes skills list` table columns exactly (by `│` delimiter) to avoid false positives from similarly-named skills
+  - `skills/actionbook/SKILL.md` gains Hermes-compatible frontmatter (`metadata.hermes.tags`, `requires_toolsets: [terminal]`, `prerequisites.commands: [actionbook]`) so the skill is discoverable via `hermes skills search` and hidden on non-terminal platforms
+
+## 1.4.1
+
+### Patch Changes
+
+- [#511](https://github.com/actionbook/actionbook/pull/511) [`07a53a1`](https://github.com/actionbook/actionbook/commit/07a53a1c06a1036a9c121c2037dc5b88e33eb8a0) Thanks [@mcfn](https://github.com/mcfn)! - Fix Windows Chrome process cleanup and improve orphan recovery.
+
+  - Replace NtQueryInformationProcess/ToolHelp with Win32 Job Objects for atomic termination of Chrome helper processes (renderer, GPU, utility)
+  - Delete Chrome singleton lock files before orphan kill so new sessions can start even if helper processes linger
+  - Add actionable error message when orphan Chrome still holds the user-data-dir lock
+  - Fix 54 Windows e2e test cross-platform compatibility issues
+
+## 1.4.0
+
+### Minor Changes
+
+- [#507](https://github.com/actionbook/actionbook/pull/507) [`5bddf13`](https://github.com/actionbook/actionbook/commit/5bddf13420a872355216b045ff616c6f58761feb) Thanks [@Senke0x](https://github.com/Senke0x)! - Add cloud browser provider support via `-p / --provider`.
+
+  Supported providers: Driver, Hyperbrowser, Browseruse. Each provider reads its own `<PROVIDER>_API_KEY` from the caller's shell, and `browser restart` mints a fresh remote session while preserving the local `session_id`.
+
+## 1.3.1
+
+### Patch Changes
+
+- Fix `browser list-tabs` in extension mode by using `Extension.listTabs` for live tab enumeration instead of `Target.getTargets`, which is not available in extension-level CDP access.
+
+## 1.3.0
+
+### Minor Changes
+
+- [#499](https://github.com/actionbook/actionbook/pull/499) [`3092c61`](https://github.com/actionbook/actionbook/commit/3092c612dc25ff5a71d8fb361a50afc762fd9f09) Thanks [@Senke0x](https://github.com/Senke0x)! - Improve `actionbook setup` with a new skills installation step and targeted quick mode.
+
+  - add a fifth setup step to install Actionbook skills during setup
+  - add `actionbook setup --target <agent>` quick mode for one-shot skills installation
+  - improve extension-mode setup guidance with Chrome Web Store and GitHub Releases fallback instructions
+  - make API key input visible by default during interactive setup
+  - tighten setup failure handling so quick mode and JSON flows report skills install failures correctly
+
 ## 1.2.0
 
 ### Minor Changes

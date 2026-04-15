@@ -69,12 +69,57 @@ pub enum Commands {
         #[command(subcommand)]
         command: BrowserCommands,
     },
+    /// Daemon lifecycle management
+    Daemon {
+        #[command(subcommand)]
+        command: DaemonCommands,
+    },
+    /// Manage the Actionbook browser extension
+    Extension {
+        #[command(subcommand)]
+        command: ExtensionCommands,
+    },
     /// Interactive configuration wizard
     Setup(setup::Cmd),
     /// Show help
     Help,
     /// Print version
     Version,
+}
+
+/// Daemon-level subcommands. The daemon itself runs via the hidden `__daemon`
+/// flag — these commands are user-facing controls over its lifecycle.
+#[derive(Subcommand, Debug)]
+#[command(disable_help_subcommand = true)]
+pub enum DaemonCommands {
+    /// Stop the running daemon. The next CLI call will auto-spawn a fresh one.
+    ///
+    /// Use this to recover from a stuck bridge (e.g. `BRIDGE_BIND_FAILED`
+    /// after the holding process has been freed) without manually finding
+    /// the daemon pid.
+    Restart,
+}
+
+#[derive(Subcommand, Debug)]
+#[command(disable_help_subcommand = true)]
+pub enum ExtensionCommands {
+    /// Show extension status (bridge + connection)
+    Status,
+    /// Ping the extension bridge and measure RTT
+    Ping,
+    /// Show extension install path and installed status
+    Path,
+    /// Install the Actionbook extension
+    Install(ExtensionInstallArgs),
+    /// Uninstall the Actionbook extension
+    Uninstall,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct ExtensionInstallArgs {
+    /// Force overwrite of an existing installation
+    #[arg(long)]
+    pub force: bool,
 }
 
 /// Unimplemented tab-level command args.
@@ -747,31 +792,73 @@ mod tests {
     use super::*;
 
     #[test]
-    fn try_parse_from_parses_setup_non_interactive_flags() {
-        let cli = Cli::try_parse_from([
+    fn try_parse_from_parses_setup_target_only_flags() {
+        let cli = Cli::try_parse_from(["actionbook", "setup", "--target", "codex"])
+            .expect("parse setup target-only");
+
+        match cli.command {
+            Some(Commands::Setup(cmd)) => {
+                assert_eq!(cmd.target, Some(setup::skills::SetupTarget::Codex));
+                assert!(cmd.api_key.is_none());
+                assert!(cmd.browser.is_none());
+                assert!(!cmd.non_interactive);
+                assert!(!cmd.reset);
+            }
+            other => panic!("expected setup command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_parse_from_parses_setup_target_short_flag() {
+        let cli = Cli::try_parse_from(["actionbook", "setup", "-t", "claude"])
+            .expect("parse setup quick mode");
+
+        match cli.command {
+            Some(Commands::Setup(cmd)) => {
+                assert_eq!(cmd.target, Some(setup::skills::SetupTarget::Claude));
+                assert!(cmd.api_key.is_none());
+                assert!(!cmd.non_interactive);
+            }
+            other => panic!("expected setup command, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn try_parse_from_rejects_unknown_setup_target() {
+        let result = Cli::try_parse_from(["actionbook", "setup", "--target", "vim"]);
+        assert!(result.is_err(), "expected clap to reject unknown target");
+    }
+
+    #[test]
+    fn try_parse_from_rejects_setup_target_with_api_key() {
+        let result = Cli::try_parse_from([
             "actionbook",
             "setup",
             "--target",
             "codex",
             "--api-key",
-            "sk-test",
+            "sk",
+        ]);
+        assert!(result.is_err(), "expected clap to reject conflicting flags");
+    }
+
+    #[test]
+    fn try_parse_from_rejects_setup_target_with_browser() {
+        let result = Cli::try_parse_from([
+            "actionbook",
+            "setup",
+            "--target",
+            "codex",
             "--browser",
             "local",
-            "--non-interactive",
-            "--reset",
-        ])
-        .expect("parse setup");
+        ]);
+        assert!(result.is_err(), "expected clap to reject conflicting flags");
+    }
 
-        match cli.command {
-            Some(Commands::Setup(cmd)) => {
-                assert_eq!(cmd.target.as_deref(), Some("codex"));
-                assert_eq!(cmd.api_key.as_deref(), Some("sk-test"));
-                assert_eq!(cmd.browser.as_deref(), Some("local"));
-                assert!(cmd.non_interactive);
-                assert!(cmd.reset);
-            }
-            other => panic!("expected setup command, got {other:?}"),
-        }
+    #[test]
+    fn try_parse_from_rejects_setup_target_with_reset() {
+        let result = Cli::try_parse_from(["actionbook", "setup", "--target", "codex", "--reset"]);
+        assert!(result.is_err(), "expected clap to reject conflicting flags");
     }
 
     #[test]
@@ -1200,6 +1287,8 @@ mod tests {
             "start",
             "--session",
             "my-session",
+            "-p",
+            "hyperbrowser",
             "--headless",
         ])
         .expect("browser start --session should parse");
@@ -1209,6 +1298,7 @@ mod tests {
                 command: BrowserCommands::Start(cmd),
             }) => {
                 assert_eq!(cmd.session.as_deref(), Some("my-session"));
+                assert_eq!(cmd.provider.as_deref(), Some("hyperbrowser"));
                 assert!(
                     cmd.set_session_id.is_none(),
                     "set_session_id should be None when --session is used"

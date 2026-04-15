@@ -6,6 +6,7 @@ use tokio::sync::Mutex;
 
 use crate::action_result::ActionResult;
 use crate::browser::observation::snapshot_transform::RefCache;
+use crate::browser::session::provider::{ProviderSession, normalize_provider_name};
 use crate::daemon::bridge::SharedBridgeState;
 use crate::daemon::cdp_session::CdpSession;
 use crate::error::CliError;
@@ -25,10 +26,19 @@ pub struct TabEntry {
 pub enum SessionState {
     Starting,
     Running,
+    /// A `browser close` is in flight for this entry. Set atomically under the
+    /// registry lock at the start of `close::execute` so concurrent close calls
+    /// on the same session short-circuit instead of issuing a second provider
+    /// API stop (which races against the first stop's success).
+    Closing,
     Closed,
 }
 
 impl SessionState {
+    /// Active means "holds live resources that reuse/health checks can target."
+    /// `Closing` is intentionally NOT active: a session being torn down must
+    /// not be selected by reuse lookups mid-close, otherwise the agent could
+    /// attach to a handle that's about to disappear.
     pub fn is_active(self) -> bool {
         matches!(self, Self::Starting | Self::Running)
     }
@@ -39,6 +49,7 @@ impl fmt::Display for SessionState {
         match self {
             SessionState::Starting => write!(f, "starting"),
             SessionState::Running => write!(f, "running"),
+            SessionState::Closing => write!(f, "closing"),
             SessionState::Closed => write!(f, "closed"),
         }
     }
@@ -57,20 +68,32 @@ pub struct SessionEntry {
     pub ws_url: String,
     pub tabs: Vec<TabEntry>,
     pub chrome_process: Option<Child>,
+    /// Win32 Job Object that owns Chrome's main process and all its helpers.
+    /// `TerminateJobObject` kills the entire process group atomically on close.
+    #[cfg(windows)]
+    pub job_object: Option<crate::daemon::chrome_reaper::ChromeJobObject>,
     /// Persistent CDP connection for this session.
     pub cdp: Option<CdpSession>,
     /// Original CDP endpoint for cloud sessions (used for reuse matching & restart).
     pub cdp_endpoint: Option<String>,
     /// Custom headers for cloud CDP connections (e.g. auth tokens).
     pub headers: Vec<(String, String)>,
+    /// Launch-time provider name for provider-backed cloud sessions.
+    pub provider: Option<String>,
+    /// Provider-managed remote session metadata used for cleanup.
+    pub provider_session: Option<ProviderSession>,
     /// Counter for assigning short tab IDs (t1, t2, ...).
     pub next_tab_id: u32,
+    /// Maximum number of network requests tracked per tab (ring buffer cap).
+    pub max_tracked_requests: usize,
 }
 
 impl Drop for SessionEntry {
     fn drop(&mut self) {
-        // Last-resort backstop: kill the Chrome process if it wasn't
-        // explicitly cleaned up via kill_and_reap_async / close path.
+        // Last-resort backstop: kill Chrome if it wasn't cleaned up explicitly.
+        // On Windows, ChromeJobObject::Drop (called when job_object field drops)
+        // already calls TerminateJobObject, which kills the entire Chrome process
+        // group.  kill_and_reap_option below reaps the main process exit status.
         crate::daemon::chrome_reaper::kill_and_reap_option(&mut self.chrome_process);
     }
 }
@@ -95,10 +118,15 @@ impl SessionEntry {
             ws_url: String::new(),
             tabs: Vec::new(),
             chrome_process: None,
+            #[cfg(windows)]
+            job_object: None,
             cdp: None,
             cdp_endpoint: None,
             headers: Vec::new(),
+            provider: None,
+            provider_session: None,
             next_tab_id: 1,
+            max_tracked_requests: crate::daemon::cdp_session::MAX_TRACKED_REQUESTS,
         }
     }
 
@@ -151,8 +179,12 @@ pub struct SessionRegistry {
     ref_caches: HashMap<String, RefCache>,
     /// Last known cursor position per tab. Key: "session_id\0tab_id"
     cursor_positions: HashMap<String, (f64, f64)>,
-    /// Extension bridge state (set by daemon on startup, `None` if bridge unavailable).
+    /// Extension bridge state. `None` until first lazy `ensure_bridge` call;
+    /// stays `Some` afterward (status field within tracks Listening/Failed).
     bridge_state: Option<SharedBridgeState>,
+    /// Serializes concurrent `ensure_bridge` callers so the bind-and-register
+    /// flow runs at most once per daemon lifetime.
+    bridge_init_lock: Arc<Mutex<()>>,
 }
 
 impl Default for SessionRegistry {
@@ -168,17 +200,35 @@ impl SessionRegistry {
             ref_caches: HashMap::new(),
             cursor_positions: HashMap::new(),
             bridge_state: None,
+            bridge_init_lock: Arc::new(Mutex::new(())),
         }
     }
 
     /// Set the extension bridge state handle.
-    pub fn set_bridge_state(&mut self, state: SharedBridgeState) {
+    ///
+    /// **Internal-only**: must only be called from
+    /// `crate::daemon::bridge::ensure_bridge` while it holds
+    /// `bridge_init_lock`. Calling this from anywhere else will silently
+    /// orphan an in-flight accept loop and break the lazy-bridge invariant.
+    pub(crate) fn set_bridge_state(&mut self, state: SharedBridgeState) {
         self.bridge_state = Some(state);
     }
 
     /// Get a reference to the bridge state (if bridge is running).
     pub fn bridge_state(&self) -> Option<&SharedBridgeState> {
         self.bridge_state.as_ref()
+    }
+
+    /// Clone the lock that serializes `ensure_bridge` first-callers / restart.
+    /// Returning a clone (not `&Mutex`) lets callers acquire it without holding
+    /// the surrounding registry lock.
+    ///
+    /// **Lock ordering invariant**: `bridge_init_lock > registry`. A caller
+    /// holding this lock may take `registry` next; the reverse is forbidden
+    /// (taking the registry lock and then trying to acquire `bridge_init_lock`
+    /// would deadlock against `ensure_bridge`).
+    pub fn bridge_init_lock(&self) -> Arc<Mutex<()>> {
+        Arc::clone(&self.bridge_init_lock)
     }
 
     fn has_active_session_id(&self, session_id: &str) -> bool {
@@ -202,6 +252,33 @@ impl SessionRegistry {
             entry.mode == Mode::Cloud
                 && entry.status.is_active()
                 && entry.cdp_endpoint.as_deref() == Some(endpoint)
+        })
+    }
+
+    /// Return an active cloud session that was launched via `--provider <name>` and
+    /// for the given profile. Only provider-minted sessions are eligible for reuse:
+    /// stateless WS-URL overrides (DRIVER_DEV_WS_URL / BROWSER_USE_WS_URL) are stored
+    /// with `provider = Some(...)` but `provider_session = None`, and must be
+    /// reconnected every time because their config comes from the current shell env.
+    /// Reusing them would silently ignore URL/credential changes between starts.
+    pub fn find_cloud_session_by_provider(
+        &self,
+        provider: &str,
+        profile: &str,
+    ) -> Option<&SessionEntry> {
+        let normalized = normalize_provider_name(provider).unwrap_or(provider);
+        self.sessions.values().find(|entry| {
+            entry.mode == Mode::Cloud
+                && entry.status.is_active()
+                && entry
+                    .provider
+                    .as_deref()
+                    .unwrap_or_default()
+                    == normalized
+                && entry.profile == profile
+                // Stateless WS-URL override sessions carry no provider handle;
+                // force them to reconnect so env changes take effect.
+                && entry.provider_session.is_some()
         })
     }
 
@@ -671,18 +748,36 @@ mod tests {
     fn drop_session_entry_kills_chrome_process() {
         use std::process::Command;
 
+        // Spawn a long-lived process (cross-platform).
+        #[cfg(unix)]
         let child = Command::new("sleep")
             .arg("3600")
             .spawn()
             .expect("spawn sleep");
+        #[cfg(windows)]
+        let child = Command::new("ping")
+            .args(["-n", "3600", "127.0.0.1"])
+            .stdout(std::process::Stdio::null())
+            .spawn()
+            .expect("spawn ping");
+
         let pid = child.id();
 
-        // Verify process is alive
+        // Verify process is alive.
+        #[cfg(unix)]
         assert!(
             Command::new("kill")
                 .args(["-0", &pid.to_string()])
                 .output()
                 .is_ok_and(|o| o.status.success()),
+            "process should be alive before drop"
+        );
+        #[cfg(windows)]
+        assert!(
+            Command::new("tasklist")
+                .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+                .output()
+                .is_ok_and(|o| { String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()) }),
             "process should be alive before drop"
         );
 
@@ -699,14 +794,74 @@ mod tests {
             // entry is dropped here
         }
 
-        // After drop, the process must be dead
+        // Give kill a moment to take effect on Windows.
+        #[cfg(windows)]
+        std::thread::sleep(std::time::Duration::from_millis(500));
+
+        // After drop, the process must be dead.
+        #[cfg(unix)]
         let alive = Command::new("kill")
             .args(["-0", &pid.to_string()])
             .output()
             .is_ok_and(|o| o.status.success());
+        #[cfg(windows)]
+        let alive = Command::new("tasklist")
+            .args(["/FI", &format!("PID eq {pid}"), "/NH"])
+            .output()
+            .is_ok_and(|o| String::from_utf8_lossy(&o.stdout).contains(&pid.to_string()));
         assert!(
             !alive,
             "Chrome process should be killed when SessionEntry is dropped"
         );
+    }
+
+    #[test]
+    fn find_cloud_session_by_provider_ignores_ws_url_overrides() {
+        // Stateless WS-URL overrides (DRIVER_DEV_WS_URL / BROWSER_USE_WS_URL)
+        // store `provider = Some(...)` so list/status UIs still show the tag,
+        // but MUST NOT be reused by `browser start -p <name>` — the user may
+        // have pointed the env var at a new endpoint or rotated a key, and
+        // silent reuse would keep attaching to the old remote browser.
+        let mut registry = SessionRegistry::new();
+        let mut entry = SessionEntry::starting(
+            SessionId::new("override-1").unwrap(),
+            Mode::Cloud,
+            false,
+            true,
+            "actionbook".to_string(),
+        );
+        entry.status = SessionState::Running;
+        entry.provider = Some("driver".to_string());
+        entry.provider_session = None; // ← override path leaves this unset
+        registry.insert(entry);
+
+        assert!(
+            registry
+                .find_cloud_session_by_provider("driver", "actionbook")
+                .is_none(),
+            "override sessions (no provider_session handle) must not be reused"
+        );
+
+        // Sanity: a provider-minted session with a handle does get reused.
+        let mut minted = SessionEntry::starting(
+            SessionId::new("minted-1").unwrap(),
+            Mode::Cloud,
+            false,
+            true,
+            "actionbook".to_string(),
+        );
+        minted.status = SessionState::Running;
+        minted.provider = Some("driver".to_string());
+        minted.provider_session = Some(ProviderSession {
+            provider: "driver".to_string(),
+            session_id: "remote-abc".to_string(),
+            provider_env: Default::default(),
+        });
+        registry.insert(minted);
+
+        let found = registry
+            .find_cloud_session_by_provider("driver", "actionbook")
+            .expect("provider-minted session should be reusable");
+        assert_eq!(found.id.as_str(), "minted-1");
     }
 }

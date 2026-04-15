@@ -1,13 +1,23 @@
+use std::io::Write as _;
 use std::time::{Duration, Instant};
 
 use clap::Parser;
 use serde_json::json;
 
+use actionbook_cli::action::Action;
 use actionbook_cli::action_result::ActionResult;
-use actionbook_cli::cli::{BrowserCommands, Cli, Commands};
+use actionbook_cli::cli::{BrowserCommands, Cli, Commands, DaemonCommands, ExtensionCommands};
 use actionbook_cli::config;
 use actionbook_cli::output::{self, JsonEnvelope};
 use actionbook_cli::utils::client::DaemonClient;
+
+/// Flush stdout then exit. On Windows, stdout is fully-buffered when redirected
+/// to a file (as in the e2e test harness), so `exit()` without a flush loses
+/// any `println!` output still sitting in the buffer.
+fn flush_and_exit(code: i32) -> ! {
+    let _ = std::io::stdout().flush();
+    std::process::exit(code);
+}
 
 #[tokio::main]
 async fn main() {
@@ -41,12 +51,6 @@ async fn main() {
         let raw_args: Vec<String> = std::env::args().collect();
         let json_mode = raw_args.iter().any(|a| a == "--json");
 
-        // Intercept --version before positional dispatch so it doesn't fall through to help
-        if raw_args.iter().any(|a| a == "--version" || a == "-V") {
-            handle_version(json_mode);
-            return;
-        }
-
         // Collect non-flag args after the binary name, skipping --timeout's value
         let mut positional_args: Vec<&str> = Vec::new();
         let mut skip_next = false;
@@ -63,6 +67,13 @@ async fn main() {
                 continue;
             }
             positional_args.push(arg);
+        }
+
+        // Only handle --version at the top level (no subcommands).
+        // `actionbook --version` shows the version; `actionbook browser --version` does not.
+        if positional_args.is_empty() && raw_args.iter().any(|a| a == "--version" || a == "-V") {
+            handle_version(json_mode);
+            return;
         }
 
         match positional_args.as_slice() {
@@ -122,7 +133,7 @@ async fn main() {
                     eprintln!("hint: {hint}");
                 }
             }
-            std::process::exit(1);
+            flush_and_exit(1);
         }
     }
 }
@@ -155,6 +166,12 @@ async fn run(mut cli: Cli) -> Result<(), Box<dyn std::error::Error>> {
         Commands::Browser { command } => {
             handle_browser(command, json_mode, timeout_ms).await?;
         }
+        Commands::Daemon { command } => {
+            handle_daemon(command, json_mode, timeout_ms).await?;
+        }
+        Commands::Extension { command } => {
+            handle_extension(command, json_mode).await?;
+        }
         Commands::Setup(cmd) => {
             actionbook_cli::setup::execute(&cmd, json_mode).await?;
         }
@@ -181,7 +198,14 @@ async fn handle_browser(
     let start = Instant::now();
     let command = match command {
         BrowserCommands::Start(cmd) => match config::resolve_start_command(cmd) {
-            Ok(cmd) => BrowserCommands::Start(cmd),
+            Ok(mut cmd) => {
+                // Forward provider env vars from the CLI client's process env
+                // to the daemon. The daemon's own env was frozen at spawn time
+                // and can't be relied on to match the user's current shell.
+                cmd.provider_env =
+                    actionbook_cli::browser::session::provider::collect_provider_env_from_process();
+                BrowserCommands::Start(cmd)
+            }
             Err(err) => {
                 let failed_command =
                     BrowserCommands::Start(actionbook_cli::browser::session::start::Cmd {
@@ -190,11 +214,15 @@ async fn handle_browser(
                         profile: None,
                         executable_path: None,
                         open_url: None,
+                        tab_id: None,
                         cdp_endpoint: None,
+                        provider: None,
                         header: vec![],
                         session: None,
                         set_session_id: None,
                         stealth: true,
+                        max_tracked_requests: 500,
+                        provider_env: Default::default(),
                     });
                 let result = ActionResult::fatal(err.error_code(), err.to_string());
                 let duration = start.elapsed();
@@ -207,9 +235,16 @@ async fn handle_browser(
                     let text = output::format_text("browser start", &context, &result);
                     println!("{text}");
                 }
-                std::process::exit(1);
+                flush_and_exit(1);
             }
         },
+        BrowserCommands::Restart(mut cmd) => {
+            // Same env-forwarding rule applies to restart, since stateful
+            // providers re-mint their remote session and need fresh creds.
+            cmd.provider_env =
+                actionbook_cli::browser::session::provider::collect_provider_env_from_process();
+            BrowserCommands::Restart(cmd)
+        }
         other => other,
     };
 
@@ -232,7 +267,7 @@ async fn handle_browser(
                 let text = output::format_text(&command_name, &context, &result);
                 println!("{text}");
             }
-            std::process::exit(1);
+            flush_and_exit(1);
         }
     };
 
@@ -260,7 +295,7 @@ async fn handle_browser(
                     let text = output::format_text(&command_name, &context, &result);
                     println!("{text}");
                 }
-                std::process::exit(1);
+                flush_and_exit(1);
             }
         }
     } else {
@@ -281,7 +316,119 @@ async fn handle_browser(
     }
 
     if !result.is_ok() {
-        std::process::exit(1);
+        flush_and_exit(1);
+    }
+
+    Ok(())
+}
+
+async fn handle_daemon(
+    command: DaemonCommands,
+    json_mode: bool,
+    timeout_ms: Option<u64>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let start = Instant::now();
+    match command {
+        DaemonCommands::Restart => {
+            // Honor --timeout: restart_daemon_now can block up to ~15s
+            // (5s SIGTERM wait + 10s readiness wait). Without an outer
+            // timeout, automation that sets --timeout to cap latency is
+            // ignored for this command.
+            let restart_call = actionbook_cli::utils::client::restart_daemon_now();
+            let outcome = if let Some(ms) = timeout_ms {
+                match tokio::time::timeout(Duration::from_millis(ms), restart_call).await {
+                    Ok(r) => r,
+                    Err(_) => Err(actionbook_cli::error::CliError::Internal(format!(
+                        "daemon restart timed out after {ms}ms"
+                    ))),
+                }
+            } else {
+                restart_call.await
+            };
+            let duration = start.elapsed();
+            match outcome {
+                Ok(()) => {
+                    if json_mode {
+                        let envelope = JsonEnvelope::success(
+                            "daemon restart",
+                            None,
+                            json!({ "status": "restarted" }),
+                            duration,
+                        );
+                        println!("{}", serde_json::to_string(&envelope)?);
+                    } else {
+                        println!("daemon restarted");
+                    }
+                }
+                Err(e) => {
+                    if json_mode {
+                        let result = ActionResult::fatal("DAEMON_RESTART_FAILED", e.to_string());
+                        let envelope =
+                            JsonEnvelope::from_result("daemon restart", None, &result, duration);
+                        println!("{}", serde_json::to_string(&envelope)?);
+                    } else {
+                        eprintln!("error DAEMON_RESTART_FAILED: {e}");
+                    }
+                    flush_and_exit(1);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn handle_extension(
+    command: ExtensionCommands,
+    json_mode: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let start = Instant::now();
+
+    let (command_name, result) = match command {
+        ExtensionCommands::Status => {
+            let action = Action::ExtensionStatus(actionbook_cli::extension::status::Cmd::default());
+            let mut client = DaemonClient::connect().await?;
+            let result = client.send_action(&action).await?;
+            (actionbook_cli::extension::status::COMMAND_NAME, result)
+        }
+        ExtensionCommands::Ping => {
+            let result = actionbook_cli::extension::ping::execute().await;
+            (actionbook_cli::extension::ping::COMMAND_NAME, result)
+        }
+        ExtensionCommands::Path => {
+            let result = actionbook_cli::extension::installer::execute_path();
+            (
+                actionbook_cli::extension::installer::COMMAND_NAME_PATH,
+                result,
+            )
+        }
+        ExtensionCommands::Install(args) => {
+            let result = actionbook_cli::extension::installer::execute_install(args.force);
+            (
+                actionbook_cli::extension::installer::COMMAND_NAME_INSTALL,
+                result,
+            )
+        }
+        ExtensionCommands::Uninstall => {
+            let result = actionbook_cli::extension::installer::execute_uninstall();
+            (
+                actionbook_cli::extension::installer::COMMAND_NAME_UNINSTALL,
+                result,
+            )
+        }
+    };
+
+    let duration = start.elapsed();
+
+    if json_mode {
+        let envelope = JsonEnvelope::from_result(command_name, None, &result, duration);
+        println!("{}", serde_json::to_string(&envelope)?);
+    } else {
+        let text = output::format_text(command_name, &None, &result);
+        println!("{text}");
+    }
+
+    if !result.is_ok() {
+        flush_and_exit(1);
     }
 
     Ok(())
@@ -308,10 +455,12 @@ No \"current tab\" — run commands on any session/tab in parallel.
 Usage: actionbook <command> [options]
 
 Commands:
-  search     Search for action manuals by keyword
-  manual     Get detailed manual for a site, group, or action (alias: man)
-  browser    Control browser sessions, tabs, and page interactions
-  setup      Configure actionbook
+  search            Search for action manuals by keyword
+  manual            Get detailed manual for a site, group, or action (alias: man)
+  browser           Control browser sessions, tabs, and page interactions
+  extension         Manage the Chrome extension (status, ping, install, uninstall, path)
+  daemon restart    Stop the running daemon (next CLI call auto-respawns one)
+  setup             Configure actionbook (or --target <agent> for quick skills install)
   help       Show this help
   --version  Show version
 
@@ -386,6 +535,10 @@ Logs:
   logs console        --session --tab  Get console logs
   logs errors         --session --tab  Get error logs (exceptions + rejections)
 
+Network:
+  network requests    --session --tab  List tracked network requests
+  network request <id>  --session --tab  Get detail for a single request (incl. body)
+
 Wait:
   wait element <selector>  --session --tab  Wait for element to appear
   wait navigation          --session --tab  Wait for navigation to complete
@@ -420,6 +573,11 @@ Interaction:
   mouse-move <x,y>       --session --tab  Move mouse to coordinates
   cursor-position         --session --tab  Get current cursor position
   scroll <direction|edge|into-view>  --session --tab  Scroll page or container
+
+Batch:
+  batch-new-tab --urls <url...>  --session  Open multiple tabs (alias: batch-open)
+  batch-snapshot --tabs <tab...>  --session  Snapshot multiple tabs
+  batch-click <sel...>  --session --tab  Click multiple elements sequentially
 
 Global flags (apply to all subcommands):
   --json          Output as JSON envelope

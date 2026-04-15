@@ -272,6 +272,47 @@ fn assert_select_success_full(
     assert_meta(v);
 }
 
+#[allow(clippy::too_many_arguments)]
+fn assert_select_not_found_diagnostics(
+    v: &serde_json::Value,
+    session_id: &str,
+    tab_id: &str,
+    requested_value: &str,
+    expected_values: &[&str],
+    expected_texts: &[&str],
+    expected_mode: &str,
+    expected_total: u64,
+) {
+    assert_eq!(v["command"], "browser select");
+    assert!(v["context"].is_object(), "context must be present on error");
+    assert_eq!(v["context"]["session_id"], session_id);
+    assert_eq!(v["context"]["tab_id"], tab_id);
+    assert_error_envelope(v, "INVALID_ARGUMENT");
+
+    let message = v["error"]["message"]
+        .as_str()
+        .expect("error.message must be a string");
+    assert!(
+        message.contains(&format!("option not found: '{requested_value}'")),
+        "message must mention missing option: got {message}"
+    );
+    assert!(
+        message.contains(&format!("Mode: {expected_mode}")),
+        "message must include current match mode: got {message}"
+    );
+    assert!(
+        message.contains(&format!("Total options: {expected_total}")),
+        "message must include total options: got {message}"
+    );
+
+    let details = &v["error"]["details"];
+    assert_eq!(details["status"], "option not found");
+    assert_eq!(details["mode"], expected_mode);
+    assert_eq!(details["total"], expected_total);
+    assert_eq!(details["values"], serde_json::json!(expected_values));
+    assert_eq!(details["texts"], serde_json::json!(expected_texts));
+}
+
 fn assert_hover_success(
     v: &serde_json::Value,
     session_id: &str,
@@ -495,21 +536,50 @@ fn close_session(session_id: &str) {
     assert_success(&out, &format!("close {session_id}"));
 }
 
-fn eval_value(session_id: &str, tab_id: &str, expression: &str) -> String {
-    let out = headless_json(
-        &[
-            "browser",
-            "eval",
-            expression,
-            "--session",
-            session_id,
-            "--tab",
-            tab_id,
-        ],
-        15,
-    );
+fn eval_json_with_flags(
+    session_id: &str,
+    tab_id: &str,
+    expression: &str,
+    extra_flags: &[&str],
+) -> serde_json::Value {
+    let mut args = vec![
+        "browser",
+        "eval",
+        expression,
+        "--session",
+        session_id,
+        "--tab",
+        tab_id,
+    ];
+    args.extend_from_slice(extra_flags);
+    let out = headless_json(&args, 15);
     assert_success(&out, "eval");
-    let v = parse_json(&out);
+    parse_json(&out)
+}
+
+fn eval_failure_json_with_flags(
+    session_id: &str,
+    tab_id: &str,
+    expression: &str,
+    extra_flags: &[&str],
+) -> serde_json::Value {
+    let mut args = vec![
+        "browser",
+        "eval",
+        expression,
+        "--session",
+        session_id,
+        "--tab",
+        tab_id,
+    ];
+    args.extend_from_slice(extra_flags);
+    let out = headless_json(&args, 15);
+    assert_failure(&out, "eval");
+    parse_json(&out)
+}
+
+fn eval_value(session_id: &str, tab_id: &str, expression: &str) -> String {
+    let v = eval_json_with_flags(session_id, tab_id, expression, &[]);
     v["data"]["value"].as_str().unwrap_or("").to_string()
 }
 
@@ -764,6 +834,107 @@ fn install_select_fixture(session_id: &str, tab_id: &str) {
 
     let value = eval_value(session_id, tab_id, expression);
     assert_eq!(value, "ok", "select fixture should install successfully");
+}
+
+fn install_select_diagnostic_fixture(session_id: &str, tab_id: &str) {
+    let expression = r#"
+(() => {
+  const existing = document.getElementById('ab-select-diagnostics-fixture');
+  if (existing) existing.remove();
+
+  const root = document.createElement('div');
+  root.id = 'ab-select-diagnostics-fixture';
+
+  const style = document.createElement('style');
+  style.textContent = '#ab-select-diagnostics { position: fixed; top: 260px; left: 40px; width: 240px; height: 36px; z-index: 2147483647; }';
+  root.appendChild(style);
+
+  const select = document.createElement('select');
+  select.id = 'ab-select-diagnostics';
+  [['a', 'Alpha'], ['b', 'Beta']].forEach(([val, txt]) => {
+    const opt = document.createElement('option');
+    opt.value = val;
+    opt.textContent = txt;
+    select.appendChild(opt);
+  });
+  root.appendChild(select);
+  document.body.appendChild(root);
+
+  return 'ok';
+})()
+"#;
+
+    let value = eval_value(session_id, tab_id, expression);
+    assert_eq!(
+        value, "ok",
+        "select diagnostic fixture should install successfully"
+    );
+}
+
+fn install_select_empty_fixture(session_id: &str, tab_id: &str) {
+    let expression = r#"
+(() => {
+  const existing = document.getElementById('ab-select-empty-fixture');
+  if (existing) existing.remove();
+
+  const root = document.createElement('div');
+  root.id = 'ab-select-empty-fixture';
+
+  const style = document.createElement('style');
+  style.textContent = '#ab-select-empty { position: fixed; top: 320px; left: 40px; width: 240px; height: 36px; z-index: 2147483647; }';
+  root.appendChild(style);
+
+  const select = document.createElement('select');
+  select.id = 'ab-select-empty';
+  root.appendChild(select);
+  document.body.appendChild(root);
+
+  return 'ok';
+})()
+"#;
+
+    let value = eval_value(session_id, tab_id, expression);
+    assert_eq!(
+        value, "ok",
+        "empty select fixture should install successfully"
+    );
+}
+
+fn install_select_many_options_fixture(session_id: &str, tab_id: &str, count: usize) {
+    let expression = format!(
+        r#"
+(() => {{
+  const existing = document.getElementById('ab-select-many-fixture');
+  if (existing) existing.remove();
+
+  const root = document.createElement('div');
+  root.id = 'ab-select-many-fixture';
+
+  const style = document.createElement('style');
+  style.textContent = '#ab-select-many {{ position: fixed; top: 380px; left: 40px; width: 240px; height: 36px; z-index: 2147483647; }}';
+  root.appendChild(style);
+
+  const select = document.createElement('select');
+  select.id = 'ab-select-many';
+  for (let i = 0; i < {count}; i++) {{
+    const opt = document.createElement('option');
+    opt.value = `value-${{i}}`;
+    opt.textContent = `Option ${{i}}`;
+    select.appendChild(opt);
+  }}
+  root.appendChild(select);
+  document.body.appendChild(root);
+
+  return 'ok';
+}})()
+"#
+    );
+
+    let value = eval_value(session_id, tab_id, &expression);
+    assert_eq!(
+        value, "ok",
+        "many-options select fixture should install successfully"
+    );
 }
 
 fn install_hover_fixture(session_id: &str, tab_id: &str) {
@@ -2854,6 +3025,167 @@ fn select_by_text_json() {
     close_session(&sid);
 }
 
+#[test]
+fn select_not_found_shows_available_values() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_select_diagnostic_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "select",
+            "#ab-select-diagnostics",
+            "nonexistent",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_failure(&out, "select missing option by-value json");
+    let v = parse_json(&out);
+
+    assert_select_not_found_diagnostics(
+        &v,
+        &sid,
+        &tid,
+        "nonexistent",
+        &["a", "b"],
+        &["Alpha", "Beta"],
+        "by-value",
+        2,
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn select_not_found_by_text_shows_diagnostics() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_select_diagnostic_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "select",
+            "#ab-select-diagnostics",
+            "nonexistent",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+            "--by-text",
+        ],
+        15,
+    );
+    assert_failure(&out, "select missing option by-text json");
+    let v = parse_json(&out);
+
+    assert_select_not_found_diagnostics(
+        &v,
+        &sid,
+        &tid,
+        "nonexistent",
+        &["a", "b"],
+        &["Alpha", "Beta"],
+        "by-text",
+        2,
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn select_not_found_empty_select() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_select_empty_fixture(&sid, &tid);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "select",
+            "#ab-select-empty",
+            "nonexistent",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_failure(&out, "select missing option empty select json");
+    let v = parse_json(&out);
+
+    assert_select_not_found_diagnostics(&v, &sid, &tid, "nonexistent", &[], &[], "by-value", 0);
+
+    close_session(&sid);
+}
+
+#[test]
+fn select_not_found_many_options_truncated() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+    install_select_many_options_fixture(&sid, &tid, 50);
+
+    let out = headless_json(
+        &[
+            "browser",
+            "select",
+            "#ab-select-many",
+            "nonexistent",
+            "--session",
+            &sid,
+            "--tab",
+            &tid,
+        ],
+        15,
+    );
+    assert_failure(&out, "select missing option many-options json");
+    let v = parse_json(&out);
+
+    let expected_values: Vec<String> = (0..20).map(|i| format!("value-{i}")).collect();
+    let expected_texts: Vec<String> = (0..20).map(|i| format!("Option {i}")).collect();
+    let details = &v["error"]["details"];
+
+    assert_eq!(v["command"], "browser select");
+    assert_error_envelope(&v, "INVALID_ARGUMENT");
+    assert_eq!(details["status"], "option not found");
+    assert_eq!(details["mode"], "by-value");
+    assert_eq!(details["total"], 50);
+    assert_eq!(details["values"], serde_json::json!(expected_values));
+    assert_eq!(details["texts"], serde_json::json!(expected_texts));
+
+    let message = v["error"]["message"]
+        .as_str()
+        .expect("error.message must be a string");
+    assert!(
+        message.contains("value-0") && message.contains("value-19"),
+        "message must include truncated leading values: got {message}"
+    );
+    assert!(
+        !message.contains("value-20"),
+        "message must omit values beyond truncation limit: got {message}"
+    );
+
+    close_session(&sid);
+}
+
 /// Run snapshot and find the ref for an option with the given name.
 fn snapshot_option_ref(session_id: &str, tab_id: &str, option_name: &str) -> String {
     let out = headless_json(
@@ -4691,12 +5023,16 @@ fn upload_session_not_found_json() {
     if skip() {
         return;
     }
+    let upload_path = std::env::temp_dir()
+        .join("example.txt")
+        .to_string_lossy()
+        .into_owned();
     let out = headless_json(
         &[
             "browser",
             "upload",
             "#ab-upload-input",
-            "/tmp/example.txt",
+            &upload_path,
             "--session",
             "nonexistent-sid",
             "--tab",
@@ -4720,12 +5056,16 @@ fn upload_session_not_found_text() {
     if skip() {
         return;
     }
+    let upload_path = std::env::temp_dir()
+        .join("example.txt")
+        .to_string_lossy()
+        .into_owned();
     let out = headless(
         &[
             "browser",
             "upload",
             "#ab-upload-input",
-            "/tmp/example.txt",
+            &upload_path,
             "--session",
             "nonexistent-sid",
             "--tab",
@@ -4748,13 +5088,17 @@ fn upload_tab_not_found_json() {
     }
     let (sid, _tid) = start_session(TEST_URL);
     let _guard = SessionGuard::new(&sid);
+    let upload_path = std::env::temp_dir()
+        .join("example.txt")
+        .to_string_lossy()
+        .into_owned();
 
     let out = headless_json(
         &[
             "browser",
             "upload",
             "#ab-upload-input",
-            "/tmp/example.txt",
+            &upload_path,
             "--session",
             &sid,
             "--tab",
@@ -4783,13 +5127,17 @@ fn upload_tab_not_found_text() {
     }
     let (sid, _tid) = start_session(TEST_URL);
     let _guard = SessionGuard::new(&sid);
+    let upload_path = std::env::temp_dir()
+        .join("example.txt")
+        .to_string_lossy()
+        .into_owned();
 
     let out = headless(
         &[
             "browser",
             "upload",
             "#ab-upload-input",
-            "/tmp/example.txt",
+            &upload_path,
             "--session",
             &sid,
             "--tab",
@@ -5269,7 +5617,249 @@ fn eval_exception_text() {
 }
 
 // ========================================================================
-// Group 19: mouse-move — command wiring, success path, and error path
+// Group 19: eval improvements — scope isolation, pre-context, details
+// ========================================================================
+
+#[test]
+fn eval_scope_isolation_default() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let first = eval_json_with_flags(&sid, &tid, "let x = 42; x", &[]);
+    assert_eq!(first["data"]["value"], serde_json::json!(42));
+
+    let second = eval_json_with_flags(&sid, &tid, "let x = 99; x", &[]);
+    assert_eq!(second["data"]["value"], serde_json::json!(99));
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_scope_isolation_expression() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_json_with_flags(&sid, &tid, "document.title", &[]);
+    assert_eq!(v["data"]["value"], serde_json::json!("Example Domain"));
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_scope_isolation_multi_statement() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_json_with_flags(&sid, &tid, "let a = 1; let b = 2; a + b", &[]);
+    assert_eq!(v["data"]["value"], serde_json::json!(3));
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_scope_isolation_async() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_json_with_flags(
+        &sid,
+        &tid,
+        "await new Promise(r => setTimeout(() => r(42), 50))",
+        &[],
+    );
+    assert_eq!(v["data"]["value"], serde_json::json!(42));
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_no_isolate_flag() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let first = eval_json_with_flags(&sid, &tid, "let x = 42; x", &["--no-isolate"]);
+    assert_eq!(first["data"]["value"], serde_json::json!(42));
+
+    let second = eval_json_with_flags(&sid, &tid, "x", &["--no-isolate"]);
+    assert_eq!(second["data"]["value"], serde_json::json!(42));
+
+    let third = eval_failure_json_with_flags(&sid, &tid, "let x = 1", &["--no-isolate"]);
+    assert_eq!(third["command"], "browser eval");
+    assert_error_envelope(&third, "EVAL_FAILED");
+    assert!(
+        third["error"]["message"]
+            .as_str()
+            .unwrap_or("")
+            .contains("already been declared"),
+        "expected redeclare failure under --no-isolate"
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_pre_context_fields() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_json_with_flags(&sid, &tid, "document.title", &[]);
+    assert_eq!(v["data"]["value"], serde_json::json!("Example Domain"));
+    assert!(
+        v["data"]["pre_url"]
+            .as_str()
+            .is_some_and(|url| url.starts_with(TEST_URL)),
+        "pre_url must include navigated page URL"
+    );
+    assert_eq!(v["data"]["pre_origin"], "https://example.com");
+    assert_eq!(v["data"]["pre_readyState"], "complete");
+    assert!(
+        v["data"]["post_url"]
+            .as_str()
+            .is_some_and(|url| url.starts_with(TEST_URL)),
+        "post_url must remain present"
+    );
+    assert_eq!(v["data"]["post_title"], "Example Domain");
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_pre_context_about_blank() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session("about:blank");
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_json_with_flags(&sid, &tid, "1 + 1", &[]);
+    assert_eq!(v["data"]["value"], serde_json::json!(2));
+    assert_eq!(v["data"]["pre_url"], "about:blank");
+    assert_eq!(v["data"]["pre_origin"], "null");
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_error_details_syntax() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session("about:blank");
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_failure_json_with_flags(&sid, &tid, "{{{invalid", &[]);
+    assert_eq!(v["command"], "browser eval");
+    assert_error_envelope(&v, "EVAL_FAILED");
+    assert_eq!(v["error"]["details"]["stage"], "eval");
+    assert_eq!(v["error"]["details"]["pre_url"], "about:blank");
+    assert_eq!(v["error"]["details"]["pre_origin"], "null");
+    assert!(
+        v["error"]["details"]["pre_readyState"].is_string(),
+        "pre_readyState must be captured on syntax failures"
+    );
+    assert!(
+        v["error"]["details"]["error_type"].is_string(),
+        "error_type must be captured on syntax failures"
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_error_details_runtime() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_failure_json_with_flags(&sid, &tid, "nonExistentVariable.foo", &[]);
+    assert_eq!(v["command"], "browser eval");
+    assert_error_envelope(&v, "EVAL_FAILED");
+    assert_eq!(v["error"]["details"]["stage"], "eval");
+    assert!(
+        v["error"]["details"]["pre_url"]
+            .as_str()
+            .is_some_and(|url| url.starts_with(TEST_URL)),
+        "pre_url must be present on runtime failures"
+    );
+    assert_eq!(v["error"]["details"]["pre_origin"], "https://example.com");
+    assert_eq!(v["error"]["details"]["pre_readyState"], "complete");
+    assert!(
+        v["error"]["details"]["error_type"].is_string(),
+        "error_type must be captured on runtime failures"
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_error_details_has_context() {
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_failure_json_with_flags(&sid, &tid, "{{{invalid", &[]);
+    assert_eq!(v["command"], "browser eval");
+    assert_error_envelope(&v, "EVAL_FAILED");
+    assert!(
+        v["error"]["details"]["pre_url"]
+            .as_str()
+            .is_some_and(|url| url.starts_with(TEST_URL)),
+        "details.pre_url must keep page context on failure"
+    );
+
+    close_session(&sid);
+}
+
+#[test]
+fn eval_async_trailing_line_comment() {
+    // Regression: async-wrapped expressions ending with a single-line comment
+    // used to comment out the generated closing tokens `); }})()`, causing a
+    // SyntaxError.  The fix adds a newline before the closing tokens.
+    if skip() {
+        return;
+    }
+    let (sid, tid) = start_session(TEST_URL);
+    let _guard = SessionGuard::new(&sid);
+
+    let v = eval_json_with_flags(
+        &sid,
+        &tid,
+        "await Promise.resolve(1) // trailing comment",
+        &[],
+    );
+    assert_eq!(
+        v["data"]["value"],
+        serde_json::json!(1),
+        "async expression with trailing line comment should resolve to 1"
+    );
+
+    close_session(&sid);
+}
+
+// ========================================================================
+// Group 20: mouse-move — command wiring, success path, and error path
 // ========================================================================
 
 #[test]
@@ -5548,6 +6138,10 @@ fn mouse_move_invalid_coordinates_text() {
 // ========================================================================
 
 #[test]
+#[cfg_attr(
+    windows,
+    ignore = "mouse-move coordinate tracking is unreliable on Windows headless Chrome"
+)]
 fn cursor_position_json() {
     if skip() {
         return;
@@ -5597,6 +6191,10 @@ fn cursor_position_json() {
 }
 
 #[test]
+#[cfg_attr(
+    windows,
+    ignore = "mouse-move coordinate tracking is unreliable on Windows headless Chrome"
+)]
 fn cursor_position_text() {
     if skip() {
         return;
@@ -5764,6 +6362,10 @@ fn cursor_position_tab_not_found_text() {
 // ========================================================================
 
 #[test]
+#[cfg_attr(
+    windows,
+    ignore = "mouse-move coordinate tracking is unreliable on Windows headless Chrome"
+)]
 fn cursor_position_after_click_json() {
     if skip() {
         return;

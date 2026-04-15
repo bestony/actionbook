@@ -6,9 +6,9 @@
 
 ![GitHub last commit](https://img.shields.io/github/last-commit/actionbook/actionbook) [![NPM Downloads](https://img.shields.io/npm/d18m/%40actionbookdev%2Fcli)](https://www.npmjs.com/package/@actionbookdev/cli) [![npm version](https://img.shields.io/npm/v/%40actionbookdev%2Fcli)](https://www.npmjs.com/package/@actionbookdev/cli) [![skills](https://img.shields.io/badge/skills-ready-blue)](https://skills.sh/actionbook/actionbook/actionbook)
 
-**Parallel Action CLI for AI agents.**
+Actionbook provides up-to-date action manuals to AI agents, so they can operate any website without guessing.
 <br />
-Run 50 actions across 20 tabs at once.
+10x Faster &nbsp; | &nbsp; 90% Token Saving &nbsp; | &nbsp; 30 Actions at Once
 
 [Website](https://actionbook.dev) · [GitHub](https://github.com/actionbook/actionbook) · [X](https://x.com/ActionbookHQ) · [Discord](https://actionbook.dev/discord)
 
@@ -31,14 +31,14 @@ Run 50 actions across 20 tabs at once.
 
 ### ❌ Without Actionbook
 
-- **Slow.** Agents take a snapshot after every single step, parse the page, then decide what to do next. Searching one room on Airbnb takes 15 minutes.
+- **Slow.** Agents take a snapshot after every single step, parse the page, then decide what to do next. Searching one room on Airbnb takes 5 minutes.
 - **Brittle.** Modern websites use virtual DOMs, streaming components, and SPAs. Agents don't understand these rendering mechanisms, so they fail to interact with dropdowns, date pickers, and dynamic content.
 - **One at a time.** Your agent finishes one page before it can start the next. Need to check 30 company websites? That's 30 rounds, one after another.
 
 ### ✅ With Actionbook
 
 - **10x faster.** Action manuals tell agents exactly what to do. No parsing, no guessing.
-- **Accurate.** Built for virtual DOMs, SPAs, and streaming components. Agents operate reliably.
+- **Accurate.** Actions map to first-party API endpoints. No brittle UI manipulation — just direct API calls.
 - **Concurrent.** Stateless architecture. Operate dozens of tabs in parallel.
 
 See an agent visits **192** First Round portfolio company websites and collects their taglines in 2 minutes. (**Video is not sped up**)
@@ -59,7 +59,7 @@ Or build from source:
 cargo install --git https://github.com/actionbook/actionbook --path packages/cli --locked
 ```
 
-The Rust-based CLI uses your existing system browser (Chrome, Brave, Edge, Arc, Chromium), so no extra browser install step is required.
+The Rust-based CLI uses your existing system browser (Chrome, Brave, Edge, Arc, Chromium). Reuse your logged-in sessions for convenience, or launch a clean profile for privacy.
 
 ## Quick Start
 
@@ -92,12 +92,21 @@ The agent will automatically use the CLI to fetch action manuals and execute bro
 
 ## AI Agent Skills
 
-Actionbook ships with Agent Skills that teach your AI agent how to use the CLI. Add them with one command:
+Actionbook ships with Agent Skills that teach your AI agent how to use the CLI.
+
+**Claude Code, Cursor, Codex, Windsurf, Antigravity, Opencode** — one command:
 
 ```bash
 npx skills add actionbook/actionbook
 ```
 
+**Hermes** — one command (registers the skill in `~/.hermes/skills/`):
+
+```bash
+hermes skills install actionbook -y
+```
+
+Then start a chat and say things like *"use actionbook to open google.com and search for anthropic"*. Hermes auto-activates the skill and drives the CLI for you.
 
 ## Examples
 
@@ -107,6 +116,19 @@ Explore real-world examples in the [Examples Documentation](https://actionbook.d
 ## Available Tools
 
 Actionbook provides tools for searching and retrieving action manuals. See the [CLI Reference](https://actionbook.dev/docs/api-reference/cli) for the full command list. If you're using the MCP integration, see the [MCP Tools Reference](https://actionbook.dev/docs/api-reference/mcp-tools).
+
+### Extension & Daemon
+
+The recommended way to install the Chrome extension is via the [Chrome Web Store](https://chromewebstore.google.com/detail/actionbook/bebchpafpemheedhcdabookaifcijmfo) (current version: 0.3.0). `actionbook extension install` is a local fallback — after running it, you must manually load the unpacked extension in Chrome (`chrome://extensions` > Developer mode > Load unpacked).
+
+```bash
+actionbook extension status          # Bridge status + extension connection state
+actionbook extension ping            # Measure bridge RTT
+actionbook extension install         # Fallback: install to ~/Actionbook/extension/ (requires manual Chrome load)
+actionbook extension uninstall       # Remove extension
+actionbook extension path            # Print install path, status, and version
+actionbook daemon restart            # Stop the running daemon (next CLI call respawns)
+```
 
 
 ## Documentation

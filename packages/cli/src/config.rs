@@ -45,6 +45,7 @@ pub(crate) struct BrowserConfig {
     pub(crate) profile_name: String,
     #[serde(alias = "executable")]
     pub(crate) executable_path: Option<String>,
+    pub(crate) provider: Option<String>,
     #[serde(alias = "cdp-endpoint", alias = "cdp_endpoint")]
     pub(crate) cdp_endpoint: Option<String>,
 }
@@ -56,6 +57,7 @@ impl Default for BrowserConfig {
             headless: false,
             profile_name: default_profile_name(),
             executable_path: None,
+            provider: None,
             cdp_endpoint: None,
         }
     }
@@ -79,7 +81,10 @@ pub fn actionbook_home() -> PathBuf {
         }
     }
 
-    let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+    // Try HOME (Unix/macOS), then USERPROFILE (Windows convention).
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| "/tmp".to_string());
     PathBuf::from(home).join(".actionbook")
 }
 
@@ -187,6 +192,9 @@ fn migrate_config(path: &std::path::Path, raw: &toml::Value) -> Result<ConfigFil
         {
             config.browser.executable_path = Some(exec.to_string());
         }
+        if let Some(provider) = browser.get("provider").and_then(|v| v.as_str()) {
+            config.browser.provider = Some(provider.to_string());
+        }
         if let Some(cdp) = browser
             .get("cdp_endpoint")
             .or_else(|| browser.get("cdp-endpoint"))
@@ -263,15 +271,22 @@ fn normalize_optional(value: Option<String>) -> Option<String> {
 pub fn resolve_start_command(mut cmd: StartCmd) -> Result<StartCmd, CliError> {
     let config = load_config()?;
 
+    let cli_mode_explicit = cmd.mode.is_some();
     let env_mode = parse_env_mode("ACTIONBOOK_BROWSER_MODE")?;
+    let env_mode_explicit = env_mode.is_some();
     let env_profile = read_trimmed_env("ACTIONBOOK_BROWSER_PROFILE_NAME");
     let env_headless = parse_env_bool("ACTIONBOOK_BROWSER_HEADLESS")?;
     let env_executable = read_trimmed_env("ACTIONBOOK_BROWSER_EXECUTABLE_PATH");
+    let env_provider = read_trimmed_env("ACTIONBOOK_BROWSER_PROVIDER");
     let env_cdp = read_trimmed_env("ACTIONBOOK_BROWSER_CDP_ENDPOINT");
 
     let config_profile = normalize_optional(Some(config.browser.profile_name.clone()));
     let config_executable = normalize_optional(config.browser.executable_path.clone());
+    let config_provider = normalize_optional(config.browser.provider.clone());
     let config_cdp = normalize_optional(config.browser.cdp_endpoint.clone());
+    let resolved_provider = normalize_optional(cmd.provider.clone())
+        .or(env_provider)
+        .or(config_provider);
 
     let resolved_mode = cmd.mode.or(env_mode).unwrap_or(config.browser.mode);
     let resolved_headless = cmd
@@ -292,9 +307,18 @@ pub fn resolve_start_command(mut cmd: StartCmd) -> Result<StartCmd, CliError> {
     cmd.headless = Some(resolved_headless);
     cmd.profile = explicit_profile.then_some(resolved_profile);
     cmd.executable_path = env_executable.or(config_executable);
+    cmd.provider = resolved_provider.clone();
     cmd.cdp_endpoint = normalize_optional(cmd.cdp_endpoint)
         .or(env_cdp)
         .or(config_cdp);
+
+    if cmd.provider.is_some()
+        && !matches!(cmd.mode, Some(Mode::Cloud))
+        && !cli_mode_explicit
+        && !env_mode_explicit
+    {
+        cmd.mode = Some(Mode::Cloud);
+    }
 
     Ok(cmd)
 }
@@ -348,6 +372,7 @@ mod tests {
             ("ACTIONBOOK_BROWSER_PROFILE_NAME", None),
             ("ACTIONBOOK_BROWSER_HEADLESS", None),
             ("ACTIONBOOK_BROWSER_EXECUTABLE_PATH", None),
+            ("ACTIONBOOK_BROWSER_PROVIDER", None),
             ("ACTIONBOOK_BROWSER_CDP_ENDPOINT", None),
         ]);
         (tmp, guard)
@@ -360,11 +385,15 @@ mod tests {
             profile: None,
             executable_path: None,
             open_url: None,
+            tab_id: None,
             cdp_endpoint: None,
+            provider: None,
             header: vec![],
             session: None,
             set_session_id: None,
             stealth: true,
+            max_tracked_requests: 500,
+            provider_env: Default::default(),
         }
     }
 
@@ -400,6 +429,7 @@ mode = "extension"
 profile_name = "config-profile"
 headless = false
 executable_path = "/config/browser"
+provider = "hyperbrowser"
 cdp_endpoint = "ws://127.0.0.1:9333/devtools/browser/config"
 "#,
         )
@@ -410,6 +440,7 @@ cdp_endpoint = "ws://127.0.0.1:9333/devtools/browser/config"
             ("ACTIONBOOK_BROWSER_PROFILE_NAME", Some("env-profile")),
             ("ACTIONBOOK_BROWSER_HEADLESS", Some("true")),
             ("ACTIONBOOK_BROWSER_EXECUTABLE_PATH", Some("/env/browser")),
+            ("ACTIONBOOK_BROWSER_PROVIDER", Some("browseruse")),
             (
                 "ACTIONBOOK_BROWSER_CDP_ENDPOINT",
                 Some("ws://127.0.0.1:9444/devtools/browser/env"),
@@ -422,6 +453,7 @@ cdp_endpoint = "ws://127.0.0.1:9333/devtools/browser/config"
         assert_eq!(resolved.headless, Some(true));
         assert_eq!(resolved.profile.as_deref(), Some("env-profile"));
         assert_eq!(resolved.executable_path.as_deref(), Some("/env/browser"));
+        assert_eq!(resolved.provider.as_deref(), Some("browseruse"));
         assert_eq!(
             resolved.cdp_endpoint.as_deref(),
             Some("ws://127.0.0.1:9444/devtools/browser/env")
@@ -437,6 +469,7 @@ cdp_endpoint = "ws://127.0.0.1:9333/devtools/browser/config"
             ("ACTIONBOOK_BROWSER_PROFILE_NAME", Some("env-profile")),
             ("ACTIONBOOK_BROWSER_HEADLESS", Some("false")),
             ("ACTIONBOOK_BROWSER_EXECUTABLE_PATH", Some("/env/browser")),
+            ("ACTIONBOOK_BROWSER_PROVIDER", Some("browseruse")),
             (
                 "ACTIONBOOK_BROWSER_CDP_ENDPOINT",
                 Some("ws://127.0.0.1:9444/devtools/browser/env"),
@@ -447,6 +480,7 @@ cdp_endpoint = "ws://127.0.0.1:9333/devtools/browser/config"
         cmd.mode = Some(Mode::Local);
         cmd.headless = Some(true);
         cmd.profile = Some("cli-profile".to_string());
+        cmd.provider = Some("hyperbrowser".to_string());
         cmd.cdp_endpoint = Some("ws://127.0.0.1:9555/devtools/browser/cli".to_string());
 
         let resolved = resolve_start_command(cmd).expect("resolve");
@@ -454,10 +488,23 @@ cdp_endpoint = "ws://127.0.0.1:9333/devtools/browser/config"
         assert_eq!(resolved.mode, Some(Mode::Local));
         assert_eq!(resolved.headless, Some(true));
         assert_eq!(resolved.profile.as_deref(), Some("cli-profile"));
+        assert_eq!(resolved.provider.as_deref(), Some("hyperbrowser"));
         assert_eq!(
             resolved.cdp_endpoint.as_deref(),
             Some("ws://127.0.0.1:9555/devtools/browser/cli")
         );
+    }
+
+    #[test]
+    fn provider_env_defaults_mode_to_cloud_when_mode_is_implicit() {
+        let _lock = test_lock();
+        let (_tmp, _guard) = make_home();
+        let _env = EnvGuard::set(&[("ACTIONBOOK_BROWSER_PROVIDER", Some("hyperbrowser"))]);
+
+        let resolved = resolve_start_command(base_cmd()).expect("resolve");
+
+        assert_eq!(resolved.provider.as_deref(), Some("hyperbrowser"));
+        assert_eq!(resolved.mode, Some(Mode::Cloud));
     }
 
     #[test]
@@ -560,6 +607,47 @@ profile_name = "actionbook"
         assert!(
             !backup.exists(),
             "no backup should be created for current config"
+        );
+    }
+
+    /// Verify that `actionbook_home()` falls back to USERPROFILE when HOME is not set.
+    /// This is the Windows home directory convention.
+    /// Before the Windows fix this test fails (returns /tmp/.actionbook instead).
+    #[test]
+    fn test_actionbook_home_uses_userprofile_when_home_unset() {
+        let _lock = test_lock();
+        let old_home = std::env::var("HOME").ok();
+        let old_userprofile = std::env::var("USERPROFILE").ok();
+        let old_ab_home = std::env::var("ACTIONBOOK_HOME").ok();
+
+        // SAFETY: single-threaded test; no other thread reads these env vars concurrently.
+        unsafe {
+            // Remove ACTIONBOOK_HOME override so we exercise the HOME/USERPROFILE path
+            std::env::remove_var("ACTIONBOOK_HOME");
+            std::env::remove_var("HOME");
+            std::env::set_var("USERPROFILE", "/test-user-profile");
+        }
+
+        let home = actionbook_home();
+
+        // Restore env vars before asserting so a test failure doesn't leave them dirty
+        unsafe {
+            std::env::remove_var("USERPROFILE");
+            if let Some(h) = old_home {
+                std::env::set_var("HOME", h);
+            }
+            if let Some(up) = old_userprofile {
+                std::env::set_var("USERPROFILE", up);
+            }
+            if let Some(abh) = old_ab_home {
+                std::env::set_var("ACTIONBOOK_HOME", abh);
+            }
+        }
+
+        assert_eq!(
+            home,
+            std::path::PathBuf::from("/test-user-profile/.actionbook"),
+            "should use USERPROFILE when HOME is not set"
         );
     }
 }

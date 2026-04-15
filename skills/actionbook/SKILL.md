@@ -1,6 +1,13 @@
 ---
 name: actionbook
 description: Browser action engine. Provides up-to-date action manuals for the modern web — operate any website instantly, one tab or dozens, concurrently.
+version: 1.4.3
+license: MIT
+platforms: [macos, linux, windows]
+metadata:
+  hermes:
+    tags: [browser-automation, web-automation, scraping, e2e-testing]
+    requires_toolsets: [terminal]
 ---
 
 ## When to Use This Skill
@@ -66,15 +73,32 @@ All commands support `--help` for full usage and examples.
 | Session | `start`, `close`, `restart`, `list-sessions`, `status` | `actionbook browser start --help` |
 | Tab | `new-tab`, `close-tab`, `list-tabs` | `actionbook browser new-tab --help` |
 | Navigation | `goto`, `back`, `forward`, `reload` | `actionbook browser goto --help` |
-| Observation | `snapshot`, `text`, `html`, `value`, `screenshot`, `title`, `url` | `actionbook browser snapshot --help` |
-| Interaction | `click`, `fill`, `type`, `press`, `select`, `hover`, `scroll` | `actionbook browser click --help` |
+| Observation | `snapshot`, `text`, `html`, `value`, `title`, `url`, `viewport`, `attr`, `attrs`, `box`, `styles`, `describe`, `state`, `inspect-point`, `screenshot`, `pdf` | `actionbook browser snapshot --help` |
+| Interaction | `click`, `fill`, `type`, `press`, `select`, `hover`, `focus`, `scroll`, `drag`, `upload`, `eval`, `mouse-move`, `cursor-position` | `actionbook browser click --help` |
 | Wait | `wait element`, `wait navigation`, `wait network-idle`, `wait condition` | `actionbook browser wait element --help` |
 | Cookies | `cookies list`, `cookies get`, `cookies set`, `cookies delete`, `cookies clear` | `actionbook browser cookies list --help` |
 | Storage | `local-storage list\|get\|set\|delete\|clear`, `session-storage ...` | `actionbook browser local-storage get --help` |
 | Logs | `logs console`, `logs errors` | `actionbook browser logs console --help` |
+| Network | `network requests`, `network request <id>` | `actionbook browser network requests --help` |
 | Query | `query one\|all\|nth\|count` | `actionbook browser query --help` |
+| Batch | `batch-new-tab`, `batch-snapshot`, `batch-click` | `actionbook browser batch-new-tab --help` |
+| Extension | `extension status`, `extension ping`, `extension install`, `extension uninstall`, `extension path` | `actionbook extension status --help` |
+| Daemon | `daemon restart` | `actionbook daemon restart --help` |
 
 Full command reference: [command-reference.md](references/command-reference.md)
+
+### Cloud providers
+
+Use `-p` / `--provider` with `browser start` to run sessions on a remote browser instead of launching local Chrome. Supported providers: `driver`, `hyperbrowser`, `browseruse`. Each reads its own `<PROVIDER>_API_KEY` from the shell env.
+
+```bash
+export HYPERBROWSER_API_KEY="your-key"
+actionbook browser start -p hyperbrowser --session s1
+actionbook browser goto "https://example.com" --session s1 --tab t1
+actionbook browser snapshot --session s1 --tab t1
+```
+
+All browser commands work the same way regardless of mode. `browser restart --session <id>` mints a fresh remote session while preserving the session_id.
 
 ## Example: End-to-End
 

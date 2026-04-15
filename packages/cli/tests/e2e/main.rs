@@ -10,12 +10,14 @@
 //!   RUN_E2E_TESTS=true cargo test --test e2e -- --test-threads=1 --nocapture
 
 mod batch_snapshot;
+mod bridge;
 mod browser_lifecycle;
 mod cloud_mode;
 mod cookies;
 mod describe_state;
 mod element_details;
 mod element_read;
+mod extension;
 mod harness;
 mod iframe;
 mod inspect_point;
@@ -35,3 +37,4 @@ mod storage;
 mod tab_management;
 mod timeout;
 mod wait;
+mod windows_daemon;

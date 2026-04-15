@@ -16,7 +16,8 @@ Chrome extension that bridges the Actionbook CLI with your browser for AI-powere
 actionbook extension install
 ```
 
-This installs the local debug fallback package to `~/.actionbook/extension/`.
+On a default install, this writes the unpacked extension to `~/Actionbook/extension/`.
+If you use a custom `ACTIONBOOK_HOME`, it stays inside that custom tree.
 
 ### Option 3: Manual download
 
@@ -36,16 +37,17 @@ This installs the local debug fallback package to `~/.actionbook/extension/`.
 
 ### Use the extension
 
-The extension communicates with the CLI via a local WebSocket bridge that **auto-starts** when you run browser commands.
+The extension communicates with the CLI via a local WebSocket bridge that runs inside the **actionbook daemon**. The daemon **auto-starts** when you run browser commands.
 
 **No manual bridge start needed** - just run commands:
 
 ```bash
-actionbook browser open https://example.com
-# Bridge starts automatically in the background
+actionbook browser start --set-session-id s1
+actionbook browser goto "https://example.com" --session s1 --tab t1
+# Daemon and bridge start automatically in the background
 ```
 
-The CLI registers Native Messaging on install, so the extension connects automatically when the bridge starts.
+The CLI registers Native Messaging on install, so the extension connects automatically when the daemon starts.
 
 ### Verify connection
 
@@ -65,10 +67,11 @@ actionbook setup
 After setup, run browser commands normally (no extra mode flags):
 
 ```bash
-actionbook browser open "https://example.com"
-actionbook browser fill "#username" "demo"
-actionbook browser click "button[type='submit']"
-actionbook browser screenshot result.png
+actionbook browser start --set-session-id s1
+actionbook browser goto "https://example.com" --session s1 --tab t1
+actionbook browser fill "#username" "demo" --session s1 --tab t1
+actionbook browser click "button[type='submit']" --session s1 --tab t1
+actionbook browser screenshot result.png --session s1 --tab t1
 ```
 
 If you need to switch modes later, run `actionbook setup` again.
@@ -115,7 +118,7 @@ The CLI and extension are versioned independently. Compatibility is guaranteed b
 
 ## Troubleshooting
 
-1. **`Ping failed` / `not running`** - The bridge auto-starts with browser commands. Ensure the extension is loaded in Chrome. Check status with `actionbook extension status`.
+1. **`Ping failed` / `not running`** - The bridge (part of the actionbook daemon) auto-starts with browser commands. Ensure the extension is loaded in Chrome. Check status with `actionbook extension status`.
 
 2. **Port conflict** - Browser mode uses fixed bridge address `ws://127.0.0.1:19222`. If startup fails, free that port and retry (macOS/Linux: `lsof -i :19222`).
 
@@ -123,4 +126,4 @@ The CLI and extension are versioned independently. Compatibility is guaranteed b
 
 4. **Web Store install failed** - Use fallback `actionbook extension install`, then load it from `chrome://extensions` with **Load unpacked**.
 
-5. **Offline install** - Download the `.zip` from another machine, unzip to `~/.actionbook/extension/`, then load it as an unpacked extension in `chrome://extensions`.
+5. **Offline install** - Download the `.zip` from another machine, unzip it to any local folder, then load it as an unpacked extension in `chrome://extensions`.
