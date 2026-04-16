@@ -243,6 +243,10 @@ actionbook browser network har stop --session s1 --tab t1 --out /tmp/trace.har  
 
 Recording is per-tab: multiple tabs (or sessions) can record independently at the same time. `har stop` writes a HAR 1.2 JSON file and returns `{ path, count }`. If `--out` is omitted, a timestamped file is created in `~/.actionbook/har/`.
 
+Output contains request/response headers, status, mimeType, and detailed timings per entry. Response bodies are not included — use `network requests --dump` if you need bodies. Redirect chains produce one entry per hop.
+
+Error codes: `HAR_ALREADY_RECORDING` (start while already recording on that tab), `HAR_NOT_RECORDING` (stop without a prior start). Recording data is held in memory; closing the tab while recording discards it. Cross-origin iframe requests are not captured (v1 limitation).
+
 ## Wait
 
 ```bash
