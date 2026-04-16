@@ -233,13 +233,22 @@ fn format_search_results(sites: &[SearchSite], query: &str) -> String {
 }
 
 pub(crate) fn urlencoding(s: &str) -> String {
-    s.chars()
-        .map(|c| match c {
-            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => c.to_string(),
-            ' ' => "%20".to_string(),
-            _ => format!("%{:02X}", c as u8),
-        })
-        .collect()
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => out.push(c),
+            _ => {
+                let mut buf = [0u8; 4];
+                let encoded = c.encode_utf8(&mut buf);
+                for byte in encoded.bytes() {
+                    out.push('%');
+                    out.push(char::from_digit((byte >> 4) as u32, 16).unwrap().to_ascii_uppercase());
+                    out.push(char::from_digit((byte & 0xf) as u32, 16).unwrap().to_ascii_uppercase());
+                }
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
