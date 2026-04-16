@@ -165,10 +165,15 @@ pub async fn execute(cmd: &Cmd, registry: &SharedRegistry) -> ActionResult {
 
         // Determine which idle mode (if any) applies this tick.
         let strict_idle = pending == 0 && js_idle;
-        // Relaxed idle: page is done (js_idle) and request rate is low enough.
-        // We still require pending == 0 OR the long-running connection is clearly
-        // background traffic (rate < threshold).
-        let relaxed_idle = js_idle && recent_requests < RELAXED_MAX_REQUESTS;
+        // Relaxed idle: page is done (js_idle), the request rate over the last
+        // 10 s is below the threshold, AND there are no more than that many
+        // requests currently in-flight.  The `pending` guard prevents declaring
+        // idle when long-lived connections aged out of the sliding window but
+        // are still genuinely open (e.g. 10 WebSocket connections all started
+        // > 10 s ago would show recent_requests=0 but pending still > 0).
+        let relaxed_idle = js_idle
+            && recent_requests < RELAXED_MAX_REQUESTS
+            && pending <= RELAXED_MAX_REQUESTS as i64;
 
         if strict_idle || relaxed_idle {
             let required_quiet = if strict_idle {
