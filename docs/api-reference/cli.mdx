@@ -265,6 +265,11 @@ actionbook browser network requests --session s1 --tab t1
 actionbook browser network requests --filter /api/ --method POST --session s1 --tab t1
 actionbook browser network requests --dump --out /tmp/dump --session s1 --tab t1  # Export to requests.json
 actionbook browser network request <id> --session s1 --tab t1         # Full detail + response body
+
+# HAR recording
+actionbook browser network har start --session s1 --tab t1            # Start recording
+actionbook browser network har stop --session s1 --tab t1             # Stop and export HAR 1.2 file
+actionbook browser network har stop --session s1 --tab t1 --out /tmp/trace.har  # Custom output path
 ```
 
 ### Cookies & Storage

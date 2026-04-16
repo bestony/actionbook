@@ -537,6 +537,8 @@ Logs:
 Network:
   network requests    --session --tab  List tracked network requests
   network request <id>  --session --tab  Get detail for a single request (incl. body)
+  network har start   --session --tab  Start HAR recording for a tab
+  network har stop    --session --tab  Stop recording and export HAR 1.2 file
 
 Wait:
   wait element <selector>  --session --tab  Wait for element to appear

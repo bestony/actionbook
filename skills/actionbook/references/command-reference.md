@@ -231,6 +231,18 @@ Requests are captured automatically per tab (default 500, configurable via `brow
 
 `--dump --out <dir>` exports all matching requests (after filters) as a single `<dir>/requests.json` file with best-effort response bodies. Returns `dump: { path, count }` on success.
 
+### HAR Recording
+
+Record all network traffic for a tab in HAR 1.2 format.
+
+```bash
+actionbook browser network har start --session s1 --tab t1                        # Start recording
+actionbook browser network har stop --session s1 --tab t1                         # Stop and export to ~/.actionbook/har/
+actionbook browser network har stop --session s1 --tab t1 --out /tmp/trace.har    # Stop and export to custom path
+```
+
+Recording is per-tab: multiple tabs (or sessions) can record independently at the same time. `har stop` writes a HAR 1.2 JSON file and returns `{ path, count }`. If `--out` is omitted, a timestamped file is created in `~/.actionbook/har/`.
+
 ## Wait
 
 ```bash
