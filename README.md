@@ -12,7 +12,7 @@
 
 # Actionbook
 
-Actionbook turns the websites you work in every day into something your AI agent can actually operate. Login handled, UI fallback when needed, fast and resilient.
+Actionbook turns the websites you work in every day into something your AI agent can actually operate. Direct API requests when possible, UI automation when not, with login handled. Fast and resilient.
 
 ## Table of Contents
 
