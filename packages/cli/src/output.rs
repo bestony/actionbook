@@ -874,7 +874,9 @@ fn format_data_fields(command: &str, data: &Value, lines: &mut Vec<String>) {
                 lines.push(format!("capture_bodies: {b}"));
             }
             if let Some(dir) = data.get("output_dir").and_then(|v| v.as_str()) {
-                lines.push(format!("output_dir: {dir} (default; override at stop with --out <path>)"));
+                lines.push(format!(
+                    "output_dir: {dir} (default; override at stop with --out <path>)"
+                ));
             }
         }
         "browser network har stop" => {

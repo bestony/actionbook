@@ -1048,6 +1048,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
   if (message.type === "getGrouping") {
+    // Match the setter's sender check — only the popup reads this state.
+    if (!isSenderPopup(sender)) return false;
     sendResponse({ enabled: groupingEnabled });
     return true;
   }

@@ -634,6 +634,10 @@ pub struct CdpSession {
     /// it, the peer (e.g. bridge) still sees the old client as connected and
     /// rejects the new CDP client.
     writer_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
+    /// Reader task handle. Aborted by `close()` so the `writer_tx_for_reader`
+    /// clone is released, allowing writer_loop to see channel close and send
+    /// a graceful WS Close frame to the peer (e.g. extension bridge).
+    reader_handle: Arc<Mutex<Option<JoinHandle<()>>>>,
     /// In-flight requests keyed by message ID.
     pending: PendingRequests,
     /// Atomic counter for generating unique message IDs.
@@ -722,7 +726,7 @@ impl CdpSession {
         let tab_har_recorders: TabHarRecorders = Arc::new(Mutex::new(HashMap::new()));
 
         let writer_handle = tokio::spawn(Self::writer_loop(ws_writer, writer_rx));
-        tokio::spawn(Self::reader_loop(
+        let reader_handle = tokio::spawn(Self::reader_loop(
             ws_reader,
             pending.clone(),
             event_subs.clone(),
@@ -741,6 +745,7 @@ impl CdpSession {
         Ok(CdpSession {
             writer_tx: Arc::new(Mutex::new(Some(writer_tx))),
             writer_handle: Arc::new(Mutex::new(Some(writer_handle))),
+            reader_handle: Arc::new(Mutex::new(Some(reader_handle))),
             pending,
             next_id,
             tab_sessions,
@@ -1193,6 +1198,14 @@ impl CdpSession {
         // Take and drop the writer sender — closes the channel.
         self.writer_tx.lock().await.take();
 
+        // Abort reader_loop so it releases writer_tx_for_reader. Without this
+        // the reader holds the only remaining sender clone, keeping the mpsc
+        // channel open, so writer_loop never sees channel close and blocks
+        // forever instead of sending a graceful WS Close frame.
+        if let Some(handle) = self.reader_handle.lock().await.take() {
+            handle.abort();
+        }
+
         // Fail all pending requests immediately instead of waiting for
         // the reader loop to notice the connection drop.
         {
@@ -1355,9 +1368,7 @@ impl CdpSession {
         // milliseconds. Exiting after the deadline is safe — entries simply
         // ship without bodies and keep their `body_error`/None state.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(3);
-        while pending_counter.load(Ordering::Acquire) > 0
-            && std::time::Instant::now() < deadline
-        {
+        while pending_counter.load(Ordering::Acquire) > 0 && std::time::Instant::now() < deadline {
             tokio::time::sleep(std::time::Duration::from_millis(25)).await;
         }
 
@@ -1546,13 +1557,8 @@ impl CdpSession {
                     // from inside reader_loop (it would deadlock on itself), so
                     // we collect the info we need, drop the recorder lock, and
                     // spawn a detached task.
-                    type BodyFetchDispatch = (
-                        String,
-                        String,
-                        HarFetchRoute,
-                        usize,
-                        Arc<AtomicUsize>,
-                    );
+                    type BodyFetchDispatch =
+                        (String, String, HarFetchRoute, usize, Arc<AtomicUsize>);
                     let mut body_fetch: Option<BodyFetchDispatch> = None;
                     if let Some(params) = resp.get("params") {
                         let mut recorders = tab_har_recorders.lock().await;
@@ -1635,10 +1641,17 @@ impl CdpSession {
                             .await;
                             {
                                 let mut recorders = recorders_clone.lock().await;
+                                // `.rev()`: on redirect chains CDP reuses the same
+                                // requestId, so `on_request_will_be_sent` appends
+                                // one HAR entry per hop. The body we just fetched
+                                // belongs to the final response (the newest entry),
+                                // not the first hop — mirror the reverse-search
+                                // used by `on_response_received`/`on_loading_*`.
                                 if let Some(recorder) = recorders.get_mut(&sess_key)
                                     && let Some(entry) = recorder
                                         .entries
                                         .iter_mut()
+                                        .rev()
                                         .find(|e| e.request_id == req_id)
                                 {
                                     match result {
@@ -1652,22 +1665,36 @@ impl CdpSession {
                                                 .and_then(|v| v.as_bool())
                                                 .unwrap_or(false);
                                             match body {
-                                                Some(b) if b.len() > max_body_size => {
-                                                    entry.body_dropped_size_bytes =
-                                                        Some(b.len() as i64);
-                                                    entry.body_error = Some(
-                                                        "body_exceeds_max_body_size"
-                                                            .to_string(),
-                                                    );
-                                                }
                                                 Some(b) => {
-                                                    entry.response_body = Some(b);
-                                                    entry.response_body_base64 = base64;
+                                                    // For base64 payloads the wire
+                                                    // string is ~4/3 larger than the
+                                                    // decoded bytes; compare against
+                                                    // decoded length so the byte cap
+                                                    // means what it says.
+                                                    let decoded_len = if base64 {
+                                                        use base64::Engine as _;
+                                                        base64::engine::general_purpose::STANDARD
+                                                            .decode(&b)
+                                                            .map(|v| v.len())
+                                                            .unwrap_or(b.len())
+                                                    } else {
+                                                        b.len()
+                                                    };
+                                                    if decoded_len > max_body_size {
+                                                        entry.body_dropped_size_bytes =
+                                                            Some(decoded_len as i64);
+                                                        entry.body_error = Some(
+                                                            "body_exceeds_max_body_size"
+                                                                .to_string(),
+                                                        );
+                                                    } else {
+                                                        entry.response_body = Some(b);
+                                                        entry.response_body_base64 = base64;
+                                                    }
                                                 }
                                                 None => {
                                                     entry.body_error = Some(
-                                                        "empty_body_field_in_response"
-                                                            .to_string(),
+                                                        "empty_body_field_in_response".to_string(),
                                                     );
                                                 }
                                             }

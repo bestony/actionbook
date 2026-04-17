@@ -66,14 +66,15 @@ pub struct StartCmd {
 }
 
 /// Parse a comma-separated resource-type list into the canonical CDP casing.
-/// Returns empty set for "all" (= no filter).
-/// Unknown tokens are silently ignored (log + continue would need tracing
-/// plumbing at the caller; keep parsing infallible here).
-fn parse_resource_types(s: &str) -> HashSet<String> {
+/// Returns empty set for "all" / "*" (= no filter). Any unknown token is a
+/// hard error — silently dropping typos would turn "xrh" into "record
+/// everything" from the caller's perspective.
+fn parse_resource_types(s: &str) -> Result<HashSet<String>, Vec<String>> {
     let mut out = HashSet::new();
+    let mut invalid = Vec::new();
     for tok in s.split(',').map(|t| t.trim()).filter(|t| !t.is_empty()) {
         let canonical = match tok.to_ascii_lowercase().as_str() {
-            "all" | "*" => return HashSet::new(),
+            "all" | "*" => return Ok(HashSet::new()),
             "document" => "Document",
             "stylesheet" => "Stylesheet",
             "image" => "Image",
@@ -92,11 +93,17 @@ fn parse_resource_types(s: &str) -> HashSet<String> {
             "cspviolationreport" => "CSPViolationReport",
             "preflight" => "Preflight",
             "other" => "Other",
-            _ => continue,
+            _ => {
+                invalid.push(tok.to_string());
+                continue;
+            }
         };
         out.insert(canonical.to_string());
     }
-    out
+    if !invalid.is_empty() {
+        return Err(invalid);
+    }
+    Ok(out)
 }
 
 pub const START_COMMAND_NAME: &str = "browser network har start";
@@ -142,7 +149,18 @@ pub async fn execute_start(cmd: &StartCmd, registry: &SharedRegistry) -> ActionR
         }
     };
 
-    let resource_types = parse_resource_types(&cmd.resource_types);
+    let resource_types = match parse_resource_types(&cmd.resource_types) {
+        Ok(set) => set,
+        Err(invalid) => {
+            return ActionResult::fatal(
+                "INVALID_RESOURCE_TYPES",
+                format!(
+                    "unknown resource type(s): {}. Valid values: all, document, stylesheet, image, media, font, script, texttrack, xhr, fetch, prefetch, eventsource, websocket, manifest, signedexchange, ping, cspviolationreport, preflight, other",
+                    invalid.join(", ")
+                ),
+            );
+        }
+    };
     // Echo the canonical filter list back to the agent so it can tell at a
     // glance whether the alias ("all", "xhr,fetch") was expanded correctly.
     let resource_types_echo = if resource_types.is_empty() {
@@ -616,4 +634,35 @@ fn default_har_path() -> PathBuf {
         .unwrap_or_default()
         .as_millis();
     dir.join(format!("har-{ts}.har"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_resource_types_known_tokens_canonicalize() {
+        let set = parse_resource_types("xhr,fetch").unwrap();
+        assert!(set.contains("XHR"));
+        assert!(set.contains("Fetch"));
+    }
+
+    #[test]
+    fn parse_resource_types_all_returns_empty_set() {
+        assert!(parse_resource_types("all").unwrap().is_empty());
+        assert!(parse_resource_types("*").unwrap().is_empty());
+    }
+
+    #[test]
+    fn parse_resource_types_unknown_token_is_error() {
+        // Regression: typo-only input used to silently become "record all".
+        let err = parse_resource_types("xrh").unwrap_err();
+        assert_eq!(err, vec!["xrh".to_string()]);
+    }
+
+    #[test]
+    fn parse_resource_types_mixed_valid_invalid_is_error() {
+        let err = parse_resource_types("xhr,bogus").unwrap_err();
+        assert_eq!(err, vec!["bogus".to_string()]);
+    }
 }
