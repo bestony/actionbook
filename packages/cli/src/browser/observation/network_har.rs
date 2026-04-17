@@ -209,9 +209,15 @@ pub async fn execute_start(cmd: &StartCmd, registry: &SharedRegistry) -> ActionR
 Examples:
   actionbook browser network har stop --session s1 --tab t1
   actionbook browser network har stop --session s1 --tab t1 --out /tmp/my.har
+  actionbook browser network har stop --session s1 --tab t1 --out out.har
 
-Stops recording and writes a HAR 1.2 JSON file. Returns { path, count }.
-If --out is omitted, a timestamped file is created in ~/.actionbook/har/.")]
+Stops recording and writes a HAR 1.2 JSON file. Returns { path, count,
+dropped }. If --out is omitted, a timestamped file is created in
+~/.actionbook/har/.
+
+Relative --out paths are resolved against the CLI's current working
+directory and the returned `path` is always absolute, so callers can
+locate the file regardless of where the daemon was launched.")]
 pub struct StopCmd {
     /// Session ID
     #[arg(long)]
