@@ -25,6 +25,10 @@ jobs:
       cli-needs-release: ${{ steps.check-releases.outputs.cli }}
       extension-needs-release: ${{ steps.check-releases.outputs.extension }}
       dify-plugin-needs-release: ${{ steps.check-releases.outputs.dify-plugin }}
+      cli-changed: ${{ steps.changes.outputs.cli }}
+      js-changed: ${{ steps.changes.outputs.js }}
+      extension-changed: ${{ steps.changes.outputs.extension }}
+      dify-plugin-changed: ${{ steps.changes.outputs.dify-plugin }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -42,6 +46,47 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Detect changed packages
+        id: changes
+        run: |
+          # workflow_dispatch or first push: treat all packages as changed
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || \
+             [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ]; then
+            echo "cli=true"        >> "$GITHUB_OUTPUT"
+            echo "js=true"         >> "$GITHUB_OUTPUT"
+            echo "extension=true"  >> "$GITHUB_OUTPUT"
+            echo "dify-plugin=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}")
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          if echo "$CHANGED" | grep -qE "^packages/cli[-/]"; then
+            echo "cli=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cli=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED" | grep -qE "^packages/(js-sdk|mcp|tools-ai-sdk|json-ui|openclaw-plugin)/"; then
+            echo "js=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "js=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED" | grep -qE "^packages/actionbook-extension/"; then
+            echo "extension=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "extension=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          if echo "$CHANGED" | grep -qE "^packages/dify-plugin/"; then
+            echo "dify-plugin=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dify-plugin=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create Release Pull Request
         id: changesets
@@ -93,7 +138,7 @@ jobs:
   publish-js:
     name: Publish JS Packages
     needs: version-or-release
-    if: needs.version-or-release.outputs.should-release == 'true'
+    if: needs.version-or-release.outputs.should-release == 'true' && needs.version-or-release.outputs.js-changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -187,7 +232,7 @@ jobs:
   build-cli:
     name: Build CLI (${{ matrix.platform-suffix }})
     needs: version-or-release
-    if: needs.version-or-release.outputs.cli-needs-release == 'true'
+    if: needs.version-or-release.outputs.cli-needs-release == 'true' && needs.version-or-release.outputs.cli-changed == 'true'
     strategy:
       matrix:
         include:
@@ -291,7 +336,7 @@ jobs:
   publish-cli:
     name: Publish CLI
     needs: [version-or-release, build-cli]
-    if: needs.version-or-release.outputs.cli-needs-release == 'true'
+    if: needs.version-or-release.outputs.cli-needs-release == 'true' && needs.version-or-release.outputs.cli-changed == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -602,7 +647,7 @@ jobs:
   release-extension:
     name: Release Extension
     needs: version-or-release
-    if: needs.version-or-release.outputs.extension-needs-release == 'true'
+    if: needs.version-or-release.outputs.extension-needs-release == 'true' && needs.version-or-release.outputs.extension-changed == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -671,7 +716,7 @@ jobs:
   release-dify-plugin:
     name: Release Dify Plugin
     needs: version-or-release
-    if: needs.version-or-release.outputs.dify-plugin-needs-release == 'true'
+    if: needs.version-or-release.outputs.dify-plugin-needs-release == 'true' && needs.version-or-release.outputs.dify-plugin-changed == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
