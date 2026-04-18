@@ -30,7 +30,7 @@ const URL_STABILITY_MS: u64 = 300;
 /// (e.g. 1200ms) will not fire before the window expires, so the intermediate
 /// page may be incorrectly accepted.  This is a deliberate tradeoff — the
 /// pre-fix behaviour was a guaranteed TIMEOUT for this case.  A follow-up
-/// (ACT-938-b) will explore a more robust signal (network-idle or explicit
+/// (ACT-963) will explore a more robust signal (network-idle or explicit
 /// flag) for callers that need to tolerate longer redirect delays.
 const URL_STABILITY_SAME_URL_MS: u64 = 800;
 
