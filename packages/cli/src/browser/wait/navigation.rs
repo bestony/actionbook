@@ -25,6 +25,13 @@ const URL_STABILITY_MS: u64 = 300;
 /// before this window expires, preventing premature acceptance of intermediate
 /// pages.  When no redirect fires the window expires and we accept the page as
 /// already-completed.
+///
+/// Known limitation: a `setTimeout` redirect scheduled beyond this window
+/// (e.g. 1200ms) will not fire before the window expires, so the intermediate
+/// page may be incorrectly accepted.  This is a deliberate tradeoff — the
+/// pre-fix behaviour was a guaranteed TIMEOUT for this case.  A follow-up
+/// (ACT-938-b) will explore a more robust signal (network-idle or explicit
+/// flag) for callers that need to tolerate longer redirect delays.
 const URL_STABILITY_SAME_URL_MS: u64 = 800;
 
 const READY_STATE_JS: &str =
