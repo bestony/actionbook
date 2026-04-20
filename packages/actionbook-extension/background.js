@@ -448,10 +448,12 @@ async function ensureTabInActionbookGroup(tabId) {
       windowId: tab.windowId,
     });
 
+    let groupId;
     if (existing && existing.length > 0) {
-      await chrome.tabs.group({ groupId: existing[0].id, tabIds: [tabId] });
+      groupId = existing[0].id;
+      await chrome.tabs.group({ groupId, tabIds: [tabId] });
     } else {
-      const groupId = await chrome.tabs.group({
+      groupId = await chrome.tabs.group({
         tabIds: [tabId],
         createProperties: { windowId: tab.windowId },
       });
@@ -459,14 +461,15 @@ async function ensureTabInActionbookGroup(tabId) {
         title: ACTIONBOOK_GROUP_TITLE,
         color: ACTIONBOOK_GROUP_COLOR,
       });
-      // Pin the newly-created group to the leftmost position of the window so
-      // Actionbook-driven tabs are always findable in the same spot. Only done
-      // on creation — we don't fight the user if they later drag it elsewhere.
-      try {
-        await chrome.tabGroups.move(groupId, { index: 0 });
-      } catch (err) {
-        debugLog("[actionbook] tabGroups.move to index 0 failed:", err?.message || err);
-      }
+    }
+    // Pin the Actionbook group to the leftmost position of the window so
+    // agent-driven tabs are always findable in the same spot. Chrome clamps
+    // index 0 to "right after pinned tabs" when pinned tabs exist, which is
+    // the leftmost slot a tab group can occupy.
+    try {
+      await chrome.tabGroups.move(groupId, { index: 0 });
+    } catch (err) {
+      debugLog("[actionbook] tabGroups.move to index 0 failed:", err?.message || err);
     }
   } catch (err) {
     debugLog("[actionbook] ensureTabInActionbookGroup failed:", err?.message || err);
