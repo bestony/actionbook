@@ -463,13 +463,20 @@ async function ensureTabInActionbookGroup(tabId) {
       });
     }
     // Pin the Actionbook group to the leftmost position of the window so
-    // agent-driven tabs are always findable in the same spot. Chrome clamps
-    // index 0 to "right after pinned tabs" when pinned tabs exist, which is
-    // the leftmost slot a tab group can occupy.
+    // agent-driven tabs are always findable in the same spot. We move the
+    // underlying tabs (not the group) because chrome.tabGroups.move has
+    // known issues moving single-tab groups to index 0 in some Chrome
+    // builds. Chrome automatically clamps past any pinned tabs.
     try {
-      await chrome.tabGroups.move(groupId, { index: 0 });
+      const groupTabs = await chrome.tabs.query({ groupId });
+      const tabIdsToMove = groupTabs
+        .sort((a, b) => a.index - b.index)
+        .map((t) => t.id);
+      if (tabIdsToMove.length > 0) {
+        await chrome.tabs.move(tabIdsToMove, { index: 0 });
+      }
     } catch (err) {
-      debugLog("[actionbook] tabGroups.move to index 0 failed:", err?.message || err);
+      console.warn("[actionbook] pin group to leftmost failed:", err?.message || err);
     }
   } catch (err) {
     debugLog("[actionbook] ensureTabInActionbookGroup failed:", err?.message || err);
